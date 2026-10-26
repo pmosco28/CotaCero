@@ -87,8 +87,8 @@
      es una capa aparte (.mapa-fade) por ENCIMA de los tiles pero por DEBAJO de los controles de
      Leaflet (z-index 500, entre el tile-pane en 200 y .leaflet-control en 800) — pointer-events:none,
      así nunca roba clics ni el scroll. Se desvanece mucho ANTES de llegar al borde real de su caja. */
-  .mapa-stage { display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
-  .mapa-col { flex: 2 1 0; min-width: 0; }
+  .mapa-stage { position: relative; display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
+  .mapa-col { flex: 2 1 0; min-width: 0; transition: flex 0.2s ease; }
   .mapa-ventana { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 88vh; }
   #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
   .mapa-fade {
@@ -98,11 +98,31 @@
   .icono-3d-col {
     flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
+    transition: flex 0.2s ease;
   }
-  .icono-3d-col svg { width: 64px; height: 64px; opacity: 0.55; }
-  .icono-3d-col p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
-  .icono-3d-col.activo svg { opacity: 0.85; }
+  .icono3d-vacio svg { width: 64px; height: 64px; opacity: 0.55; }
+  .icono3d-vacio p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
+  .vol3d-wrap { display: none; width: 100%; padding: 0 32px; }
+  #vol3d { height: min(72vh, 640px); width: 100%; background: transparent; cursor: grab; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
+
+  /* Modo 3D: una vez elegido el predio, el protagonista pasa a ser el modelo — el mapa se achica a
+     una tarjetita de ubicación (dibujo vectorial en líneas, misma función que ya arma ese plano para
+     el PDF — nunca una foto, las teselas satelitales de Google tiñen el canvas y no se pueden leer).
+     Clic en esa tarjeta vuelve al mapa grande de siempre. */
+  .mapa-stage.modo-3d .mapa-col { display: none; }
+  .mapa-stage.modo-3d .icono-3d-col { flex: 1 1 100%; }
+  .mapa-stage.modo-3d .icono3d-vacio { display: none; }
+  .mapa-stage.modo-3d .vol3d-wrap { display: block; }
+  .ubicacion-mini {
+    display: none; position: absolute; top: 18px; right: 18px; width: 180px; z-index: 20;
+    background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(28,26,22,0.14); padding: 10px; cursor: pointer;
+  }
+  .mapa-stage.modo-3d .ubicacion-mini { display: block; }
+  .ubicacion-mini .plano-ubicacion { width: 100%; display: block; border-radius: 6px; }
+  .ubicacion-mini .volver-hint { margin-top: 6px; font-size: 0.68rem; color: var(--ink-soft); text-align: center; }
+  @media (max-width: 720px) { .ubicacion-mini { width: 120px; } }
 
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
@@ -139,7 +159,6 @@
   table.determ th { color: var(--ink-soft); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
   table.determ tr.tier-chosen td { font-weight: 600; color: var(--terracotta-dark); }
 
-  #vol3d { height: 220px; width: 100%; background: transparent; }
   .vol-caption { font-size: 0.72rem; color: var(--ink-soft); }
   .vol-controls { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.78rem; color: var(--ink-soft); }
   .vol-sombra-toggle { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
@@ -292,15 +311,25 @@
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
-<div class="mapa-stage">
+<div class="mapa-stage" id="mapaStage">
   <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
-    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
-      <path d="M32 4 L32 32 M32 32 L58 18 M32 32 L6 18 M32 32 L32 60"/>
-    </svg>
-    <p id="icono3dTexto">Elige un predio en el mapa para ver el modelo 3D</p>
+    <div class="icono3d-vacio">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
+        <path d="M32 4 L32 32 M32 32 L58 18 M32 32 L6 18 M32 32 L32 60"/>
+      </svg>
+      <p>Elige un predio en el mapa para ver el modelo 3D</p>
+    </div>
+    <div class="vol3d-wrap">
+      <div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>
+      <canvas id="vol3d"></canvas>
+      <div class="vol-controls"><label class="vol-sombra-toggle"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label><input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11"><span id="label-hora" class="mono"></span></div>
+      <div class="vol-caption">Retiros por lado (no un promedio uniforme), patio interno recortado real de la huella. Arrastra para orbitar, pellizca para zoom.</div>
+      <div id="aviso-versatilidad" style="display:none; font-size:0.78rem; color:var(--ink-soft); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-top:8px;"></div>
+    </div>
   </div>
+  <div class="ubicacion-mini" id="ubicacionMini" title="Volver al mapa"></div>
 </div>
 <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
 
@@ -1964,12 +1993,6 @@
     if (marcadorClic) mapa.removeLayer(marcadorClic);
     marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#2D5A6B', fillColor: '#2D5A6B', fillOpacity: 1 }).addTo(mapa);
 
-    var icono3dCol = document.getElementById('icono3dCol');
-    if (icono3dCol) {
-      icono3dCol.classList.add('activo');
-      document.getElementById('icono3dTexto').textContent = 'Mira el modelo 3D de tu predio más abajo ↓';
-    }
-
     panelEmpty.style.display = 'none';
     panel.innerHTML = '<div class="panel-empty">⏳ Consultando catastro municipal…</div>';
 
@@ -1993,6 +2016,28 @@
       panel.innerHTML = '<div class="panel-empty"><span class="icon">⚠️</span>No pudimos consultar el catastro ahora mismo (el GAD a veces tarda). Prueba de nuevo en un momento.</div>';
     }
   }
+
+  // Modo 3D: al elegir un predio válido, el modelo pasa a ocupar toda la franja (mapa + lo que era
+  // la columna del ícono) y el mapa se achica a una tarjetita de ubicación (dibujo vectorial en
+  // líneas — reusa construirPlanoUbicacionSVG, la misma función que arma ese plano para el PDF, así
+  // que nunca es una foto). Clic en la tarjeta vuelve al mapa grande — ver listener más abajo.
+  var mapaStage = document.getElementById('mapaStage');
+  var ubicacionMini = document.getElementById('ubicacionMini');
+  function activarModo3D(estado, areaM2) {
+    if (ubicacionMini) {
+      var svgMini = '';
+      try { svgMini = construirPlanoUbicacionSVG(estado, areaM2); } catch (e) { console.warn('ubicacionMini: falló construirPlanoUbicacionSVG', e); }
+      ubicacionMini.innerHTML = (svgMini || '') + '<div class="volver-hint">↩ Volver al mapa</div>';
+    }
+    if (mapaStage) mapaStage.classList.add('modo-3d');
+  }
+  function desactivarModo3D() {
+    if (mapaStage) mapaStage.classList.remove('modo-3d');
+    // El contenedor de Leaflet estuvo oculto (display:none vía .mapa-col) — sin invalidateSize()
+    // el mapa queda con las dimensiones/posición de tiles de la última vez que SÍ era visible.
+    setTimeout(function () { mapa.invalidateSize(); }, 60);
+  }
+  if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
   async function mostrarResultado(feature) {
     capaVertices.clearLayers(); capaManzana.clearLayers();
@@ -2116,14 +2161,6 @@
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Clasificación de lados (manzana real, vecinos y vías de Cuenca)</div>' +
         '<div>' + filasLados + '</div>' +
       '</div>' +
-      '<div>' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Volumetría edificable</div>' +
-        '<div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>' +
-        '<canvas id="vol3d"></canvas>' +
-        '<div class="vol-controls"><label class="vol-sombra-toggle"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label><input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11"><span id="label-hora" class="mono"></span></div>' +
-        '<div class="vol-caption">Retiros por lado (no un promedio uniforme), patio interno recortado real de la huella. Arrastra para orbitar, rueda para zoom.</div>' +
-        '<div id="aviso-versatilidad" style="display:none; font-size:0.78rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-top:8px;"></div>' +
-      '</div>' +
       '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Editor en vivo</div>' +
         '<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;margin-bottom:8px;">Pisos <input type="range" id="slider-pisos" min="1" max="' + maxPisosLote + '" value="' + estado.pisos + '" style="flex:1;"> <span id="label-pisos" class="mono">' + estado.pisos + ' / ' + maxPisosLote + '</span></label>' +
@@ -2139,6 +2176,7 @@
 
     recomputarYRenderizar(estado);
     construirEditorPerimetro(estado);
+    activarModo3D(estado, areaM2);
 
     var sliderPisos = document.getElementById('slider-pisos'), labelPisos = document.getElementById('label-pisos');
     if (sliderPisos) sliderPisos.addEventListener('input', function () {
@@ -2317,7 +2355,7 @@
     // --- Three.js: extrusión sobre un plano local en metros, mismo origen para todas las huellas ---
     var canvas = document.getElementById('vol3d');
     if (!canvas) return;
-    var w = canvas.clientWidth || 300, h = 220;
+    var w = canvas.clientWidth || 300, h = canvas.clientHeight || 220;
     canvas.width = w; canvas.height = h;
 
     var center = turf.center(featureLimpio).geometry.coordinates;
@@ -3107,7 +3145,11 @@
       e.preventDefault();
     }
     function onUp() { arrastrando = false; canvas.style.cursor = 'grab'; }
+    // Mismo criterio que el mapa (ver listener de 'wheel' sobre mapa.getContainer()): el modelo 3D
+    // ocupa toda la franja, así que un scroll de dos dedos SIN pellizcar no debe quedar atrapado acá
+    // haciendo zoom — solo gesto de pellizco/ctrl+scroll (ctrlKey=true) controla el zoom del modelo.
     function onWheel(e) {
+      if (!e.ctrlKey) return;
       radius = Math.max(maxDim * 0.6, Math.min(maxDim * 4.5, radius + e.deltaY * 0.03));
       actualizarCamara();
       e.preventDefault();
