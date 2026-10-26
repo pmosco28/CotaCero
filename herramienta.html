@@ -108,7 +108,13 @@
   .icono3d-vacio svg { width: 64px; height: 64px; opacity: 0.55; }
   .icono3d-vacio p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
   .vol3d-wrap { display: none; width: 100%; padding: 0 32px; }
-  #vol3d { height: min(72vh, 640px); width: 100%; background: transparent; cursor: grab; }
+  /* El canvas rompe el padding de .vol3d-wrap a propósito (margen negativo = ancho del padding) para
+     que sus bordes sean los bordes reales de la pantalla y "se pierdan" — los avisos/controles/
+     caption alrededor (hijos del mismo .vol3d-wrap) sí se quedan con su padding normal, legible. */
+  #vol3d {
+    height: min(80vh, 760px); width: calc(100% + 64px); margin: 0 -32px;
+    background: transparent; cursor: grab; display: block;
+  }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
   /* Modo 3D: una vez elegido el predio, el protagonista pasa a ser el modelo — el mapa se achica a
@@ -116,7 +122,7 @@
      el PDF — nunca una foto, las teselas satelitales de Google tiñen el canvas y no se pueden leer).
      Clic en esa tarjeta vuelve al mapa grande de siempre. */
   .mapa-stage.modo-3d .mapa-col { display: none; }
-  .mapa-stage.modo-3d .icono-3d-col { flex: 1 1 100%; }
+  .mapa-stage.modo-3d .icono-3d-col { flex: 1 1 100%; padding: 0; }
   .mapa-stage.modo-3d .icono3d-vacio { display: none; }
   .mapa-stage.modo-3d .vol3d-wrap { display: block; }
   .ubicacion-mini {
@@ -3052,7 +3058,7 @@
     // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h, false);
 
     // --- Órbita manual (sin librería externa): arrastrar rota, rueda hace zoom ---
@@ -3169,8 +3175,12 @@
       var p = posEvento(e);
       var dx = p.clientX - ultimoX, dy = p.clientY - ultimoY;
       ultimoX = p.clientX; ultimoY = p.clientY;
-      theta -= dx * 0.008;
-      phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * 0.008));
+      // Sensibilidad proporcional a la distancia actual (radius) contra la distancia inicial
+      // (maxDim*1.7, ver más arriba): lejos del predio gira más rápido por píxel arrastrado, cerca
+      // frena — más margen para apuntar fino cuando se está mirando el detalle de cerca.
+      var sensibilidad = 0.008 * (radius / (maxDim * 1.7));
+      theta -= dx * sensibilidad;
+      phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * sensibilidad));
       actualizarCamara();
       solicitarRender();
       e.preventDefault();
