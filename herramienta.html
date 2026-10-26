@@ -2988,11 +2988,20 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(texto, 8, alto / 2);
       var tex = new THREE.CanvasTexture(canvas);
-      var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false });
+      // side: DoubleSide a propósito — con la cámara casi al horizonte (ver phi más abajo), un sello
+      // perfectamente acostado se ve de canto (prácticamente invisible, como leer algo pintado en el
+      // piso parado al lado). DoubleSide es la red de seguridad: si orientarEtiquetasVia elige el
+      // ángulo "equivocado", el texto se ve invertido pero sigue ahí — sin esto, directamente
+      // desaparecería (MeshBasicMaterial es de una sola cara por defecto).
+      var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
       var ESCALA_ETIQUETA = 0.045; // metros por píxel de canvas — ajustado a ojo para que se lea sin taparlo todo
       var geo = new THREE.PlaneGeometry(ancho * ESCALA_ETIQUETA, alto * ESCALA_ETIQUETA);
       var mesh = new THREE.Mesh(geo, mat);
-      mesh.rotation.x = -Math.PI / 2; // acostado, cara visible hacia arriba
+      // -90° sería perfectamente acostado (un sello de verdad, pintado en el piso) pero con la cámara
+      // casi al horizonte eso lo deja de canto e ilegible — se para un poco (INCLINACION_SELLO) para
+      // que siga "pegado" a la calle (gira con ella en Y) pero legible desde una vista de skyline.
+      var INCLINACION_SELLO = 0.55; // rad hacia arriba desde acostado del todo
+      mesh.rotation.x = -Math.PI / 2 + INCLINACION_SELLO;
       mesh.renderOrder = 10;
       return mesh;
     }
@@ -3014,7 +3023,7 @@
         var anguloCalle = Math.atan2(-(p2[1] - p1[1]), p2[0] - p1[0]);
         var etiquetaVia = crearEtiquetaTexto(via.nombre + (via.tipo ? ' (' + via.tipo + ')' : ''), '#4A4A45');
         if (etiquetaVia) {
-          etiquetaVia.position.set(mid[0], 0.06, -mid[1]);
+          etiquetaVia.position.set(mid[0], 0.3, -mid[1]);
           etiquetasVia.push({ mesh: etiquetaVia, angulo: anguloCalle });
           scene.add(etiquetaVia);
         }
@@ -3150,7 +3159,7 @@
       etiquetasVia.forEach(function (e) {
         var nx = -Math.sin(e.angulo), nz = -Math.cos(e.angulo);
         var dot = nx * camDirX + nz * camDirZ;
-        e.mesh.rotation.y = dot <= 0 ? e.angulo : e.angulo + Math.PI;
+        e.mesh.rotation.y = dot >= 0 ? e.angulo : e.angulo + Math.PI;
       });
     }
     function actualizarCamara() {
