@@ -113,7 +113,11 @@
      caption alrededor (hijos del mismo .vol3d-wrap) sí se quedan con su padding normal, legible. */
   #vol3d {
     height: min(80vh, 760px); width: calc(100% + 64px); margin: 0 -32px;
-    background: transparent; cursor: grab; display: block;
+    /* Degradado sutil desde la derecha (donde antes quedaba un tercio de fondo plano vacío sobre los
+       edificios) — vuelve a var(--paper) antes de la mitad, así sigue fundiéndose con el resto de la
+       página y no se nota como una franja de color aparte. */
+    background: linear-gradient(to left, var(--line-soft) 0%, var(--paper) 55%);
+    cursor: grab; display: block;
   }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
@@ -2397,7 +2401,11 @@
     var ptsLote = metrosArrAVec2(estado.pts);
 
     var scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xF7F4EC);
+    // Sin color sólido acá — el canvas queda transparente (renderer alpha:true, más abajo) y el
+    // "cielo" detrás de los edificios lo pinta el degradado CSS de #vol3d, no WebGL. Así el degradado
+    // se edita con una línea de CSS en vez de tocar shaders, y de paso se sigue fundiendo con el resto
+    // de la página en los bordes (donde el degradado CSS vuelve a var(--paper)).
+    scene.background = null;
 
     // Geometría a facetas de verdad: recalcula normales por cara (ExtrudeGeometry ya es no-indexada en
     // esta versión de Three.js, así que no hace falta separar vértices) — asegura un tono sólido y
@@ -3054,11 +3062,11 @@
     // preserveDrawingBuffer: el informe PDF (ver generarInformePDF) toma `canvas.toDataURL()` desde un
     // clic de botón, es decir DESPUÉS del render() que lo dibujó — sin esto, el navegador puede limpiar
     // el buffer entre ese render() y el clic, y la imagen capturada sale en blanco/negro.
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true, alpha: true });
     // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
     renderer.setSize(w, h, false);
 
     // --- Órbita manual (sin librería externa): arrastrar rota, rueda hace zoom ---
