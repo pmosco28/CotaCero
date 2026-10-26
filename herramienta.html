@@ -3062,8 +3062,12 @@
     renderer.setSize(w, h, false);
 
     // --- Órbita manual (sin librería externa): arrastrar rota, rueda hace zoom ---
+    // Cámara inicial medianamente alejada (antes 1.7x, ahora 2.3x) y a un ángulo casi de horizonte
+    // (phi cerca de π/2, antes π/3.1 ≈ picado-aéreo) — así se lee el skyline, no solo las azoteas, y
+    // el "cielo" vacío sobre los edificios es scene.background (0xF7F4EC, el mismo var(--paper) de la
+    // página — ver arriba) así que se funde con el fondo real sin ningún truco extra.
     var target = new THREE.Vector3(0, size.y / 2, 0);
-    var theta = Math.PI / 4, phi = Math.PI / 3.1, radius = maxDim * 1.7;
+    var theta = Math.PI / 4, phi = Math.PI / 2.3, radius = maxDim * 2.3;
     function actualizarCamara() {
       camera.position.set(
         target.x + radius * Math.sin(phi) * Math.sin(theta),
