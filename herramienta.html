@@ -73,25 +73,27 @@
   hr.regla { border: none; border-top: 1px solid var(--line); margin: 10px 0 28px; }
 
   /* ---------- tool ---------- */
-  .tool {
-    max-width: 1180px; margin: 36px auto 0; padding: 0 32px;
-    display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px;
-  }
-  @media (max-width: 880px) { .tool { grid-template-columns: 1fr; } }
+  .mapa-hero { max-width: 1180px; margin: 36px auto 0; padding: 0 32px; }
 
   .map-card-header { margin-bottom: 10px; }
   .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Hanken Grotesk'; }
   .map-card-header .hint { font-size: 0.78rem; color: var(--ink-soft); }
-  /* Ventana circular en degradado: el mapa no tiene borde duro — se abre como un círculo sobre el
-     fondo de la página, desvaneciéndose en los bordes (mask-image), así que el límite entre "fondo
-     de la página" y "mapa" no se nota, se funden. */
-  .mapa-ventana { position: relative; aspect-ratio: 1 / 1; max-width: 460px; margin: 0 auto; }
+  /* Ventana circular en degradado, a todo el ancho de la pantalla (rompe el max-width del contenedor
+     a propósito): el mapa no tiene borde duro — se abre como un círculo enorme sobre el fondo de la
+     página, desvaneciéndose mucho ANTES del borde real de su caja (mask-image con varias paradas,
+     no solo dos), así que el límite entre "fondo de la página" y "mapa" no se nota, se funden. */
+  .mapa-ventana {
+    position: relative; width: 100vw; margin: 22px calc(50% - 50vw) 0;
+    aspect-ratio: 1 / 1; max-height: 88vh;
+  }
   #mapa {
     width: 100%; height: 100%; background: transparent; cursor: crosshair;
-    -webkit-mask-image: radial-gradient(circle at center, #000 58%, transparent 78%);
-    mask-image: radial-gradient(circle at center, #000 58%, transparent 78%);
+    -webkit-mask-image: radial-gradient(circle at center, #000 40%, rgba(0,0,0,0.75) 52%, rgba(0,0,0,0.25) 64%, transparent 76%);
+    mask-image: radial-gradient(circle at center, #000 40%, rgba(0,0,0,0.75) 52%, rgba(0,0,0,0.25) 64%, transparent 76%);
   }
-  .map-caption { padding-top: 12px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
+  .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
+
+  .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
   .buscar-maps input {
@@ -268,21 +270,21 @@
   <p class="small-note">Hecho para arquitectos que arrancan un proyecto y necesitan la primera respuesta ya, no en tres días de trámite.</p>
 </div>
 
-<div class="tool" id="herramienta">
-  <div>
-    <div class="map-card-header">
-      <h3>Planta — elige un predio</h3>
-      <span class="hint">Cuenca, Ecuador</span>
-    </div>
-    <div class="buscar-maps">
-      <input type="text" id="buscar-maps-input" placeholder="Pega un link de Google Maps (o lat, lng)">
-      <button type="button" id="buscar-maps-btn">Buscar</button>
-    </div>
-    <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
-    <div class="mapa-ventana"><div id="mapa"></div></div>
-    <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
+<div class="mapa-hero" id="herramienta">
+  <div class="map-card-header">
+    <h3>Planta — elige un predio</h3>
+    <span class="hint">Cuenca, Ecuador</span>
   </div>
+  <div class="buscar-maps">
+    <input type="text" id="buscar-maps-input" placeholder="Pega un link de Google Maps (o lat, lng)">
+    <button type="button" id="buscar-maps-btn">Buscar</button>
+  </div>
+  <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
+</div>
+<div class="mapa-ventana"><div id="mapa"></div></div>
+<div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
 
+<div class="tool">
   <div class="panel" id="panel">
     <div class="panel-empty" id="panel-empty">
       <span class="icon">🏗️</span>
