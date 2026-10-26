@@ -435,13 +435,28 @@
     nota: 'Edificación típicamente continua, adosada a ambos lados — sin retiros laterales. Los parámetros exactos (altura, fondo edificable) dependen del PIT puntual y de la Ordenanza de Áreas Históricas y Patrimoniales, que remite esta zona en vez de usar la tabla genérica de determinantes.'
   };
 
-  // scrollWheelZoom: false — con el mapa a casi todo el ancho de pantalla, si el scroll del mouse
-  // hiciera zoom del mapa, el usuario quedaría "atrapado" sin poder hacer scroll de la página
-  // mientras el cursor esté sobre el mapa. Se zoomea con los botones +/-, doble clic o pellizco.
-  var mapa = L.map('mapa', { zoomControl: true, scrollWheelZoom: false }).setView([-2.8980, -79.0045], 15);
+  // scrollWheelZoom: false — con el mapa a casi todo el ancho de pantalla, un scroll de dos dedos
+  // sobre el trackpad no puede hacer zoom del mapa, o el usuario queda "atrapado" sin poder hacer
+  // scroll de la página mientras el cursor esté sobre el mapa. Sin botones de zoom (a pedido
+  // explícito) — el pellizco (pinch) en trackpad SÍ debe funcionar, así que más abajo se arma un
+  // listener de 'wheel' a mano que distingue uno de otro.
+  var mapa = L.map('mapa', { zoomControl: false, scrollWheelZoom: false }).setView([-2.8980, -79.0045], 15);
   L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     attribution: '&copy; Google Maps', maxZoom: 20
   }).addTo(mapa);
+
+  // Pellizco en trackpad (Mac) y "ctrl+scroll" en mouse llegan al navegador como el MISMO evento:
+  // un 'wheel' con ctrlKey=true (así lo sintetiza Chrome/Safari para el gesto de pellizco, no hace
+  // falta Touch Events). Un scroll de dos dedos SIN pellizcar llega con ctrlKey=false — a eso NO se
+  // le hace preventDefault, así sigue siendo scroll normal de la página. Mismo cálculo que usa
+  // internamente el scrollWheelZoom nativo de Leaflet (setZoomAround sobre el punto del cursor).
+  mapa.getContainer().addEventListener('wheel', function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    var punto = mapa.mouseEventToContainerPoint(e);
+    var paso = (mapa.options.zoomSnap || 1) * (e.deltaY > 0 ? -1 : 1);
+    mapa.setZoomAround(punto, mapa.getZoom() + paso);
+  }, { passive: false });
 
   // Vías y vecinos se agregan ANTES del predio/manzana para que queden debajo en el orden de dibujo
   // (Leaflet apila por orden de inserción) — son contexto, el predio sujeto sigue siendo lo prominente.
