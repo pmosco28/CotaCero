@@ -115,14 +115,12 @@
   .mapa-stage.modo-3d .icono3d-vacio { display: none; }
   .mapa-stage.modo-3d .vol3d-wrap { display: block; }
   .ubicacion-mini {
-    display: none; position: absolute; top: 18px; right: 18px; width: 180px; z-index: 20;
-    background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(28,26,22,0.14); padding: 10px; cursor: pointer;
+    display: none; position: absolute; top: 18px; left: 18px; width: 150px; z-index: 20; cursor: pointer;
   }
   .mapa-stage.modo-3d .ubicacion-mini { display: block; }
-  .ubicacion-mini .plano-ubicacion { width: 100%; display: block; border-radius: 6px; }
-  .ubicacion-mini .volver-hint { margin-top: 6px; font-size: 0.68rem; color: var(--ink-soft); text-align: center; }
-  @media (max-width: 720px) { .ubicacion-mini { width: 120px; } }
+  .ubicacion-mini .plano-ubicacion { width: 100%; display: block; }
+  .ubicacion-mini .volver-hint { margin-top: 4px; font-size: 0.66rem; color: var(--ink-soft); text-align: left; }
+  @media (max-width: 720px) { .ubicacion-mini { width: 104px; } }
 
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
@@ -3038,6 +3036,10 @@
     // clic de botón, es decir DESPUÉS del render() que lo dibujó — sin esto, el navegador puede limpiar
     // el buffer entre ese render() y el clic, y la imagen capturada sale en blanco/negro.
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+    // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
+    // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
+    // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h, false);
 
     // --- Órbita manual (sin librería externa): arrastrar rota, rueda hace zoom ---
