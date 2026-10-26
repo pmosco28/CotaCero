@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>CotaCero — Catastro real, respuesta instantánea</title>
+<meta name="description" content="CotaCero consulta el catastro municipal en vivo y te muestra qué puedes construir en tu lote al instante — y te arma el plano que el municipio exige para el trámite.">
+
+<!-- Open Graph / WhatsApp / Facebook — URL de GitHub Pages; reemplazar por el dominio propio (cotacero.app o el que sea) una vez que esté comprado y apuntado -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="CotaCero — Catastro real, respuesta instantánea">
+<meta property="og:description" content="Toca tu lote en el mapa y mira qué puedes construir al instante. Catastro municipal real, sin trámite.">
+<meta property="og:image" content="https://pmosco28.github.io/CotaCero/render-hero.png">
+<meta property="og:url" content="https://pmosco28.github.io/CotaCero/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F7F4EC;
+    --paper-raised: #FFFDF8;
+    --ink: #1C1A16;
+    --ink-soft: #5B5546;
+    --terracotta: #B2502E;
+    --terracotta-dark: #8F3F23;
+    --ochre: #C9A227;
+    --surveyor: #2D5A6B;
+    --line: #D8D0BC;
+    --line-soft: #E8E2D1;
+    --good: #3F7D52;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Hanken Grotesk', sans-serif; line-height: 1.6; font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  a { color: inherit; }
+  .marco { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .marco { padding: 0 20px; } }
+
+  /* ---------- Tipografía: sin serifa en todo el documento. La jerarquía la dan
+     peso + tamaño + tracking, nunca una familia de acento distinta. ---------- */
+  h1, h2, h3, .display {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; margin: 0;
+  }
+
+  /* ===== Header ===== */
+  header { position: relative; z-index: 10; padding: 28px 0; }
+  .nav { display: flex; align-items: baseline; justify-content: space-between; }
+  .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 1.2rem; letter-spacing: -0.005em; }
+  .brand em { font-style: normal; color: var(--terracotta); }
+  .nav-links { display: flex; gap: 32px; font-size: 0.88rem; }
+  .nav-links a { text-decoration: none; color: var(--ink-soft); }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-links a.cta { color: var(--terracotta-dark); font-weight: 600; }
+  @media (max-width: 640px) { .nav-links { display: none; } }
+
+  /* ===== Hero: foto a sangre completa, fundida con degradado hacia el papel ===== */
+  .hero { position: relative; padding-top: 48px; }
+  .hero-texto { position: relative; z-index: 2; padding-bottom: 40px; }
+  .eyebrow { font-size: 0.72rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin: 0 0 18px; display: flex; align-items: center; gap: 8px; }
+  .eyebrow::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--terracotta); display: inline-block; }
+  .hero h1 { font-size: clamp(2.4rem, 5.4vw, 4.1rem); line-height: 1.04; max-width: 17ch; }
+  .hero h1 .quiet { font-weight: 400; }
+  .hero .lede { font-size: 1.2rem; color: var(--ink-soft); max-width: 46ch; margin: 24px 0 0; }
+  .hero-ctas { display: flex; gap: 18px; align-items: center; margin-top: 36px; flex-wrap: wrap; }
+  .btn { font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; font-size: 0.95rem; padding: 14px 26px; border-radius: 3px; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
+  .btn-primario { background: var(--terracotta); color: #FFFDF8; }
+  .btn-primario:hover { background: var(--terracotta-dark); }
+  .btn-secundario { color: var(--ink); padding: 14px 4px; border-bottom: 2px solid var(--ink); }
+  .btn-secundario:hover { border-color: var(--terracotta); color: var(--terracotta-dark); }
+
+  .hero-render { position: relative; margin: 0 -32px; }
+  .hero-render .duotone { position: relative; overflow: hidden; }
+  .hero-render img {
+    display: block; width: 100%; height: clamp(320px, 46vw, 560px); object-fit: cover;
+    filter: grayscale(1) contrast(1.18) brightness(1.04);
+  }
+  .hero-render .tinte {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--terracotta-dark) 0%, var(--ochre) 100%);
+    mix-blend-mode: multiply; opacity: 0.82;
+  }
+  .hero-render .fusion {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 0%, transparent 45%, var(--paper) 96%);
+  }
+  .hero-render .caption {
+    position: absolute; left: 32px; bottom: 18px; z-index: 3;
+    font-size: 0.74rem; color: var(--paper); font-family: 'IBM Plex Mono'; letter-spacing: 0.02em;
+    text-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+  @media (max-width: 640px) { .hero-render { margin: 0 -20px; } .hero-render .caption { left: 20px; } }
+
+  /* ===== Sección genérica ===== */
+  .seccion { padding: 60px 0; }
+  .regla-top { border-top: 1px solid var(--line); }
+  .kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--terracotta); font-weight: 600; margin: 0 0 16px; }
+  h2.titulo-seccion { font-size: clamp(1.7rem, 3vw, 2.3rem); max-width: 20ch; }
+  .seccion-sub { font-size: 1rem; color: var(--ink-soft); max-width: 56ch; margin: 18px 0 0; }
+
+  /* ===== Catálogo: filas numeradas, regla fina, sin tarjetas ===== */
+  .catalogo { margin-top: 48px; }
+  .producto {
+    display: grid; grid-template-columns: 68px 1fr auto; gap: 28px; align-items: start;
+    padding: 40px 0; border-top: 1px solid var(--line);
+  }
+  .catalogo .producto:last-child { border-bottom: 1px solid var(--line); }
+  .producto .num { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 2.6rem; color: var(--line); line-height: 1; }
+  .producto .nombre { font-size: 1.3rem; font-weight: 700; font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.005em; margin-bottom: 10px; }
+  .producto .desc { font-size: 0.96rem; color: var(--ink-soft); max-width: 60ch; margin: 0 0 16px; }
+  .producto .detalle-tecnico { display: flex; gap: 18px; flex-wrap: wrap; font-family: 'IBM Plex Mono'; font-size: 0.74rem; color: var(--ink-soft); }
+  .producto .detalle-tecnico span { white-space: nowrap; }
+  .producto-precio { text-align: right; }
+  .badge { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; white-space: nowrap; display: block; margin-bottom: 10px; }
+  .badge-gratis { color: var(--good); }
+  .badge-pago { color: var(--terracotta-dark); }
+  .precio { font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 1.3rem; white-space: nowrap; }
+  .precio-nota { font-size: 0.72rem; color: var(--ink-soft); margin-top: 2px; }
+  .producto-link { display: inline-block; margin-top: 10px; font-size: 0.82rem; font-weight: 600; color: var(--terracotta-dark); text-decoration: none; border-bottom: 1px solid var(--terracotta); }
+  .precio-pago { font-size: 0.68rem; color: var(--ink-soft); margin-top: 10px; font-family: 'IBM Plex Mono'; }
+  .producto-futuro { opacity: 0.55; }
+  .producto-futuro .nombre { color: var(--ink-soft); }
+  @media (max-width: 640px) {
+    .producto { grid-template-columns: 1fr; gap: 10px; }
+    .producto .num { font-size: 1.6rem; }
+    .producto-precio { text-align: left; }
+  }
+
+  /* ===== Confianza institucional ===== */
+  .confianza { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; margin-top: 28px; }
+  .confianza-item { flex: 1; min-width: 220px; }
+  .confianza-item .num { font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 1.8rem; color: var(--surveyor); }
+  .confianza-item .label { font-size: 0.86rem; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ===== Audiencia ===== */
+  .publico { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 28px; }
+  .publico-item { padding: 0 32px 0 0; border-left: 1px solid var(--line); padding-left: 28px; }
+  .publico-item:first-child { border-left: none; padding-left: 0; }
+  .publico-item .tag { font-family: 'IBM Plex Mono'; font-size: 0.7rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.08em; }
+  .publico-item .nombre { font-weight: 700; font-family: 'Bricolage Grotesque'; font-size: 1.1rem; margin: 10px 0 10px; }
+  .publico-item .detalle { font-size: 0.88rem; color: var(--ink-soft); }
+  @media (max-width: 760px) {
+    .publico { grid-template-columns: 1fr; gap: 28px; }
+    .publico-item { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 24px; }
+    .publico-item:first-child { border-top: none; padding-top: 0; }
+  }
+
+  /* ===== CTA final ===== */
+  .cta-final { text-align: center; }
+  .cta-final h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); max-width: 18ch; margin: 0 auto; }
+  .cta-final .seccion-sub { margin-left: auto; margin-right: auto; text-align: center; }
+  .form-acceso { display: flex; gap: 12px; max-width: 460px; margin: 36px auto 0; flex-wrap: wrap; justify-content: center; }
+  .form-acceso input {
+    flex: 1; min-width: 180px; background: transparent; border: none; border-bottom: 1px solid var(--line);
+    font-family: 'Hanken Grotesk'; font-size: 0.95rem; color: var(--ink); padding: 10px 2px; outline: none;
+  }
+  .form-acceso input:focus { border-color: var(--terracotta); }
+  .form-acceso input::placeholder { color: var(--ink-soft); }
+  .form-msg { font-size: 0.85rem; color: var(--good); margin-top: 16px; min-height: 1.2em; }
+  .medios-pago { font-size: 0.72rem; color: var(--ink-soft); margin-top: 28px; font-family: 'IBM Plex Mono'; letter-spacing: 0.01em; }
+
+  footer { padding: 40px 0 56px; border-top: 1px solid var(--line); }
+  .footer-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; color: var(--ink-soft); }
+  .footer-row a { text-decoration: none; color: var(--ink-soft); }
+  .footer-row a:hover { color: var(--terracotta-dark); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marco nav">
+    <div class="brand">Cota<em>Cero</em><span class="mono">.</span></div>
+    <nav class="nav-links">
+      <a href="#catalogo">Productos</a>
+      <a href="#acceso" class="cta">Acceso anticipado →</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="marco hero-texto">
+    <div class="eyebrow">Catastro municipal en vivo</div>
+    <h1><span class="quiet">Toca tu predio.</span> Mira qué puedes construir.</h1>
+    <p class="lede">CotaCero consulta el catastro público al instante y te muestra qué puedes construir en tu lote — y te arma el plano que el municipio exige, listo para el trámite.</p>
+    <div class="hero-ctas">
+      <a href="herramienta.html" class="btn btn-primario">Probar gratis en tu predio →</a>
+      <a href="#catalogo" class="btn btn-secundario">Ver catálogo</a>
+    </div>
+  </div>
+  <div class="hero-render">
+    <div class="duotone">
+      <img src="render-hero.png" alt="Volumetría de referencia generada por CotaCero sobre un predio real de Cuenca, con escalonamiento por frente a río y árboles existentes">
+      <div class="tinte"></div>
+      <div class="fusion"></div>
+    </div>
+    <div class="caption mono">VOLUMETRÍA REAL — GENERADA EN SEGUNDOS, NO ES UN MOCKUP</div>
+  </div>
+</section>
+
+<section id="catalogo" class="seccion regla-top">
+  <div class="marco">
+    <div class="kicker">Catálogo</div>
+    <h2 class="titulo-seccion">Lo que puedes obtener hoy</h2>
+    <p class="seccion-sub">Cada producto nuevo que armamos se agrega acá apenas está listo — este catálogo crece con el sistema.</p>
+
+    <div class="catalogo">
+      <div class="producto">
+        <div class="num mono">01</div>
+        <div>
+          <div class="nombre">Volumetría de referencia</div>
+          <p class="desc">Tocas tu lote en el mapa y en segundos ves cuánto puedes construir: normativa real, retiros por lado, un modelo 3D y un informe PDF con ubicación y uso de suelo.</p>
+          <div class="detalle-tecnico">
+            <span>→ COS/CUS automáticos</span>
+            <span>→ Modelo 3D de referencia</span>
+            <span>→ PDF descargable</span>
+          </div>
+        </div>
+        <div class="producto-precio">
+          <span class="badge badge-gratis">Gratis</span>
+          <div class="precio">$0</div>
+          <div class="precio-nota">sin registro</div>
+          <a href="herramienta.html" class="producto-link">Probar ahora →</a>
+        </div>
+      </div>
+
+      <div class="producto">
+        <div class="num mono">02</div>
+        <div>
+          <div class="nombre">Informe de entorno y conectividad</div>
+          <p class="desc">Equipamientos cercanos (educación, salud, seguridad, espacio público), transporte público, jerarquía vial y cobertura de agua, alcantarillado y electricidad — todo consultado en vivo contra las redes reales del municipio.</p>
+          <div class="detalle-tecnico">
+            <span>→ Equipamientos cercanos</span>
+            <span>→ Cobertura de servicios</span>
+            <span>→ PDF descargable</span>
+          </div>
+        </div>
+        <div class="producto-precio">
+          <span class="badge badge-pago">Pago</span>
+          <div class="precio">$18</div>
+          <div class="precio-nota">por predio</div>
+          <a href="#acceso" class="producto-link">Solicitar</a>
+          <div class="precio-pago">se paga por transferencia</div>
+        </div>
+      </div>
+
+      <div class="producto">
+        <div class="num mono">03</div>
+        <div>
+          <div class="nombre">Plano planimétrico para trámite municipal</div>
+          <p class="desc">El plano que el municipio exige de verdad: construcciones, árboles, postes, vías con vereda y calzada, cotas — dibujado sobre el catastro real y exportado en DXF georeferenciado con lámina y membrete incluidos.</p>
+          <div class="detalle-tecnico">
+            <span>→ DXF georeferenciado</span>
+            <span>→ Lámina con membrete</span>
+            <span>→ Listo para IPRUS</span>
+          </div>
+        </div>
+        <div class="producto-precio">
+          <span class="badge badge-pago">Pago por plano</span>
+          <div class="precio">Consultar</div>
+          <div class="precio-nota">según área del predio</div>
+          <a href="#acceso" class="producto-link">Pedir cotización</a>
+          <div class="precio-pago">se paga por transferencia</div>
+        </div>
+      </div>
+
+      <div class="producto producto-futuro">
+        <div class="num mono">04</div>
+        <div>
+          <div class="nombre">Próximo producto</div>
+          <p class="desc">Cada vez que se arma una capacidad nueva — levantamiento topográfico, valor de mercado del predio — aparece acá como fila nueva.</p>
+        </div>
+        <div class="producto-precio">
+          <div class="precio-nota">En desarrollo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="seccion regla-top">
+  <div class="marco">
+    <div class="kicker">Por qué confiar en los datos</div>
+    <h2 class="titulo-seccion">Catastro real, no una estimación</h2>
+    <div class="confianza">
+      <div class="confianza-item">
+        <div class="num mono">100%</div>
+        <div class="label">de los datos vienen del catastro municipal en vivo, no de una base propia.</div>
+      </div>
+      <div class="confianza-item">
+        <div class="num mono">&lt; 1 min</div>
+        <div class="label">entre tocar el predio y ver la normativa aplicable y el modelo 3D de referencia.</div>
+      </div>
+      <div class="confianza-item">
+        <div class="num mono">IPRUS</div>
+        <div class="label">el plano planimétrico sigue el formato de lámina que exige el trámite municipal.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="seccion regla-top">
+  <div class="marco">
+    <div class="kicker">A quién le hablamos</div>
+    <h2 class="titulo-seccion">Hecho para quien arranca un proyecto</h2>
+    <div class="publico">
+      <div class="publico-item">
+        <div class="tag mono">01</div>
+        <div class="nombre">Arquitectos independientes</div>
+        <div class="detalle">El comprador principal — necesitan la respuesta rápida y el plano en formato municipal, sin re-dibujar el catastro a mano.</div>
+      </div>
+      <div class="publico-item">
+        <div class="tag mono">02</div>
+        <div class="nombre">Estudios chicos y constructores</div>
+        <div class="detalle">Varios proyectos a la vez — valoran la velocidad tanto como la precisión de los datos.</div>
+      </div>
+      <div class="publico-item">
+        <div class="tag mono">03</div>
+        <div class="nombre">Propietarios directos</div>
+        <div class="detalle">Quieren saber qué pueden construir antes de contratar a nadie — entran por el producto gratis.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="acceso" class="seccion cta-final regla-top">
+  <div class="marco">
+    <h2>Déjanos tu mail y te avisamos apenas abrimos acceso completo</h2>
+    <p class="seccion-sub">El producto gratis ya está en vivo. Los productos pagos están en acceso anticipado — déjanos tu mail, te escribimos con los datos de transferencia y coordinamos el resto por ahí.</p>
+    <form class="form-acceso" id="form-acceso">
+      <input type="text" placeholder="Tu nombre" required>
+      <input type="email" placeholder="tu@mail.com" required>
+      <button type="submit" class="btn btn-primario">Quiero acceso anticipado</button>
+    </form>
+    <div class="form-msg" id="form-msg"></div>
+    <!-- TODO: cuando se active el RUC y esté listo Deuna, sumar pago con tarjeta acá además
+         de transferencia (ver memoria cota-cero-trama-urbana). -->
+    <div class="medios-pago">Por ahora, pago por transferencia bancaria — te mandamos los datos al coordinar.</div>
+  </div>
+</section>
+
+<footer>
+  <div class="marco footer-row">
+    <div>CotaCero — automatización de trámites municipales y análisis urbano · Ecuador</div>
+    <a href="mailto:pmoscosocorral28@gmail.com">pmoscosocorral28@gmail.com</a>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('form-acceso').addEventListener('submit', function (e) {
+    e.preventDefault();
+    document.getElementById('form-msg').textContent = '¡Listo! Te escribimos apenas abrimos acceso.';
+    e.target.reset();
+  });
+</script>
+
+</body>
+</html>
