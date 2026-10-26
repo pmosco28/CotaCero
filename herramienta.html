@@ -78,19 +78,26 @@
   .map-card-header { margin-bottom: 10px; }
   .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Hanken Grotesk'; }
   .map-card-header .hint { font-size: 0.78rem; color: var(--ink-soft); }
-  /* Ventana circular en degradado, a todo el ancho de la pantalla (rompe el max-width del contenedor
-     a propósito): el mapa no tiene borde duro — se abre como un círculo enorme sobre el fondo de la
-     página, desvaneciéndose mucho ANTES del borde real de su caja (mask-image con varias paradas,
-     no solo dos), así que el límite entre "fondo de la página" y "mapa" no se nota, se funden. */
-  .mapa-ventana {
-    position: relative; width: 100vw; margin: 22px calc(50% - 50vw) 0;
-    aspect-ratio: 1 / 1; max-height: 88vh;
-  }
+  /* El escenario se parte en dos tercios: el mapa (2/3, interactivo) y una columna del icono 3D
+     (1/3, SIN el div de Leaflet encima) — esa columna de la derecha es a propósito territorio no
+     interactivo del mapa, así el mouse siempre tiene dónde hacer scroll normal de la página aunque
+     esté "sobre" la franja ancha del mapa. El círculo del mapa se desvanece mucho ANTES de llegar al
+     borde real de su propia caja (mask-image con varias paradas), para que no se note un corte duro. */
+  .mapa-stage { display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
+  .mapa-col { flex: 2 1 0; min-width: 0; }
+  .mapa-ventana { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 88vh; }
   #mapa {
     width: 100%; height: 100%; background: transparent; cursor: crosshair;
-    -webkit-mask-image: radial-gradient(circle at center, #000 40%, rgba(0,0,0,0.75) 52%, rgba(0,0,0,0.25) 64%, transparent 76%);
-    mask-image: radial-gradient(circle at center, #000 40%, rgba(0,0,0,0.75) 52%, rgba(0,0,0,0.25) 64%, transparent 76%);
+    -webkit-mask-image: radial-gradient(circle at center, #000 32%, rgba(0,0,0,0.75) 44%, rgba(0,0,0,0.3) 55%, transparent 66%);
+    mask-image: radial-gradient(circle at center, #000 32%, rgba(0,0,0,0.75) 44%, rgba(0,0,0,0.3) 55%, transparent 66%);
   }
+  .icono-3d-col {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
+  }
+  .icono-3d-col svg { width: 64px; height: 64px; opacity: 0.55; }
+  .icono-3d-col p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
+  .icono-3d-col.activo svg { opacity: 0.85; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
@@ -281,7 +288,16 @@
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
-<div class="mapa-ventana"><div id="mapa"></div></div>
+<div class="mapa-stage">
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div></div></div>
+  <div class="icono-3d-col" id="icono3dCol">
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
+      <path d="M32 4 L32 32 M32 32 L58 18 M32 32 L6 18 M32 32 L32 60"/>
+    </svg>
+    <p id="icono3dTexto">Elige un predio en el mapa para ver el modelo 3D</p>
+  </div>
+</div>
 <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
 
 <div class="tool">
@@ -415,7 +431,10 @@
     nota: 'Edificación típicamente continua, adosada a ambos lados — sin retiros laterales. Los parámetros exactos (altura, fondo edificable) dependen del PIT puntual y de la Ordenanza de Áreas Históricas y Patrimoniales, que remite esta zona en vez de usar la tabla genérica de determinantes.'
   };
 
-  var mapa = L.map('mapa', { zoomControl: true }).setView([-2.8980, -79.0045], 15);
+  // scrollWheelZoom: false — con el mapa a casi todo el ancho de pantalla, si el scroll del mouse
+  // hiciera zoom del mapa, el usuario quedaría "atrapado" sin poder hacer scroll de la página
+  // mientras el cursor esté sobre el mapa. Se zoomea con los botones +/-, doble clic o pellizco.
+  var mapa = L.map('mapa', { zoomControl: true, scrollWheelZoom: false }).setView([-2.8980, -79.0045], 15);
   L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     attribution: '&copy; Google Maps', maxZoom: 20
   }).addTo(mapa);
@@ -1925,6 +1944,12 @@
   async function consultarPredio(latlng) {
     if (marcadorClic) mapa.removeLayer(marcadorClic);
     marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#2D5A6B', fillColor: '#2D5A6B', fillOpacity: 1 }).addTo(mapa);
+
+    var icono3dCol = document.getElementById('icono3dCol');
+    if (icono3dCol) {
+      icono3dCol.classList.add('activo');
+      document.getElementById('icono3dTexto').textContent = 'Mira el modelo 3D de tu predio más abajo ↓';
+    }
 
     panelEmpty.style.display = 'none';
     panel.innerHTML = '<div class="panel-empty">⏳ Consultando catastro municipal…</div>';
