@@ -81,15 +81,19 @@
   /* El escenario se parte en dos tercios: el mapa (2/3, interactivo) y una columna del icono 3D
      (1/3, SIN el div de Leaflet encima) — esa columna de la derecha es a propósito territorio no
      interactivo del mapa, así el mouse siempre tiene dónde hacer scroll normal de la página aunque
-     esté "sobre" la franja ancha del mapa. El círculo del mapa se desvanece mucho ANTES de llegar al
-     borde real de su propia caja (mask-image con varias paradas), para que no se note un corte duro. */
+     esté "sobre" la franja ancha del mapa.
+     El difuminado NO va como mask-image sobre #mapa: eso tapaba también los botones +/- de zoom de
+     Leaflet (son hijos de #mapa, así que el fundido se los comía cerca de la esquina). En vez de eso,
+     es una capa aparte (.mapa-fade) por ENCIMA de los tiles pero por DEBAJO de los controles de
+     Leaflet (z-index 500, entre el tile-pane en 200 y .leaflet-control en 800) — pointer-events:none,
+     así nunca roba clics ni el scroll. Se desvanece mucho ANTES de llegar al borde real de su caja. */
   .mapa-stage { display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
   .mapa-col { flex: 2 1 0; min-width: 0; }
   .mapa-ventana { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 88vh; }
-  #mapa {
-    width: 100%; height: 100%; background: transparent; cursor: crosshair;
-    -webkit-mask-image: radial-gradient(circle at center, #000 32%, rgba(0,0,0,0.75) 44%, rgba(0,0,0,0.3) 55%, transparent 66%);
-    mask-image: radial-gradient(circle at center, #000 32%, rgba(0,0,0,0.75) 44%, rgba(0,0,0,0.3) 55%, transparent 66%);
+  #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
+  .mapa-fade {
+    position: absolute; inset: 0; z-index: 500; pointer-events: none;
+    background: radial-gradient(circle at center, transparent 28%, var(--paper) 70%);
   }
   .icono-3d-col {
     flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
@@ -289,7 +293,7 @@
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
 <div class="mapa-stage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
       <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
