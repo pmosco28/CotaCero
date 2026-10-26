@@ -129,12 +129,32 @@
   .mapa-stage.modo-3d .icono-3d-col { flex: 1 1 100%; padding: 0; }
   .mapa-stage.modo-3d .icono3d-vacio { display: none; }
   .mapa-stage.modo-3d .vol3d-wrap { display: block; }
-  .ubicacion-mini {
-    display: none; position: absolute; top: 18px; left: 18px; width: 150px; z-index: 20; cursor: pointer;
+  /* .panel-flotante agrupa la tarjeta de ubicación (sin chrome, solo líneas) y el "desplegable
+     técnico" de pisos/sombras — antes vivían en el panel de datos, mucho más abajo de la página; acá
+     quedan a mano mientras se mira el modelo, sin competir visualmente con él (el <details> arranca
+     abierto pero es chico y se puede cerrar). */
+  .panel-flotante {
+    display: none; position: absolute; top: 18px; left: 18px; width: 168px; z-index: 20;
+    flex-direction: column; gap: 10px;
   }
-  .mapa-stage.modo-3d .ubicacion-mini { display: block; }
+  .mapa-stage.modo-3d .panel-flotante { display: flex; }
+  .ubicacion-mini { cursor: pointer; }
   .ubicacion-mini .plano-ubicacion { width: 100%; display: block; }
-  @media (max-width: 720px) { .ubicacion-mini { width: 104px; } }
+  .editor-flotante {
+    background: color-mix(in srgb, var(--paper-raised) 92%, transparent); border: 1px solid var(--line-soft);
+    border-radius: 10px; padding: 8px 10px; font-size: 0.78rem; color: var(--ink-soft);
+  }
+  .editor-flotante summary {
+    cursor: pointer; font-weight: 600; color: var(--ink); list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .editor-flotante summary::-webkit-details-marker { display: none; }
+  .editor-flotante[open] summary { margin-bottom: 8px; }
+  .editor-flotante input[type="range"] { width: 100%; accent-color: var(--ochre); margin: 2px 0 8px; }
+  .editor-flotante .vol-sombra-toggle { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .editor-flotante input[type="checkbox"] { accent-color: var(--terracotta); cursor: pointer; }
+  .editor-flotante #rango-hora { margin: 6px 0 2px; }
+  @media (max-width: 720px) { .panel-flotante { width: 124px; } }
 
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
@@ -336,12 +356,19 @@
     <div class="vol3d-wrap">
       <div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>
       <canvas id="vol3d"></canvas>
-      <div class="vol-controls"><label class="vol-sombra-toggle"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label><input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11"><span id="label-hora" class="mono"></span></div>
       <div class="vol-caption">Retiros por lado (no un promedio uniforme), patio interno recortado real de la huella. Arrastra para orbitar, pellizca para zoom.</div>
       <div id="aviso-versatilidad" style="display:none; font-size:0.78rem; color:var(--ink-soft); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-top:8px;"></div>
     </div>
   </div>
-  <div class="ubicacion-mini" id="ubicacionMini" title="Volver al mapa"></div>
+  <div class="panel-flotante">
+    <div class="ubicacion-mini" id="ubicacionMini" title="Volver al mapa"></div>
+    <details class="editor-flotante" id="editorFlotante" open>
+      <summary>Pisos <span id="label-pisos" class="mono">—</span></summary>
+      <input type="range" id="slider-pisos" min="1" max="1" value="1">
+      <label class="vol-sombra-toggle"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label>
+      <input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11"><span id="label-hora" class="mono"></span>
+    </details>
+  </div>
 </div>
 <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
 
@@ -2044,6 +2071,7 @@
   // que nunca es una foto). Clic en la tarjeta vuelve al mapa grande — ver listener más abajo.
   var mapaStage = document.getElementById('mapaStage');
   var ubicacionMini = document.getElementById('ubicacionMini');
+  var onSliderPisosInput = null;
   function activarModo3D(estado, areaM2) {
     if (ubicacionMini) {
       var svgMini = '';
@@ -2184,8 +2212,8 @@
       '</div>' +
       '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Editor en vivo</div>' +
-        '<label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;margin-bottom:8px;">Pisos <input type="range" id="slider-pisos" min="1" max="' + maxPisosLote + '" value="' + estado.pisos + '" style="flex:1;"> <span id="label-pisos" class="mono">' + estado.pisos + ' / ' + maxPisosLote + '</span></label>' +
-        '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola); el tope del slider es el máximo de pisos que la normativa permite para este lote. La cantidad y posición de los patios se calcula sola (la mínima que respeta la profundidad de luz — 6m con un solo lado, 10m con dos). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
+        '<div style="font-size:0.82rem;">🎚️ El control de <strong>pisos</strong> (y sombras) está junto a la ubicación, arriba, sobre el modelo 3D.</div>' +
+        '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola). La cantidad y posición de los patios se calcula sola (la mínima que respeta la profundidad de luz — 6m con un solo lado, 10m con dos). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
       '</div>' +
       '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Informe para el cliente</div>' +
@@ -2199,20 +2227,31 @@
     construirEditorPerimetro(estado);
     activarModo3D(estado, areaM2);
 
+    // slider-pisos vive en .panel-flotante AHORA FIJO en el HTML (antes se recreaba con
+    // panel.innerHTML cada vez, así que un addEventListener nuevo por selección no se acumulaba
+    // nunca). Con el elemento fijo hay que sacar el listener de la selección ANTERIOR antes de poner
+    // uno nuevo — si no, elegir varios predios en la misma visita apila listeners viejos que siguen
+    // disparando con el `estado`/`esCentroHistorico` de una selección que ya no es la actual.
     var sliderPisos = document.getElementById('slider-pisos'), labelPisos = document.getElementById('label-pisos');
-    if (sliderPisos) sliderPisos.addEventListener('input', function () {
-      estado.pisos = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
-      labelPisos.textContent = estado.pisos + ' / ' + estado.maxPisosLote;
-      if (!esCentroHistorico) {
-        var nivelActual = nivelParaPisos(estado.pisos);
-        estado.retiros = { frente: nivelActual.rf, lateral: nivelActual.rl, posterior: nivelActual.rp };
-        document.querySelectorAll('table.determ tbody tr').forEach(function (tr) {
-          var lo = parseInt(tr.getAttribute('data-pisos-lo'), 10), hi = parseInt(tr.getAttribute('data-pisos-hi'), 10);
-          tr.classList.toggle('tier-chosen', estado.pisos >= lo && estado.pisos <= hi);
-        });
-      }
-      recomputarYRenderizar(estado);
-    });
+    if (sliderPisos) {
+      sliderPisos.min = 1; sliderPisos.max = maxPisosLote; sliderPisos.value = estado.pisos;
+      if (labelPisos) labelPisos.textContent = estado.pisos + ' / ' + maxPisosLote;
+      if (onSliderPisosInput) sliderPisos.removeEventListener('input', onSliderPisosInput);
+      onSliderPisosInput = function () {
+        estado.pisos = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
+        labelPisos.textContent = estado.pisos + ' / ' + estado.maxPisosLote;
+        if (!esCentroHistorico) {
+          var nivelActual = nivelParaPisos(estado.pisos);
+          estado.retiros = { frente: nivelActual.rf, lateral: nivelActual.rl, posterior: nivelActual.rp };
+          document.querySelectorAll('table.determ tbody tr').forEach(function (tr) {
+            var lo = parseInt(tr.getAttribute('data-pisos-lo'), 10), hi = parseInt(tr.getAttribute('data-pisos-hi'), 10);
+            tr.classList.toggle('tier-chosen', estado.pisos >= lo && estado.pisos <= hi);
+          });
+        }
+        recomputarYRenderizar(estado);
+      };
+      sliderPisos.addEventListener('input', onSliderPisosInput);
+    }
 
     var btnPdf = document.getElementById('btn-pdf-cliente');
     if (btnPdf) btnPdf.addEventListener('click', function () {
