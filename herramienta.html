@@ -95,6 +95,11 @@
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
     background: radial-gradient(circle at center, transparent 28%, var(--paper) 70%);
   }
+  .mapa-cargando {
+    position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; color: var(--ink-soft); pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
+  }
+  .mapa-cargando.visible { opacity: 1; }
   .icono-3d-col {
     flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
@@ -119,7 +124,6 @@
   }
   .mapa-stage.modo-3d .ubicacion-mini { display: block; }
   .ubicacion-mini .plano-ubicacion { width: 100%; display: block; }
-  .ubicacion-mini .volver-hint { margin-top: 4px; font-size: 0.66rem; color: var(--ink-soft); text-align: left; }
   @media (max-width: 720px) { .ubicacion-mini { width: 104px; } }
 
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
@@ -310,7 +314,7 @@
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
@@ -468,9 +472,18 @@
   // explícito) — el pellizco (pinch) en trackpad SÍ debe funcionar, así que más abajo se arma un
   // listener de 'wheel' a mano que distingue uno de otro.
   var mapa = L.map('mapa', { zoomControl: false, scrollWheelZoom: false }).setView([-2.8980, -79.0045], 15);
-  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+  var capaBase = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     attribution: '&copy; Google Maps', maxZoom: 20
   }).addTo(mapa);
+  // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
+  // en sí no se puede acelerar (depende de la red de Google), pero sí dar una señal de que algo está
+  // pasando en vez de un círculo vacío/a medias que se siente roto. 'loading'/'load' son eventos
+  // reales de Leaflet sobre la carga de teselas, no un timer inventado.
+  var mapaCargando = document.getElementById('mapaCargando');
+  if (mapaCargando) {
+    capaBase.on('loading', function () { mapaCargando.classList.add('visible'); });
+    capaBase.on('load', function () { mapaCargando.classList.remove('visible'); });
+  }
 
   // Pellizco en trackpad (Mac) y "ctrl+scroll" en mouse llegan al navegador como el MISMO evento:
   // un 'wheel' con ctrlKey=true (así lo sintetiza Chrome/Safari para el gesto de pellizco, no hace
@@ -2024,8 +2037,8 @@
   function activarModo3D(estado, areaM2) {
     if (ubicacionMini) {
       var svgMini = '';
-      try { svgMini = construirPlanoUbicacionSVG(estado, areaM2); } catch (e) { console.warn('ubicacionMini: falló construirPlanoUbicacionSVG', e); }
-      ubicacionMini.innerHTML = (svgMini || '') + '<div class="volver-hint">↩ Volver al mapa</div>';
+      try { svgMini = construirPlanoUbicacionSVG(estado, areaM2, true); } catch (e) { console.warn('ubicacionMini: falló construirPlanoUbicacionSVG', e); }
+      ubicacionMini.innerHTML = svgMini || '';
     }
     if (mapaStage) mapaStage.classList.add('modo-3d');
   }
@@ -3039,7 +3052,7 @@
     // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(w, h, false);
 
     // --- Órbita manual (sin librería externa): arrastrar rota, rueda hace zoom ---
@@ -3106,6 +3119,19 @@
       return (hEnt < 10 ? '0' : '') + hEnt + ':' + (min < 10 ? '0' : '') + min;
     }
 
+    // Render "a demanda", no un loop perpetuo: antes animar() llamaba renderer.render() en CADA frame
+    // para siempre (60/seg) aunque nadie tocara nada — con el canvas a pantalla completa y pixelRatio
+    // alto eso es mucho trabajo de GPU constante por nada (reportado como lentitud general). Ahora solo
+    // se pide un frame nuevo cuando algo realmente cambió (arrastre, pellizco, hora, sombras), y
+    // volAnimId guarda el frame pendiente para no encolar varios de golpe.
+    function solicitarRender() {
+      if (volAnimId) return;
+      volAnimId = requestAnimationFrame(function () {
+        volAnimId = null;
+        renderer.render(scene, camera);
+      });
+    }
+
     var chkSombras = document.getElementById('chk-sombras');
     var rangoHora = document.getElementById('rango-hora');
     var labelHora = document.getElementById('label-hora');
@@ -3122,11 +3148,13 @@
         rangoHora.style.display = sombrasActivas ? '' : 'none';
         labelHora.style.display = sombrasActivas ? '' : 'none';
         dirLight.castShadow = sombrasActivas;
+        solicitarRender();
       };
       onRangoHoraInput = function () {
         horaSol = parseFloat(rangoHora.value);
         labelHora.textContent = formatoHora(horaSol);
         aplicarPosicionSol(horaSol);
+        solicitarRender();
       };
       chkSombras.addEventListener('change', onChkSombrasChange);
       rangoHora.addEventListener('input', onRangoHoraInput);
@@ -3144,6 +3172,7 @@
       theta -= dx * 0.008;
       phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * 0.008));
       actualizarCamara();
+      solicitarRender();
       e.preventDefault();
     }
     function onUp() { arrastrando = false; canvas.style.cursor = 'grab'; }
@@ -3154,6 +3183,7 @@
       if (!e.ctrlKey) return;
       radius = Math.max(maxDim * 0.6, Math.min(maxDim * 4.5, radius + e.deltaY * 0.03));
       actualizarCamara();
+      solicitarRender();
       e.preventDefault();
     }
     canvas.style.cursor = 'grab';
@@ -3171,11 +3201,7 @@
       if (rangoHora && onRangoHoraInput) rangoHora.removeEventListener('input', onRangoHoraInput);
     };
 
-    function animar() {
-      renderer.render(scene, camera);
-      volAnimId = requestAnimationFrame(animar);
-    }
-    animar();
+    renderer.render(scene, camera);
 
     ultimoRender3D = { renderer: renderer, scene: scene, camera: camera };
   }
@@ -3351,7 +3377,7 @@
     if (actual.length >= 2) tramos.push(actual);
     return tramos;
   }
-  function construirPlanoUbicacionSVG(estado, areaM2) {
+  function construirPlanoUbicacionSVG(estado, areaM2, sinEscala) {
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
     var radio = radioUbicacionCoherente(estado, areaM2);
     var circuloFeature = circuloComoPoligonoLocal(cx, cy, radio);
@@ -3420,10 +3446,15 @@
       '<polygon points="' + nx + ',' + (ny - textoFlecha * 0.7) + ' ' + (nx - textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + ' ' + (nx + textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + '"/>' +
       '<text x="' + nx + '" y="' + (ny + textoFlecha * 1.8) + '" font-size="' + textoChico + '" text-anchor="middle" stroke="none">N</text>' +
     '</g>';
-    var escalaM = anchoM > 200 ? 50 : anchoM > 80 ? 20 : 10;
-    var ex = anchoM * 0.06, ey = altoM - altoM * 0.06;
-    svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"/>' +
-      '<text x="' + ex + '" y="' + (ey - textoChico * 0.4) + '" font-size="' + textoChico + '" fill="#5B5546">' + escalaM + ' m</text>';
+    // La escala gráfica es convención de plano impreso (el informe PDF) — en la tarjetita mini sobre
+    // el 3D no hay con qué compararla (no hay regla ni otro elemento a escala conocida al lado), así
+    // que ahí sinEscala=true la omite.
+    if (!sinEscala) {
+      var escalaM = anchoM > 200 ? 50 : anchoM > 80 ? 20 : 10;
+      var ex = anchoM * 0.06, ey = altoM - altoM * 0.06;
+      svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"/>' +
+        '<text x="' + ex + '" y="' + (ey - textoChico * 0.4) + '" font-size="' + textoChico + '" fill="#5B5546">' + escalaM + ' m</text>';
+    }
 
     svg += '</svg>';
     return svg;
