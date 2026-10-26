@@ -2223,9 +2223,16 @@
         '<button id="btn-pdf-cliente" class="btn btn-ghost" style="width:100%;margin-top:10px;">📄 Generar informe PDF</button>' +
       '</div>';
 
+    // activarModo3D ANTES de recomputarYRenderizar (que termina en dibujarVolumetria, donde se mide
+    // canvas.clientWidth/clientHeight para dimensionar el renderer): si el canvas todavía está
+    // display:none en ese momento (sin la clase .modo-3d puesta), clientWidth/clientHeight dan 0 y
+    // caen al fallback de la variable (300x220) — un renderer MINÚSCULO estirado por CSS a pantalla
+    // completa, pixelado, hasta el próximo render real (ej. al mover el slider de pisos, que ahí sí
+    // encuentra el canvas ya visible y mide bien). Leer clientWidth fuerza un reflow síncrono, así que
+    // alcanza con que la clase ya esté puesta ANTES de esa lectura.
+    activarModo3D(estado, areaM2);
     recomputarYRenderizar(estado);
     construirEditorPerimetro(estado);
-    activarModo3D(estado, areaM2);
 
     // slider-pisos vive en .panel-flotante AHORA FIJO en el HTML (antes se recreaba con
     // panel.innerHTML cada vez, así que un addEventListener nuevo por selección no se acumulaba
@@ -2954,6 +2961,15 @@
     // avenida con parterre real llega en OSM como DOS ways paralelos (uno por sentido/carril), cada uno
     // con su propia línea — antes de decidir si hay que fusionarlos, hace falta poder leer el nombre de
     // cada uno por separado.
+    // Antes esto era un THREE.Sprite (billboard: siempre de frente a cámara, sin importar la rotación
+    // de la calle) — a pedido del usuario pasa a ser un sello PEGADO AL PISO, acostado y girado para
+    // seguir la dirección real de la calle (PlaneGeometry + rotation.x=-90° para acostarlo, más
+    // rotation.y según el ángulo de la calle). Como una etiqueta acostada solo se lee bien MIRANDO
+    // HACIA UN lado (desde el otro se ve "al revés", igual que un texto pintado en el pavimento visto
+    // desde atrás), el ángulo se recalcula en cada movimiento de cámara (orientarEtiquetasVia, llamada
+    // desde actualizarCamara) eligiendo entre angulo/angulo+180° el que mejor mire hacia la cámara —
+    // así siempre se lee de izquierda a derecha, nunca invertido.
+    var etiquetasVia = [];
     function crearEtiquetaTexto(texto, colorTexto) {
       if (!texto) return null;
       var fontSize = 40;
@@ -2972,11 +2988,13 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(texto, 8, alto / 2);
       var tex = new THREE.CanvasTexture(canvas);
-      var mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
-      var sprite = new THREE.Sprite(mat);
+      var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false });
       var ESCALA_ETIQUETA = 0.045; // metros por píxel de canvas — ajustado a ojo para que se lea sin taparlo todo
-      sprite.scale.set(ancho * ESCALA_ETIQUETA, alto * ESCALA_ETIQUETA, 1);
-      return sprite;
+      var geo = new THREE.PlaneGeometry(ancho * ESCALA_ETIQUETA, alto * ESCALA_ETIQUETA);
+      var mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2; // acostado, cara visible hacia arriba
+      mesh.renderOrder = 10;
+      return mesh;
     }
     function puntoMedio(pts) {
       var i = Math.floor((pts.length - 1) / 2);
@@ -2990,8 +3008,16 @@
       var mid = puntoMedio(via.pts);
       if (!dentroDelDisco(mid)) return;
       try {
+        var i = Math.max(0, Math.min(via.pts.length - 2, Math.floor((via.pts.length - 1) / 2)));
+        var p1 = via.pts[i], p2 = via.pts[i + 1];
+        // Mismo cambio de signo en Z que el resto de la escena (new THREE.Vector3(x, h, -y)).
+        var anguloCalle = Math.atan2(-(p2[1] - p1[1]), p2[0] - p1[0]);
         var etiquetaVia = crearEtiquetaTexto(via.nombre + (via.tipo ? ' (' + via.tipo + ')' : ''), '#4A4A45');
-        if (etiquetaVia) { etiquetaVia.position.set(mid[0], 1.2, -mid[1]); scene.add(etiquetaVia); }
+        if (etiquetaVia) {
+          etiquetaVia.position.set(mid[0], 0.06, -mid[1]);
+          etiquetasVia.push({ mesh: etiquetaVia, angulo: anguloCalle });
+          scene.add(etiquetaVia);
+        }
       } catch (e) { /* una etiqueta con texto raro no debe tumbar el resto del render */ }
     });
 
@@ -3115,6 +3141,18 @@
     // página — ver arriba) así que se funde con el fondo real sin ningún truco extra.
     var target = new THREE.Vector3(0, size.y / 2, 0);
     var theta = Math.PI / 4, phi = Math.PI / 2.3, radius = maxDim * 2.3;
+    // Elige, para cada etiqueta de calle, entre su ángulo "natural" y ese +180° — el que tenga el
+    // frente (la normal del texto ya acostado) más de cara a la cámara actual, para que nunca se lea
+    // invertido al orbitar. camDirX/Z es la dirección cámara→target (ver actualizarCamara de abajo),
+    // o sea hacia dónde "mira" la cámara; comparamos contra eso, no contra la posición de la cámara.
+    function orientarEtiquetasVia() {
+      var camDirX = -Math.sin(theta), camDirZ = -Math.cos(theta);
+      etiquetasVia.forEach(function (e) {
+        var nx = -Math.sin(e.angulo), nz = -Math.cos(e.angulo);
+        var dot = nx * camDirX + nz * camDirZ;
+        e.mesh.rotation.y = dot <= 0 ? e.angulo : e.angulo + Math.PI;
+      });
+    }
     function actualizarCamara() {
       camera.position.set(
         target.x + radius * Math.sin(phi) * Math.sin(theta),
@@ -3122,6 +3160,7 @@
         target.z + radius * Math.sin(phi) * Math.cos(theta)
       );
       camera.lookAt(target);
+      orientarEtiquetasVia();
     }
     actualizarCamara();
 
