@@ -121,6 +121,42 @@
   }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
+  /* Burbujas de producto flotando sobre el área del mapa (pedido explícito) — el contenedor no
+     bloquea clics al mapa de abajo (pointer-events:none), solo cada burbuja individual los recibe.
+     Precio referencial y EDITABLE ahí mismo (doble clic, mismo patrón que la vista previa del
+     croquis) — persiste en localStorage de este navegador; no hay panel de administración todavía
+     (a futuro), esto es el primer paso del patrón visual. */
+  .productos-burbujas {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15;
+    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 94%;
+    pointer-events: none;
+  }
+  .burbuja-producto {
+    pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; width: 74px; height: 74px; border-radius: 50%; border: 1px solid var(--line-soft);
+    background: rgba(255, 253, 248, 0.92); box-shadow: 0 6px 18px rgba(28, 26, 22, 0.12);
+    cursor: pointer; font-family: 'Hanken Grotesk'; color: var(--ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease; padding: 0;
+  }
+  .burbuja-producto:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(28, 26, 22, 0.18); }
+  .burbuja-producto.activa { border: 2px solid var(--terracotta); box-shadow: 0 0 0 3px rgba(178, 80, 46, 0.18); }
+  .burbuja-producto .burbuja-icono { font-size: 1.5rem; line-height: 1; }
+  .burbuja-producto .burbuja-precio { font-size: 0.64rem; font-weight: 700; color: var(--terracotta-dark); }
+  @media (max-width: 720px) { .burbuja-producto { width: 60px; height: 60px; } .burbuja-producto .burbuja-icono { font-size: 1.2rem; } }
+
+  .producto-detalle { max-width: 1180px; margin: 0 auto; padding: 28px 32px; border-top: 1px solid var(--line); }
+  .producto-detalle[hidden] { display: none; }
+  .producto-detalle .pd-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  .producto-detalle h3 { margin: 0; font-size: 1.3rem; font-family: 'Bricolage Grotesque'; }
+  .pd-precio-wrap { display: flex; align-items: baseline; gap: 6px; }
+  .pd-precio-wrap label { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+  .pd-precio-wrap input {
+    width: 110px; font-family: 'IBM Plex Mono'; font-size: 1.05rem; font-weight: 600; padding: 6px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--terracotta-dark);
+  }
+  .producto-detalle p.pd-desc { color: var(--ink-soft); max-width: 62ch; margin: 0 0 14px; }
+  .producto-detalle .pd-nota { font-size: 0.72rem; color: var(--ink-soft); }
+
   /* Modo 3D: una vez elegido el predio, el protagonista pasa a ser el modelo — el mapa se achica a
      una tarjetita de ubicación (dibujo vectorial en líneas, misma función que ya arma ese plano para
      el PDF — nunca una foto, las teselas satelitales de Google tiñen el canvas y no se pueden leer).
@@ -415,6 +451,7 @@
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
 <div class="mapa-stage" id="mapaStage">
+  <div class="productos-burbujas" id="productosBurbujas"></div>
   <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
@@ -442,6 +479,7 @@
   </div>
 </div>
 <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
+<div class="producto-detalle" id="productoDetalle" hidden></div>
 
 <div class="tool">
   <div class="panel" id="panel">
@@ -4100,6 +4138,86 @@
     }
     window.addEventListener('afterprint', restaurarTitulo);
     window.print();
+  }
+
+  // ---------- burbujas de producto ----------
+  // Primer paso del patrón visual del catálogo (pedido explícito) — precios REFERENCIALES, editables
+  // con doble clic sobre el número en el panel de detalle (mismo patrón que ya usa la vista previa del
+  // croquis) y persistidos en localStorage de este navegador. Sin panel de administración todavía
+  // (el usuario ya lo pidió como siguiente paso, a futuro) — esto es la base para construirlo encima,
+  // no el producto final.
+  var CATALOGO_PRODUCTOS = [
+    { id: 'planimetrico', icono: '📐', nombre: 'Plano planimétrico', precioBase: '25', nota: 'por predio',
+      descripcion: 'Plano del predio en el formato que exige el municipio, con curvas de nivel públicas e inmediatas — sin necesidad de un levantamiento en sitio.' },
+    { id: 'levantamiento', icono: '📡', nombre: 'Levantamiento topográfico', precioBase: '80', nota: 'por predio',
+      descripcion: 'Levantamiento topográfico detallado y en sitio, para predios donde el dato público no alcanza (pendiente fuerte, irregularidad, precisión insuficiente).' },
+    { id: 'planimetrico-iprus', icono: '🏛️', nombre: 'Planimétrico + gestión IPRUS', precioBase: '60', nota: 'por trámite',
+      descripcion: 'El plano planimétrico más la gestión del trámite IPRUS ante el GAD Municipal de Cuenca, de principio a fin.' },
+    { id: 'analisis-sitio', icono: '🔍', nombre: 'Análisis de sitio', precioBase: '18', nota: 'desde, 3 niveles',
+      descripcion: 'Tres escalas de profundidad — macro, medio y micro — sobre equipamientos cercanos, accesibilidad y entorno real del predio.' },
+    { id: 'croquis', icono: '📍', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
+      descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
+    { id: 'volumetria', icono: '🧊', nombre: 'Volumetría de referencia', precioGratis: true,
+      descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
+  ];
+  function precioGuardado(id, precioBase) {
+    try {
+      var guardado = window.localStorage.getItem('cotacero_precio_' + id);
+      return guardado || precioBase;
+    } catch (e) { return precioBase; }
+  }
+  function guardarPrecio(id, valor) {
+    try { window.localStorage.setItem('cotacero_precio_' + id, valor); } catch (e) { /* localStorage puede fallar en privado/incógnito — no es crítico, el precio solo no persiste */ }
+  }
+  var burbujasCont = document.getElementById('productosBurbujas');
+  var detalleCont = document.getElementById('productoDetalle');
+  if (burbujasCont && detalleCont) {
+    burbujasCont.innerHTML = CATALOGO_PRODUCTOS.map(function (p) {
+      var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
+      return '<button type="button" class="burbuja-producto" data-id="' + p.id + '">' +
+        '<span class="burbuja-icono">' + p.icono + '</span>' +
+        '<span class="burbuja-precio">' + precioTxt + '</span>' +
+      '</button>';
+    }).join('');
+
+    function mostrarProducto(p) {
+      burbujasCont.querySelectorAll('.burbuja-producto').forEach(function (b) {
+        b.classList.toggle('activa', b.dataset.id === p.id);
+      });
+      var precioActual = p.precioGratis ? null : precioGuardado(p.id, p.precioBase);
+      detalleCont.innerHTML =
+        '<div class="pd-head">' +
+          '<h3>' + p.icono + ' ' + p.nombre + '</h3>' +
+          (p.precioGratis
+            ? '<span class="badge badge-demo">Gratis</span>'
+            : '<div class="pd-precio-wrap"><label>Precio</label><span class="mono">$</span>' +
+                '<input type="text" inputmode="decimal" id="pd-precio-input" value="' + precioActual + '">' +
+                '<span class="pd-nota">' + (p.nota || '') + '</span></div>') +
+        '</div>' +
+        '<p class="pd-desc">' + p.descripcion + '</p>' +
+        '<p class="pd-nota">💡 Precio referencial — editalo directo ahí arriba, se guarda en este navegador. El panel de administración real todavía no existe.</p>';
+      detalleCont.hidden = false;
+      var inputPrecio = document.getElementById('pd-precio-input');
+      if (inputPrecio) {
+        inputPrecio.addEventListener('change', function () {
+          var limpio = inputPrecio.value.replace(/[^0-9.]/g, '') || p.precioBase;
+          inputPrecio.value = limpio;
+          guardarPrecio(p.id, limpio);
+          var burbuja = burbujasCont.querySelector('.burbuja-producto[data-id="' + p.id + '"] .burbuja-precio');
+          if (burbuja) burbuja.textContent = '$' + limpio;
+        });
+      }
+      detalleCont.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    burbujasCont.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.burbuja-producto');
+      if (!btn) return;
+      var activa = btn.classList.contains('activa');
+      if (activa) { btn.classList.remove('activa'); detalleCont.hidden = true; detalleCont.innerHTML = ''; return; }
+      var producto = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === btn.dataset.id; })[0];
+      if (producto) mostrarProducto(producto);
+    });
   }
 
   // ---------- formulario de acceso anticipado ----------
