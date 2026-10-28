@@ -3546,7 +3546,9 @@
     if (!ultimoRender3D || !ultimoRender3D.grupoVolumen) return;
     try {
       var texto = construirTextoOBJ(ultimoRender3D.grupoVolumen);
-      descargarTexto('cotacero-' + (estado.clave || 'volumetria') + '.obj', texto, 'text/plain');
+      // Nombre de archivo = nombre del producto (tal cual aparece en la barra) + clave catastral,
+      // pedido explícito — mismo criterio en los tres descargables de la herramienta.
+      descargarTexto('Volumetria de referencia ' + (estado.clave || 'sin-clave') + '.obj', texto, 'text/plain');
     } catch (e) {
       console.error('descargarModeloOBJ: falló la exportación', e);
       alert('No se pudo generar el archivo .obj. Probá de nuevo en un momento.');
@@ -4011,8 +4013,11 @@
     // impresión se cierra (evento 'afterprint', no una línea después de window.print(): esa llamada no
     // bloquea la ejecución en todos los navegadores, así que restaurar el título ahí mismo podría pisar
     // el nombre ANTES de que el diálogo real lo use).
+    // Nombre de archivo = nombre del producto (el mismo de la barra, "Volumetría de referencia", sin
+    // tilde acá por las dudas de cómo lo maneje el navegador en el diálogo de guardar) + clave
+    // catastral — pedido explícito, mismo criterio en los tres descargables de la herramienta.
     var tituloOriginal = document.title;
-    document.title = 'Condicionantes y uso de suelos ' + estado.clave;
+    document.title = 'Volumetria de referencia ' + estado.clave;
     function restaurarTitulo() {
       document.title = tituloOriginal;
       window.removeEventListener('afterprint', restaurarTitulo);
@@ -4248,9 +4253,8 @@
   // Código único y fijo (ya no uno random por documento) — pedido explícito: "solo generemos un
   // código 12345S, para todos los productos, yo les envío el código para que puedan descargar". El
   // arquitecto lo tiene memorizado y se lo pasa él mismo al cliente (WhatsApp, de palabra, etc.) una
-  // vez que arreglaron el pago — no hay backend conectado todavía (mismo tema pendiente que el
-  // formulario de acceso anticipado), así que esto sigue siendo un candado simple del lado del
-  // navegador, no una entrega real a otro dispositivo.
+  // vez que arreglaron el pago — no hay backend conectado todavía, así que esto sigue siendo un
+  // candado simple del lado del navegador, no una entrega real a otro dispositivo.
   var CODIGO_ACCESO = '12345S';
   // Reemplaza `boton` por un campo de código + confirmar, en el lugar — mismo patrón en los tres
   // puntos de descarga de la herramienta (croquis, informe PDF, modelo OBJ) para que escriban el
@@ -4322,7 +4326,6 @@
       '<table class="datos-croquis"><tbody>' +
         filaEditable('Propietario', 'propietario', datos.propietario, 'Doble clic para completar') +
         filaEditable('Cédula / RUC', 'cedula', datos.cedula, 'Doble clic para completar') +
-        filaEditable('Correo electrónico', 'correo', datos.correo, 'Doble clic para completar — necesario para descargar') +
         filaEditable('Dirección / sector', 'direccion', datos.direccion, 'Doble clic para completar') +
         '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
         '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
@@ -4330,7 +4333,6 @@
         filaEditable('Observaciones', 'observaciones', datos.observaciones, 'Doble clic para agregar (opcional)') +
       '</tbody></table>' +
       '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla (o en el nombre de una calle, en el plano) para corregirlo acá mismo — y arrastrá el nombre de una calle para moverlo a lo largo de su eje.</p>' +
-      '<p class="editable-hint">🔒 Tu correo se usa para enviarte este documento y para que CotaCero pueda contarte sobre futuros productos — nunca se comparte con terceros. Podés pedir que lo eliminemos cuando quieras, escribiendo a pmoscosocorral28@gmail.com.</p>' +
       '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
       '<div class="pie-croquis">' +
         '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
@@ -4345,10 +4347,7 @@
     rep.innerHTML =
       '<div class="preview-toolbar">' +
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
-        '<span class="codigo-acceso-wrap">' +
-          '<button id="btn-croquis-descargar" class="btn" type="button">🔒 Ingresa el código para descargar</button>' +
-          '<span class="codigo-msg" id="codigoMsgValidacion"></span>' +
-        '</span>' +
+        '<button id="btn-croquis-descargar" class="btn" type="button">🔒 Ingresa el código para descargar</button>' +
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4358,20 +4357,6 @@
     document.getElementById('btn-croquis-cerrar').addEventListener('click', cerrarPreviewCroquis);
 
     document.getElementById('btn-croquis-descargar').addEventListener('click', function (ev) {
-      // Correo obligatorio antes de pedir el código (pedido explícito: "para enviar el documento
-      // deberían también agregar el correo") — se lee directo de la celda (no de datosCroquisActual,
-      // que solo se actualiza al confirmar un doble clic — si el usuario nunca llegó a hacer blur en
-      // esa celda, datosCroquisActual todavía no lo tendría).
-      var celdaCorreo = rep.querySelector('[data-campo="correo"]');
-      var correoVal = celdaCorreo ? celdaCorreo.textContent.trim() : '';
-      var msgValidacion = document.getElementById('codigoMsgValidacion');
-      if (!celdaCorreo || celdaCorreo.classList.contains('vacio') || !/^\S+@\S+\.\S+$/.test(correoVal)) {
-        if (msgValidacion) msgValidacion.textContent = '✉️ Completá un correo válido en la tabla de arriba antes de descargar.';
-        if (celdaCorreo) celdaCorreo.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-      if (msgValidacion) msgValidacion.textContent = '';
-      datosCroquisActual.correo = correoVal;
       pedirCodigoAcceso(ev.currentTarget, function () { imprimirCroquisActivo(estado); });
     });
   }
@@ -4396,8 +4381,10 @@
     }
     rep.className = 'reporte-pdf croquis';
 
+    // Nombre de archivo = nombre del producto ("Croquis de sitio", el mismo de la barra) + clave
+    // catastral — pedido explícito, mismo criterio en los tres descargables de la herramienta.
     var tituloOriginal = document.title;
-    document.title = 'Croquis de ubicacion ' + estado.clave;
+    document.title = 'Croquis de sitio ' + estado.clave;
     function restaurarTitulo() {
       document.title = tituloOriginal;
       document.getElementById('reporte-pdf').className = 'reporte-pdf';
@@ -4439,8 +4426,7 @@
     volumetria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 7.3v9.4L12 21 4 16.7V7.3z"/><path d="M12 3v9m0 9v-9M4 7.3 12 12l8-4.7"/></svg>'
   };
   // Los únicos dos productos ya construidos de verdad hoy — los otros 4 muestran descripción/precio y
-  // un enlace al formulario de acceso anticipado que ya existe más abajo en la página, en vez de
-  // duplicar un formulario de correo nuevo por cada uno.
+  // un mailto: para avisar interés, en vez de un formulario de captura (no hay backend conectado).
   var PRODUCTOS_CONSTRUIDOS = { volumetria: true, croquis: true };
   function precioGuardado(id, precioBase) {
     try {
@@ -4464,7 +4450,7 @@
   // perdería lo que se hubiera editado, porque generarCroquisSitio() se vuelve a llamar desde cero
   // cada vez que ese producto se vuelve a activar. `clave` decide si estos datos siguen siendo del
   // predio actual o hay que resetearlos (predio nuevo = formulario en blanco de nuevo).
-  var datosCroquisActual = { clave: null, propietario: '', cedula: '', correo: '', direccion: '', observaciones: '' };
+  var datosCroquisActual = { clave: null, propietario: '', cedula: '', direccion: '', observaciones: '' };
   // Declarada acá afuera (no como function-declaration dentro del if de abajo) y asignada más abajo
   // — mostrarResultado() más arriba en el archivo la llama cada vez que termina de reconstruir el
   // panel de un predio nuevo, para que la vista siga la selección actual de la barra. Una
@@ -4508,10 +4494,8 @@
         }
         detalleCont.hidden = true; detalleCont.innerHTML = '';
         if (datosCroquisActual.clave !== estadoSeleccionado.clave) {
-          // El correo NO se resetea con el predio — misma sesión, mismo cliente, probablemente el
-          // mismo correo para el próximo croquis que pida en la misma visita.
           datosCroquisActual = {
-            clave: estadoSeleccionado.clave, propietario: '', cedula: '', correo: datosCroquisActual.correo || '',
+            clave: estadoSeleccionado.clave, propietario: '', cedula: '',
             direccion: calcularDireccionYViaRotulo(estadoSeleccionado).direccion, observaciones: ''
           };
         }
