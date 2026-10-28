@@ -278,8 +278,12 @@
   .reporte-pdf .datos-croquis td { padding: 9px 14px; border-bottom: 1px solid var(--line-soft); }
   .reporte-pdf .datos-croquis tr:last-child td { border-bottom: none; }
   .reporte-pdf .datos-croquis td.etiqueta { width: 38%; color: var(--ink-soft); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--paper-raised); }
-  .reporte-pdf .firma-bloque { margin-top: 48px; padding-top: 10px; border-top: 1px solid var(--ink); width: 280px; font-size: 0.82rem; }
+  .reporte-pdf .pie-croquis { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 48px; }
+  .reporte-pdf .firma-bloque { padding-top: 10px; border-top: 1px solid var(--ink); width: 280px; font-size: 0.82rem; }
   .reporte-pdf .firma-bloque strong { display: block; font-size: 0.88rem; }
+  .reporte-pdf .qr-bloque { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
+  .reporte-pdf .qr-bloque svg { width: 84px; height: 84px; display: block; }
+  .reporte-pdf .qr-bloque span { font-size: 0.68rem; color: var(--ink-soft); text-align: center; line-height: 1.3; }
 
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -439,6 +443,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 (function () {
   // ---------- normativa de referencia (PIT E-22, verificado contra un trámite IPRUS real) ----------
@@ -2206,11 +2211,10 @@
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
 
-    // Vía de frente, como primer borrador de "dirección" en el croquis de sitio — el usuario la puede
-    // afinar a mano en el formulario, esto es solo para no arrancar de un campo vacío.
-    var idxFrenteCroquis = estado.tipoLado.indexOf('frente');
-    var direccionSugerida = (idxFrenteCroquis !== -1 && estado.ladosInfo[idxFrenteCroquis].via && estado.ladosInfo[idxFrenteCroquis].via.nombre)
-      ? estado.ladosInfo[idxFrenteCroquis].via.nombre : '';
+    // Primer borrador de "dirección" en el croquis de sitio — el usuario la puede afinar a mano en el
+    // formulario, esto es solo para no arrancar de un campo vacío. calcularDireccionYViaRotulo ya
+    // resuelve el caso de frente sin nombre real (ver esa función).
+    var direccionSugerida = calcularDireccionYViaRotulo(estado).direccion;
 
     panel.innerHTML =
       '<div class="result-head">' +
@@ -3525,40 +3529,76 @@
   // el resto de la herramienta, no un número inventado aparte. Si el lote en sí es más grande que el
   // radio base (predios tipo cancha/complejo), igual crece lo justo para no dejarlo con una esquina
   // afuera del plano — mismo criterio que ya usa el disco de contexto del modelo 3D.
-  function radioUbicacionCoherente(estado, areaM2) {
+  function extentUbicacionCoherente(estado, areaM2) {
     var base = areaM2 > 500 ? 100 : 50;
-    var radioMaxLote = estado.pts.reduce(function (m, p) {
-      return Math.max(m, Math.hypot(p[0] - estado.centroideLote[0], p[1] - estado.centroideLote[1]));
-    }, 0);
-    return Math.max(base, radioMaxLote + 10);
+    var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
+    var maxDx = 0, maxDy = 0;
+    estado.pts.forEach(function (p) {
+      maxDx = Math.max(maxDx, Math.abs(p[0] - cx));
+      maxDy = Math.max(maxDy, Math.abs(p[1] - cy));
+    });
+    // halfW/halfH por separado (no un solo radio) — un lote angosto y profundo no necesita el mismo
+    // margen de sobra en las dos direcciones; con un radio único (circular, versión anterior) un lote
+    // así quedaba con mucho aire de más a los costados solo para cubrir el largo.
+    return { halfW: Math.max(base, maxDx + 10), halfH: Math.max(base, maxDy + 10) };
   }
-  // Recorte real contra el radio — ANTES solo se decidía incluir o no un elemento entero ("¿algún punto
-  // de esta vía cae dentro del radio?"), así que una vía larga que solo ROZABA el radio se dibujaba
-  // ENTERA, estirando el dibujo mucho más allá del radio "coherente" que se acababa de calcular (bug
-  // real reportado: "sigue teniendo los elementos de las vías que alargan el dibujo"). Ahora se recorta
-  // la GEOMETRÍA misma contra el círculo — una vía se corta donde cruza el borde, un predio vecino
-  // también — y el viewBox se arma directo desde el radio (no desde los puntos sobrevivientes), así el
-  // dibujo es SIEMPRE ese círculo, ni más grande ni más chico según qué haya cerca.
+  // Nombre "real" de una vía — filtra los placeholders que a veces trae OSM literalmente como texto
+  // ("Sin nombre", "S/N") en vez de dejar el campo vacío. Mostrar eso tal cual en un croquis que va a
+  // un banco no sirve — pedido explícito del usuario tras un caso real con dos vías así.
+  function nombreViaReal(via) {
+    if (!via || !via.nombre) return null;
+    var limpio = via.nombre.trim();
+    if (!limpio || /^(s\/n|sn|sin nombre)$/i.test(limpio)) return null;
+    return limpio;
+  }
+  // Elige qué calle usar como "dirección" (y cuál rotular en el plano): el frente, si tiene un nombre
+  // real — si no (el caso real que motivó esto: frente sin nombre registrado en OSM, pero un lado del
+  // mismo predio sí), se busca OTRO lado del predio que sí tenga nombre real, y el frente sin nombre se
+  // cataloga como "Calle de retorno" en vez de mostrarse vacío o con el placeholder inútil. Pedido
+  // explícito: "por lo menos en la dirección salga una calle con nombre".
+  function calcularDireccionYViaRotulo(estado) {
+    var idxFrente = estado.tipoLado.indexOf('frente');
+    var ladoFrente = idxFrente !== -1 ? estado.ladosInfo[idxFrente] : null;
+    var nombreFrenteReal = ladoFrente ? nombreViaReal(ladoFrente.via) : null;
+    if (nombreFrenteReal) return { direccion: nombreFrenteReal, ladoRotulo: ladoFrente };
+    var frenteEsPlaceholder = !!(ladoFrente && ladoFrente.via && ladoFrente.via.nombre);
+    for (var i = 0; i < estado.ladosInfo.length; i++) {
+      var nombreReal = nombreViaReal(estado.ladosInfo[i].via);
+      if (nombreReal) {
+        return {
+          direccion: (frenteEsPlaceholder ? 'Calle de retorno y ' : '') + nombreReal,
+          ladoRotulo: estado.ladosInfo[i]
+        };
+      }
+    }
+    return { direccion: '', ladoRotulo: null };
+  }
+  // Recorte real contra el rectángulo de contexto — ANTES solo se decidía incluir o no un elemento
+  // entero ("¿algún punto de esta vía cae adentro?"), así que una vía larga que solo ROZABA el borde se
+  // dibujaba ENTERA, estirando el dibujo mucho más allá del área "coherente" que se acababa de calcular
+  // (bug real reportado: "sigue teniendo los elementos de las vías que alargan el dibujo"). Se recorta
+  // la GEOMETRÍA misma — una vía se corta donde cruza el borde, un predio vecino también — y el viewBox
+  // sale directo de halfW/halfH (no de los puntos sobrevivientes), así el dibujo es SIEMPRE ese
+  // rectángulo, ni más grande ni más chico según qué haya cerca.
+  //
+  // Rectangular, no circular (a pedido explícito del usuario) — un rectángulo aprovecha mejor el ancho
+  // real de la hoja A4 que un círculo (que siempre deja las cuatro esquinas vacías), y es la convención
+  // real de un plano de ubicación impreso.
   function cerrarAnillo(anillo) {
     var p = anillo[0], u = anillo[anillo.length - 1];
     return (Math.abs(p[0] - u[0]) < 1e-9 && Math.abs(p[1] - u[1]) < 1e-9) ? anillo : anillo.concat([p]);
   }
-  function circuloComoPoligonoLocal(cx, cy, radio) {
-    var pts = [], segmentos = 64;
-    // i < segmentos (no <=): el último punto se cierra reusando pts[0] tal cual más abajo, no
-    // recalculado en ang=2π — turf.polygon exige que primer y último punto sean EXACTAMENTE iguales, y
-    // cos(0)/cos(2π) no siempre dan el mismo float (turf tiró "First and last Position are not
-    // equivalent" con el borde-caso real de un usuario).
-    for (var i = 0; i < segmentos; i++) {
-      var ang = (i / segmentos) * Math.PI * 2;
-      pts.push([cx + radio * Math.cos(ang), cy + radio * Math.sin(ang)]);
-    }
+  function rectanguloComoPoligonoLocal(cx, cy, halfW, halfH) {
+    var pts = [
+      [cx - halfW, cy - halfH], [cx + halfW, cy - halfH],
+      [cx + halfW, cy + halfH], [cx - halfW, cy + halfH]
+    ];
     pts.push(pts[0]);
     return turf.polygon([pts]);
   }
-  function recortarAnilloACirculo(anillo, circuloFeature) {
+  function recortarAnilloARectangulo(anillo, rectanguloFeature) {
     try {
-      var interseccion = turf.intersect(turf.polygon([cerrarAnillo(anillo)]), circuloFeature);
+      var interseccion = turf.intersect(turf.polygon([cerrarAnillo(anillo)]), rectanguloFeature);
       if (!interseccion) return [];
       var g = interseccion.geometry;
       if (g.type === 'Polygon') return [g.coordinates[0]];
@@ -3566,11 +3606,10 @@
       return [];
     } catch (e) { return []; }
   }
-  // Mismo patrón de recorte de polilínea-contra-círculo que ya usa dibujarVolumetria() para el disco de
-  // contexto del 3D (recortarPolilineaADisco) — acá reimplementado standalone porque esa versión vive
-  // en el closure de otra función con su propio radioContexto fijo.
-  function recortarLineaACirculo(pts, cx, cy, radio) {
-    function dentro(p) { return Math.hypot(p[0] - cx, p[1] - cy) <= radio; }
+  // Mismo patrón de bisección que usaba la versión circular (recortarLineaACirculo) — el único cambio
+  // real es el predicado `dentro`, ya no depende de la forma del borde de recorte.
+  function recortarLineaARectangulo(pts, cx, cy, halfW, halfH) {
+    function dentro(p) { return Math.abs(p[0] - cx) <= halfW && Math.abs(p[1] - cy) <= halfH; }
     function cruce(p1, p2) {
       var lo = p1, hi = p2, dentroLo = dentro(p1);
       for (var it = 0; it < 12; it++) {
@@ -3597,31 +3636,32 @@
   }
   function construirPlanoUbicacionSVG(estado, areaM2, sinEscala) {
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
-    var radio = radioUbicacionCoherente(estado, areaM2);
-    var circuloFeature = circuloComoPoligonoLocal(cx, cy, radio);
+    var ext = extentUbicacionCoherente(estado, areaM2);
+    var halfW = ext.halfW, halfH = ext.halfH;
+    var rectanguloFeature = rectanguloComoPoligonoLocal(cx, cy, halfW, halfH);
 
     var anillosManzana = [];
     anillosDeFeature(estado.featureManzana).forEach(function (anilloLL) {
-      recortarAnilloACirculo(anilloLL.map(estado.aMetros), circuloFeature).forEach(function (a) { anillosManzana.push(a); });
+      recortarAnilloARectangulo(anilloLL.map(estado.aMetros), rectanguloFeature).forEach(function (a) { anillosManzana.push(a); });
     });
 
     var anillosVecinos = [];
     (estado.vecinosFeatures || []).forEach(function (f) {
       anillosDeFeature(f).forEach(function (anilloLL) {
-        recortarAnilloACirculo(anilloLL.map(estado.aMetros), circuloFeature).forEach(function (a) { anillosVecinos.push(a); });
+        recortarAnilloARectangulo(anilloLL.map(estado.aMetros), rectanguloFeature).forEach(function (a) { anillosVecinos.push(a); });
       });
     });
 
     var tramosVias = [];
     (estado.viasDibujo || []).forEach(function (via) {
-      recortarLineaACirculo(via.pts, cx, cy, radio).forEach(function (t) { tramosVias.push(t); });
+      recortarLineaARectangulo(via.pts, cx, cy, halfW, halfH).forEach(function (t) { tramosVias.push(t); });
     });
 
-    // El viewBox sale del radio, no de los puntos sobrevivientes — así el dibujo es siempre ese
-    // círculo, consistente predio a predio, nunca estirado por lo que haya alrededor.
-    var margen = radio * 0.08;
-    var minX = cx - radio - margen, maxX = cx + radio + margen;
-    var minY = cy - radio - margen, maxY = cy + radio + margen;
+    // El viewBox sale de halfW/halfH, no de los puntos sobrevivientes — así el dibujo es siempre ese
+    // rectángulo, consistente predio a predio, nunca estirado por lo que haya alrededor.
+    var margen = Math.max(halfW, halfH) * 0.08;
+    var minX = cx - halfW - margen, maxX = cx + halfW + margen;
+    var minY = cy - halfH - margen, maxY = cy + halfH + margen;
     var anchoM = maxX - minX, altoM = maxY - minY;
 
     // Pantalla Y = -Y local (norte arriba) — misma convención que el 3D (new THREE.Vector3(x,y,-z)).
@@ -3634,8 +3674,8 @@
     var fino = anchoM * 0.0015, medio = anchoM * 0.003, textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
 
     var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion">';
-    // Borde del radio de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
-    svg += '<circle cx="' + (anchoM / 2) + '" cy="' + (altoM / 2) + '" r="' + radio + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
+    // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
+    svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
     anillosManzana.forEach(function (a) {
       svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '"/>';
     });
@@ -3647,14 +3687,20 @@
     });
     svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + medio + '"/>';
 
-    // Nombre de la vía de frente, como referencia de orientación (no todas las vías cercanas, para no
-    // saturar el dibujo — solo la que ya se identificó como frente al clasificar lados).
-    var idxFrente = estado.tipoLado.indexOf('frente');
-    if (idxFrente !== -1 && estado.ladosInfo[idxFrente].via && estado.ladosInfo[idxFrente].via.nombre) {
-      var l = estado.ladosInfo[idxFrente];
+    // Rótulo "SITIO" directo sobre el predio marcado — a pedido explícito, para que no haya dudas de
+    // cuál es el lote del croquis (el relleno terracota ya lo distingue, pero un texto es inequívoco).
+    var pSitio = svgPt(estado.centroideLote).split(',');
+    svg += '<text x="' + pSitio[0] + '" y="' + pSitio[1] + '" font-size="' + (textoChico * 1.15) + '" font-weight="700" fill="#8F3F23" text-anchor="middle">SITIO</text>';
+
+    // Nombre de UNA calle de referencia — la que calcularDireccionYViaRotulo eligió como "dirección"
+    // (el frente, si tiene nombre real; si no, otro lado del mismo predio que sí lo tenga — nunca un
+    // placeholder tipo "Sin nombre" tal cual, ver esa función).
+    var refDireccion = calcularDireccionYViaRotulo(estado);
+    if (refDireccion.ladoRotulo) {
+      var l = refDireccion.ladoRotulo;
       var medioLado = [(l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2];
       var pTxt = svgPt(medioLado).split(',');
-      svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle">' + l.via.nombre + '</text>';
+      svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle">' + nombreViaReal(l.via) + '</text>';
     }
 
     // Norte (arriba-derecha) y escala (abajo-izquierda) — convenciones mínimas de un plano de ubicación.
@@ -3817,12 +3863,35 @@
   // de la tarjetita mini sobre el 3D) y el recuadro de datos que pide un banco. Reusa el mismo
   // contenedor #reporte-pdf (y su CSS @media print ya existente) en vez de armar un pipeline de
   // impresión aparte.
+  // QR a un pin de Google Maps con las coordenadas reales del predio — para que quien reciba el
+  // croquis (ej. el oficial de crédito del banco) lo escanee y confirme la ubicación exacta desde el
+  // celular, sin tener que escribir nada a mano. qrcode-generator (cdnjs) devuelve el SVG como string
+  // directo — encaja con el resto de esta función, que arma todo por texto, no por DOM.
+  function construirQrSvg(texto) {
+    try {
+      if (typeof qrcode === 'undefined') return '';
+      var qr = qrcode(0, 'M');
+      qr.addData(texto);
+      qr.make();
+      return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) {
+      console.warn('construirQrSvg: falló', e);
+      return '';
+    }
+  }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
     try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+    var svgQr = '';
+    try {
+      var latlng = estado.metrosALatLng(estado.centroideLote); // array [lat, lng], NO un objeto Leaflet
+      var urlMaps = 'https://www.google.com/maps?q=' + latlng[0].toFixed(6) + ',' + latlng[1].toFixed(6);
+      svgQr = construirQrSvg(urlMaps);
+    } catch (e) { console.warn('generarCroquisSitio: falló el QR', e); }
 
     document.getElementById('reporte-pdf').className = 'reporte-pdf croquis';
     document.getElementById('reporte-pdf').innerHTML =
@@ -3840,7 +3909,10 @@
         (datos.observaciones ? '<tr><td class="etiqueta">Observaciones</td><td>' + escaparCroquis(datos.observaciones) + '</td></tr>' : '') +
       '</tbody></table>' +
       '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
-      '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>';
+      '<div class="pie-croquis">' +
+        '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
+        (svgQr ? '<div class="qr-bloque">' + svgQr + '<span>Escaneá para ver<br>la ubicación en tu celular</span></div>' : '') +
+      '</div>';
 
     var tituloOriginal = document.title;
     document.title = 'Croquis de ubicacion ' + estado.clave;
