@@ -238,22 +238,39 @@
     body > *:not(.reporte-pdf) { display: none !important; }
     .reporte-pdf { display: block; }
   }
-  /* Vista previa en pantalla ANTES de imprimir — a pedido explícito ("sería vital un cuadro de
-     visualización del documento antes de generar el PDF"): antes generarCroquisSitio armaba el
-     documento y llamaba window.print() directo, sin que el usuario pudiera revisarlo primero (ej. si
-     la dirección auto-completada quedó mal, antes recién se notaba ya adentro del diálogo de
-     impresión). .preview-activo gana por especificidad de selector al display:none de arriba, sin
-     !important — ver más abajo por qué con eso alcanza. La barra de herramientas (Cerrar/Imprimir) se
-     oculta en @media print porque es solo de pantalla, nunca debe salir en el PDF/papel. */
+  /* Vista previa EN LA MISMA PÁGINA (no un visor/modal aparte — probamos eso primero y el usuario lo
+     pidió explícitamente así) antes de imprimir: generarCroquisSitio arma el documento y lo muestra
+     como una tarjeta más dentro del flujo normal de la página, con scrollIntoView para llevarte ahí.
+     .preview-activo gana por especificidad al display:none de arriba, sin !important. La barra de
+     herramientas (Cerrar/Imprimir) se oculta en @media print porque es solo de pantalla. */
   .reporte-pdf.preview-activo {
-    display: block; position: fixed; inset: 0; z-index: 9999; overflow-y: auto; padding-bottom: 60px;
+    display: block; max-width: 760px; margin: 28px auto; border: 1px solid var(--line-soft);
+    border-radius: 14px; box-shadow: 0 10px 32px rgba(28, 26, 22, 0.14); overflow: hidden;
   }
   .preview-toolbar {
     position: sticky; top: 0; z-index: 10; display: flex; justify-content: flex-end; gap: 10px;
-    padding: 14px 24px; background: inherit; border-bottom: 1px solid var(--line-soft); margin-bottom: 10px;
+    padding: 14px 24px; background: inherit; border-bottom: 1px solid var(--line-soft);
   }
-  .preview-cuerpo { padding: 0 24px; }
+  .preview-cuerpo { padding: 0 24px 24px; }
   @media print { .preview-toolbar { display: none !important; } }
+  /* Zoom del plano dentro de la vista previa — pellizco/ctrl+scroll (mismo criterio que el mapa y el
+     3D en el resto de la herramienta) o los botones +/−. overflow:auto en .zoom-plano-scroll deja
+     recorrer el dibujo una vez agrandado. */
+  .zoom-plano-wrap { position: relative; margin: 20px 0; }
+  .zoom-plano-controles { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; }
+  .zoom-plano-controles button {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper-raised);
+    font-size: 1.15rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;
+  }
+  .zoom-plano-controles button:hover { background: var(--line-soft); }
+  .zoom-plano-scroll { overflow: auto; max-height: 65vh; border: 1px dashed transparent; }
+  .zoom-plano-interior { transform-origin: top left; }
+  .zoom-plano-interior svg { display: block; width: 100%; height: auto; }
+  @media print {
+    .zoom-plano-controles { display: none !important; }
+    .zoom-plano-scroll { overflow: visible !important; max-height: none !important; }
+    .zoom-plano-interior { transform: none !important; }
+  }
   .reporte-pdf .membrete { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 22px; }
   .reporte-pdf .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
   .reporte-pdf .brand em { font-style: normal; color: var(--terracotta); }
@@ -3910,6 +3927,27 @@
   // quedó mal, recién se notaba ya adentro del diálogo de impresión). Pedido explícito: "sería vital
   // un cuadro de visualización del documento antes de generar el PDF". La impresión real (imprimirCroquisActivo)
   // queda para un segundo clic, desde el botón de la barra de la vista previa.
+  // Zoom del plano en la vista previa — mismo criterio que el mapa principal y el modelo 3D (botones
+  // +/−, y ctrl+scroll/pellizco porque un scroll normal de dos dedos NO debe quedar atrapado haciendo
+  // zoom acá tampoco). Reescala .zoom-plano-interior con transform; .zoom-plano-scroll (overflow:auto)
+  // deja recorrerlo una vez agrandado más allá de lo que entra en pantalla.
+  function activarZoomPlano(contenedor) {
+    var wrap = contenedor.querySelector('.zoom-plano-wrap');
+    if (!wrap) return;
+    var interior = wrap.querySelector('.zoom-plano-interior');
+    var scroll = wrap.querySelector('.zoom-plano-scroll');
+    var nivel = 1;
+    function aplicar() { interior.style.transform = 'scale(' + nivel + ')'; }
+    var btnOut = wrap.querySelector('.btn-zoom-out'), btnIn = wrap.querySelector('.btn-zoom-in');
+    if (btnOut) btnOut.addEventListener('click', function () { nivel = Math.max(1, nivel - 0.4); aplicar(); });
+    if (btnIn) btnIn.addEventListener('click', function () { nivel = Math.min(4, nivel + 0.4); aplicar(); });
+    scroll.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      nivel = Math.max(1, Math.min(4, nivel - e.deltaY * 0.01));
+      aplicar();
+    }, { passive: false });
+  }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
     try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
@@ -3924,11 +3962,22 @@
       svgQr = construirQrSvg(urlMaps);
     } catch (e) { console.warn('generarCroquisSitio: falló el QR', e); }
 
+    // El plano va envuelto para poder hacer zoom en la vista previa (pedido explícito) — los botones
+    // +/− y el ctrl+scroll/pellizco (mismo criterio que el mapa y el 3D en el resto de la herramienta)
+    // escalan .zoom-plano-interior; .zoom-plano-scroll deja recorrerlo una vez agrandado. En
+    // impresión, @media print neutraliza todo esto (ver el CSS) y el plano sale a tamaño normal.
+    var planoZoomable = svgUbicacion
+      ? '<div class="zoom-plano-wrap"><div class="zoom-plano-controles">' +
+          '<button type="button" class="btn-zoom-out" aria-label="Alejar">−</button>' +
+          '<button type="button" class="btn-zoom-in" aria-label="Acercar">+</button>' +
+        '</div><div class="zoom-plano-scroll"><div class="zoom-plano-interior">' + svgUbicacion + '</div></div></div>'
+      : '<div class="aviso-legal">⚠️ No se pudo generar el dibujo de ubicación para este predio.</div>';
+
     var contenidoCroquis =
       '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
       '<h1>Croquis de ubicación</h1>' +
       '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
-      (svgUbicacion || '<div class="aviso-legal">⚠️ No se pudo generar el dibujo de ubicación para este predio.</div>') +
+      planoZoomable +
       '<table class="datos-croquis"><tbody>' +
         '<tr><td class="etiqueta">Propietario</td><td>' + escaparCroquis(datos.propietario) + '</td></tr>' +
         '<tr><td class="etiqueta">Cédula / RUC</td><td>' + (escaparCroquis(datos.cedula) || '—') + '</td></tr>' +
@@ -3952,6 +4001,8 @@
         '<button id="btn-croquis-imprimir" class="btn" type="button">🖨️ Imprimir / Guardar PDF</button>' +
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
+    rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    activarZoomPlano(rep);
 
     document.getElementById('btn-croquis-cerrar').addEventListener('click', function () {
       rep.className = 'reporte-pdf';
@@ -3962,10 +4013,10 @@
     });
   }
 
-  // Saca el modo vista-previa (position:fixed no pagina bien al imprimir — varias páginas de un
-  // documento largo podrían no salir) y "desenvuelve" el contenido para que quede EXACTAMENTE con la
-  // misma estructura que ya usaba window.print() antes de que existiera la vista previa — mismo
-  // pipeline probado, nada nuevo en el camino real de impresión.
+  // Saca el modo vista-previa (tarjeta/sombra/barra de herramientas — nada de eso debe salir
+  // impreso, aunque @media print ya oculta la barra igual) y "desenvuelve" el contenido para que
+  // quede EXACTAMENTE con la misma estructura que ya usaba window.print() antes de que existiera la
+  // vista previa — mismo pipeline probado, nada nuevo en el camino real de impresión.
   function imprimirCroquisActivo(estado) {
     var rep = document.getElementById('reporte-pdf');
     var toolbar = rep.querySelector('.preview-toolbar');
