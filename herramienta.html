@@ -309,7 +309,12 @@
      3D en el resto de la herramienta) o los botones +/−. overflow:auto en .zoom-plano-scroll deja
      recorrer el dibujo una vez agrandado. */
   .zoom-plano-wrap { position: relative; margin: 20px 0; }
-  .zoom-plano-controles { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; }
+  /* Esquina inferior derecha, no superior — ahí abajo no hay nada del dibujo (la flecha de norte vive
+     arriba a la derecha, la escala gráfica abajo a la izquierda, ver construirPlanoUbicacionSVG), así
+     los botones no tapan ninguna anotación real del plano. Antes, en la esquina superior derecha,
+     quedaban justo encima de la "N" una vez que se sacó el margen extra que separaba el mapa de los
+     botones (ver .plano-ubicacion más abajo). */
+  .zoom-plano-controles { position: absolute; bottom: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; }
   /* Nombre de calle del croquis — doble clic para editar, arrastre para mover a lo largo del eje vial
      (ver activarPlanoInteractivo). cursor:grab da la pista de que se puede tomar y mover. */
   .etiqueta-via { cursor: grab; user-select: none; }
@@ -393,8 +398,14 @@
   /* Sin tarjeta detrás del plano — a pedido explícito, "que las líneas queden pegadas sobre el
      espacio del papel sin ningún color por detrás". El recuadro punteado que marca el límite del
      recorte ya está DENTRO del SVG (ver construirPlanoUbicacionSVG); esto solo saca el fondo/borde/
-     esquinas redondeadas que lo envolvían por fuera. */
-  .reporte-pdf.croquis .plano-ubicacion { background: transparent; border: none; border-radius: 0; max-width: none; margin: 20px 0; }
+     esquinas redondeadas que lo envolvían por fuera.
+     margin: 0, no 20px — ese margen quedaba SUMADO al de .zoom-plano-wrap (también 20px 0, ver más
+     abajo), así que entre "Clave catastral" y el mapa había 40px de hueco en vez de 20px, y los
+     botones +/− (absolutos DENTRO de .zoom-plano-wrap) flotaban en ese hueco vacío en vez de quedar
+     superpuestos sobre la esquina del mapa — pedido explícito: "el mapa debería estar por debajo de
+     los botones, extendiéndose un poco antes de la clave catastral". Con un solo margen (el del wrap)
+     el mapa sube y los botones quedan encima de su esquina, como corresponde. */
+  .reporte-pdf.croquis .plano-ubicacion { background: transparent; border: none; border-radius: 0; max-width: none; margin: 0; }
   .reporte-pdf .datos-croquis {
     width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 0.85rem;
     border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden;
