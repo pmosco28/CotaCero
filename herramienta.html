@@ -2989,8 +2989,8 @@
       canvas.width = ancho; canvas.height = alto;
       var ctx = canvas.getContext('2d');
       ctx.font = fontSize + 'px sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.88)';
-      ctx.fillRect(0, 0, ancho, alto);
+      // Sin fillRect de fondo — eso era lo que hacía leer el sello como un cartelito parado en vez de
+      // texto pintado directo sobre el piso (canvas transparente, el ground se ve "a través").
       ctx.fillStyle = colorTexto;
       ctx.textBaseline = 'middle';
       ctx.fillText(texto, 8, alto / 2);
@@ -3406,31 +3406,28 @@
   // de piso/retiro (THREE.Line, agregadas al mismo grupoVolumen) se saltan a propósito, un .obj con
   // líneas sueltas sin cara no aporta nada en ArchiCAD/Revit/SketchUp y solo ensucia el archivo.
   function construirTextoOBJ(grupo) {
+    // Sin normales (vn) a propósito — es una simplificación deliberada por compatibilidad: casi todo
+    // software BIM recalcula sus propias normales al importar geometría externa igual, así que
+    // mandarlas no suma nada y sí agrega una fuente más de error si algún parser es estricto con el
+    // formato "f v//vn". 'o' Y 'g' juntos por el mismo motivo — cubre importadores que buscan uno u otro.
     var lineas = ['# CotaCero — volumetría de referencia', '# Masa aproximada, no reemplaza un levantamiento ni un modelo BIM oficial', ''];
     var offsetV = 1;
-    var v = new THREE.Vector3(), n = new THREE.Vector3();
-    var normalMatrix = new THREE.Matrix3();
+    var v = new THREE.Vector3();
     grupo.updateWorldMatrix(true, true);
     grupo.traverse(function (obj) {
       if (!obj.isMesh || !obj.geometry || !obj.geometry.attributes || !obj.geometry.attributes.position) return;
       var geo = obj.geometry;
       var pos = geo.attributes.position;
-      var nor = geo.attributes.normal;
       var nVert = pos.count;
-      normalMatrix.getNormalMatrix(obj.matrixWorld);
-      lineas.push('o ' + (obj.name || 'volumen_' + offsetV));
+      var nombre = obj.name || 'volumen_' + offsetV;
+      lineas.push('o ' + nombre, 'g ' + nombre);
       for (var i = 0; i < nVert; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld);
         lineas.push('v ' + v.x.toFixed(4) + ' ' + v.y.toFixed(4) + ' ' + v.z.toFixed(4));
-        if (nor) {
-          n.fromBufferAttribute(nor, i).applyMatrix3(normalMatrix).normalize();
-          lineas.push('vn ' + n.x.toFixed(4) + ' ' + n.y.toFixed(4) + ' ' + n.z.toFixed(4));
-        }
       }
       var idx = geo.index;
       function cara(a, b, c) {
-        a += offsetV; b += offsetV; c += offsetV;
-        lineas.push(nor ? ('f ' + a + '//' + a + ' ' + b + '//' + b + ' ' + c + '//' + c) : ('f ' + a + ' ' + b + ' ' + c));
+        lineas.push('f ' + (a + offsetV) + ' ' + (b + offsetV) + ' ' + (c + offsetV));
       }
       if (idx) {
         for (var f = 0; f < idx.count; f += 3) cara(idx.getX(f), idx.getX(f + 1), idx.getX(f + 2));
