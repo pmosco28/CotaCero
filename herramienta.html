@@ -3759,16 +3759,25 @@
   }
   // anchoImpresionMM (opcional): ancho FÍSICO real, en mm, al que este SVG va a quedar impreso/
   // mostrado — SOLO el croquis lo pasa (180mm, ver generarCroquisSitio y el @page de arriba). Cuando
-  // viene, los grosores de línea salen fijos en mm de papel (0.1/0.3/0.8mm, pedido explícito) en vez
-  // de la fracción del ancho dibujado — un croquis de lote chico y uno de lote grande deben salir con
-  // EL MISMO grosor de línea en la hoja A4, no uno más grueso que el otro. Los demás usos de esta
-  // función (tarjetita de ubicación sobre el 3D, inset del informe PDF) no pasan este parámetro y
-  // siguen con el criterio proporcional de siempre — ahí no hay un tamaño de impresión fijo del cual
-  // partir.
-  function construirPlanoUbicacionSVG(estado, areaM2, sinEscala, anchoImpresionMM) {
+  // viene, los grosores de línea y el tamaño de letra salen fijos en mm de papel (pedido explícito)
+  // en vez de la fracción del ancho dibujado. Los demás usos de esta función (tarjetita de ubicación
+  // sobre el 3D, inset del informe PDF) no pasan este parámetro y siguen con el criterio proporcional
+  // de siempre — ahí no hay un tamaño de impresión fijo del cual partir.
+  //
+  // nivelZoom (opcional, default 1): en vez de CSS transform:scale() sobre un dibujo ya fijo —
+  // probado primero y descartado, ver activarZoomPlano más abajo para el porqué exacto — "zoom" acá
+  // es volver a llamar a ESTA MISMA función con un radio de contexto más chico (zoom in, nivelZoom>1)
+  // o más grande (zoom out, nivelZoom<1), re-recortando la MISMA geometría ya cargada en `estado`
+  // (nada de red de por medio, estado.featureManzana/vecinosFeatures/viasDibujo ya están en memoria).
+  // Como el calibrado en mm de líneas y texto de arriba siempre se recalcula contra el anchoM REAL de
+  // CADA llamada, el resultado en pantalla (a igual anchoImpresionMM, igual ancho CSS del contenedor)
+  // sale SIEMPRE al mismo tamaño físico sin importar nivelZoom — alejar de verdad muestra más
+  // contexto real (más manzana/calles), no el mismo dibujo encogido con líneas cada vez más finas.
+  function construirPlanoUbicacionSVG(estado, areaM2, sinEscala, anchoImpresionMM, nivelZoom) {
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
     var ext = extentUbicacionCoherente(estado, areaM2);
-    var halfW = ext.halfW, halfH = ext.halfH;
+    var factorZoom = nivelZoom || 1;
+    var halfW = ext.halfW / factorZoom, halfH = ext.halfH / factorZoom;
     var rectanguloFeature = rectanguloComoPoligonoLocal(cx, cy, halfW, halfH);
 
     var anillosManzana = [];
@@ -3803,37 +3812,21 @@
     // uno grande (manzana de cancha, 100m+) quedan igual de legibles, ninguno con líneas invisibles o
     // gigantes. Jerarquía a pedido explícito: calles finas y punteadas (son contexto, no protagonismo),
     // predios en línea media, el sitio en línea ancha — tres niveles, no dos.
-    var fino, medio, ancho, efectoFijo = '';
+    // vector-effect="non-scaling-stroke" se probó y se descartó (verificado en vivo con un test
+    // aparte): en Chrome NO resiste ni un transform CSS externo ni un cambio de viewBox, solo un
+    // <g transform> interno al propio SVG — no servía para nada acá. En cambio, como fino/medio/ancho/
+    // textoChico siguen abajo calibrados en mm REALES contra el anchoM de ESTA llamada puntual
+    // (mmPorUnidad), y "zoom" ahora es volver a llamar a toda la función con un anchoM distinto (ver
+    // nivelZoom arriba) en vez de escalar con CSS un dibujo ya armado, el resultado en pantalla sale
+    // siempre al mismo tamaño físico sin importar el nivel de zoom — sin necesitar ningún truco de SVG.
+    var fino, medio, ancho, textoChico, textoFlecha;
     if (anchoImpresionMM) {
-      // Grosor FIJO EN PÍXELES CSS (no en unidades del viewBox) + vector-effect="non-scaling-stroke"
-      // en cada elemento con trazo — eso hace que el navegador ignore TANTO el escalado del viewBox
-      // COMO cualquier transform CSS externo (el zoom +/- de la vista previa) al dibujar el trazo, así
-      // que el grosor queda clavado en esos px pase lo que pase. 1 CSS px = 1/96in, por eso
-      // pxPorMM = 96/25.4 — a la hora de imprimir, Chrome respeta la misma conversión px->mm, así que
-      // el resultado en papel sigue siendo 0.1/0.3/0.8mm reales (ver @page más arriba).
-      // Encontrado con un lote angosto y muy alargado: al no entrar entero en los 65vh de la vista
-      // previa, alejar con el zoom (pensado antes como escalado proporcional del dibujo) adelgazaba
-      // estas líneas hasta volverlas invisibles — "el zoom out debe dejar ver las líneas". Con esto,
-      // el grosor ya no depende del zoom en absoluto.
-      var pxPorMM = 96 / 25.4;
-      fino = (0.1 * pxPorMM).toFixed(3); medio = (0.3 * pxPorMM).toFixed(3); ancho = (0.8 * pxPorMM).toFixed(3);
-      efectoFijo = ' vector-effect="non-scaling-stroke"';
-    } else {
-      fino = anchoM * 0.0015; medio = anchoM * 0.003; ancho = anchoM * 0.006;
-    }
-    // Tamaño de letra: mismo criterio que el grosor de línea (pedido explícito: "siempre el mismo y
-    // legible, entre 1.5 y 2.5mm") — fijo en mm de papel para el croquis, en vez de depender del
-    // tamaño del contexto dibujado. vector-effect no existe para texto (solo afecta trazos), así que
-    // acá SÍ hace falta convertir a unidades del viewBox (mmPorUnidad) en vez de usar px directos —
-    // por eso el texto, a diferencia de las líneas de arriba, puede volver a angostarse si se aleja
-    // mucho con el zoom; con el ajuste de .zoom-plano-interior svg (ver CSS) ya no hace falta alejar
-    // tanto para que el plano entre completo, así en la práctica no llega a pasar.
-    var textoChico, textoFlecha;
-    if (anchoImpresionMM) {
-      var mmPorUnidadTexto = anchoImpresionMM / anchoM;
-      textoChico = 2 / mmPorUnidadTexto; // ~2mm, dentro del rango 1.5-2.5mm pedido
+      var mmPorUnidad = anchoImpresionMM / anchoM;
+      fino = 0.1 / mmPorUnidad; medio = 0.3 / mmPorUnidad; ancho = 0.8 / mmPorUnidad;
+      textoChico = 2 / mmPorUnidad; // ~2mm, dentro del rango 1.5-2.5mm pedido
       textoFlecha = textoChico * 1.25;
     } else {
+      fino = anchoM * 0.0015; medio = anchoM * 0.003; ancho = anchoM * 0.006;
       textoChico = anchoM * 0.016; textoFlecha = anchoM * 0.02;
     }
 
@@ -3842,17 +3835,17 @@
     // .zoom-plano-interior svg (ver CSS) sepa cuánto achicar el ancho también, no solo el alto.
     var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion" style="aspect-ratio:' + anchoM.toFixed(2) + '/' + altoM.toFixed(2) + '">';
     // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
-    svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"' + efectoFijo + '/>';
+    svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
     anillosManzana.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + medio + '"' + efectoFijo + '/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
     });
     anillosVecinos.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"' + efectoFijo + '/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
     });
     tramosVias.forEach(function (tramo) {
-      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"' + efectoFijo + '/>';
+      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"/>';
     });
-    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"' + efectoFijo + '/>';
+    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"/>';
 
     // Rótulo "SITIO" directo sobre el predio marcado — a pedido explícito, para que no haya dudas de
     // cuál es el lote del croquis (el relleno terracota ya lo distingue, pero un texto es inequívoco).
@@ -3877,12 +3870,10 @@
     });
 
     // Norte (arriba-derecha) y escala (abajo-izquierda) — convenciones mínimas de un plano de ubicación.
-    // vector-effect NO se hereda del <g> a sus hijos (no es una propiedad heredable en SVG) — hace
-    // falta repetirlo en cada <line>/<polygon> con trazo, no alcanza con ponerlo una vez arriba.
     var nx = anchoM - anchoM * 0.08, ny = altoM * 0.08;
     svg += '<g stroke="#5B5546" stroke-width="' + fino + '" fill="#5B5546">' +
-      '<line x1="' + nx + '" y1="' + (ny + textoFlecha) + '" x2="' + nx + '" y2="' + (ny - textoFlecha * 0.4) + '"' + efectoFijo + '/>' +
-      '<polygon points="' + nx + ',' + (ny - textoFlecha * 0.7) + ' ' + (nx - textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + ' ' + (nx + textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + '"' + efectoFijo + '/>' +
+      '<line x1="' + nx + '" y1="' + (ny + textoFlecha) + '" x2="' + nx + '" y2="' + (ny - textoFlecha * 0.4) + '"/>' +
+      '<polygon points="' + nx + ',' + (ny - textoFlecha * 0.7) + ' ' + (nx - textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + ' ' + (nx + textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + '"/>' +
       '<text x="' + nx + '" y="' + (ny + textoFlecha * 1.8) + '" font-size="' + textoChico + '" text-anchor="middle" stroke="none">N</text>' +
     '</g>';
     // La escala gráfica es convención de plano impreso (el informe PDF) — en la tarjetita mini sobre
@@ -3891,7 +3882,7 @@
     if (!sinEscala) {
       var escalaM = anchoM > 200 ? 50 : anchoM > 80 ? 20 : 10;
       var ex = anchoM * 0.06, ey = altoM - altoM * 0.06;
-      svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"' + efectoFijo + '/>' +
+      svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"/>' +
         '<text x="' + ex + '" y="' + (ey - textoChico * 0.4) + '" font-size="' + textoChico + '" fill="#5B5546">' + escalaM + ' m</text>';
     }
 
@@ -4059,28 +4050,44 @@
   // quedó mal, recién se notaba ya adentro del diálogo de impresión). Pedido explícito: "sería vital
   // un cuadro de visualización del documento antes de generar el PDF". La impresión real (imprimirCroquisActivo)
   // queda para un segundo clic, desde el botón de la barra de la vista previa.
-  // Zoom del plano en la vista previa — mismo criterio que el mapa principal y el modelo 3D (botones
-  // +/−, y ctrl+scroll/pellizco porque un scroll normal de dos dedos NO debe quedar atrapado haciendo
-  // zoom acá tampoco). Reescala .zoom-plano-interior con transform; .zoom-plano-scroll (overflow:auto)
-  // deja recorrerlo una vez agrandado más allá de lo que entra en pantalla.
-  function activarZoomPlano(contenedor) {
+  // Zoom del plano en la vista previa — mismo criterio de controles que el mapa principal y el modelo
+  // 3D (botones +/−, y ctrl+scroll/pellizco porque un scroll normal de dos dedos NO debe quedar
+  // atrapado haciendo zoom acá tampoco), pero el MECANISMO interno es distinto a propósito.
+  //
+  // Primero probé transform:scale() en CSS sobre el dibujo ya armado (más simple) — lo descarté
+  // porque escala TODO por igual, líneas y texto incluidos: alejar volvía ilegibles/invisibles las
+  // calles finas (0.1mm) en un lote angosto, justo lo que el usuario reportó ("el grosor de las
+  // líneas y el texto no quedan constantes... cuando me alejo se pierden las líneas"). Confirmé en
+  // vivo con un test aparte que ni vector-effect="non-scaling-stroke" libra de esto (Chrome lo
+  // resiste solo contra un <g transform> INTERNO al propio SVG, no contra un transform CSS externo
+  // ni contra un cambio de viewBox).
+  //
+  // Acá en cambio cada paso de zoom vuelve a llamar a construirPlanoUbicacionSVG con un nivelZoom
+  // distinto (nivel>1 = radio de contexto más chico/zoom in, nivel<1 = radio más grande/zoom out) y
+  // reemplaza el <svg> entero. Como fino/medio/ancho/textoChico ahí adentro se recalculan en mm REALES
+  // contra el anchoM de ESA llamada puntual, el resultado en pantalla sale SIEMPRE al mismo tamaño
+  // físico sin importar el nivel — y alejar de verdad trae más manzana/calles reales (re-recortadas
+  // de estado.featureManzana/vecinosFeatures/viasDibujo, ya en memoria, sin red de por medio), no el
+  // mismo dibujo encogido.
+  function activarZoomPlano(contenedor, estado, areaM2) {
     var wrap = contenedor.querySelector('.zoom-plano-wrap');
     if (!wrap) return;
     var interior = wrap.querySelector('.zoom-plano-interior');
-    var scroll = wrap.querySelector('.zoom-plano-scroll');
     var nivel = 1;
-    // Mínimo 0.6, no 1 — a pedido explícito ("alejarme un poco más"), para poder achicar la vista y
-    // ver el dibujo completo de una sola vez cuando no entra entero en pantalla a tamaño real (el
-    // CONTEXTO real que se dibuja ya creció con extentUbicacionCoherente; esto es aparte, el zoom de
-    // la vista previa en pantalla sobre ese dibujo ya hecho).
-    function aplicar() { interior.style.transform = 'scale(' + nivel + ')'; }
+    function aplicar() {
+      try {
+        interior.innerHTML = construirPlanoUbicacionSVG(estado, areaM2, false, 180, nivel);
+      } catch (e) { console.warn('activarZoomPlano: no se pudo re-generar el plano', e); }
+    }
     var btnOut = wrap.querySelector('.btn-zoom-out'), btnIn = wrap.querySelector('.btn-zoom-in');
-    if (btnOut) btnOut.addEventListener('click', function () { nivel = Math.max(0.6, nivel - 0.4); aplicar(); });
-    if (btnIn) btnIn.addEventListener('click', function () { nivel = Math.min(4, nivel + 0.4); aplicar(); });
-    scroll.addEventListener('wheel', function (e) {
+    // 0.35-4: de ~3x más contexto real a ~4x más detalle — más allá de 0.35 el recorte empieza a
+    // superar el radio que ya se cargó al elegir el predio y solo agregaría margen en blanco.
+    if (btnOut) btnOut.addEventListener('click', function () { nivel = Math.max(0.35, nivel - 0.3); aplicar(); });
+    if (btnIn) btnIn.addEventListener('click', function () { nivel = Math.min(4, nivel + 0.3); aplicar(); });
+    wrap.addEventListener('wheel', function (e) {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      nivel = Math.max(0.6, Math.min(4, nivel - e.deltaY * 0.01));
+      nivel = Math.max(0.35, Math.min(4, nivel - e.deltaY * 0.006));
       aplicar();
     }, { passive: false });
   }
@@ -4169,7 +4176,7 @@
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    activarZoomPlano(rep);
+    activarZoomPlano(rep, estado, areaM2);
     activarEdicionCroquis(rep);
 
     document.getElementById('btn-croquis-cerrar').addEventListener('click', function () {
