@@ -202,11 +202,12 @@
     font-size: 0.76rem; color: var(--ink-soft); background: var(--line-soft); border-radius: 10px;
     padding: 10px 12px; line-height: 1.45;
   }
-  #notas-profesional {
+  #notas-profesional, .input-croquis {
     width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.82rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
+  .label-croquis { font-size: 0.78rem; color: var(--ink-soft); display: block; margin: 10px 0 4px; }
 
   /* Informe PDF: oculto siempre en pantalla, visible SOLO al imprimir — y cuando se imprime, es lo
      ÚNICO visible. Ocultar el resto con `display:none` (no visibility+position:absolute, que probamos
@@ -268,6 +269,17 @@
   .reporte-pdf .notas-texto { font-size: 0.85rem; white-space: pre-wrap; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; }
   .reporte-pdf .uso-suelo { font-size: 0.85rem; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
   .reporte-pdf .uso-suelo strong { color: var(--ink-soft); font-weight: 600; }
+  /* Croquis de sitio (trámite bancario) — recuadro de datos + firma, formato A4 vertical. */
+  .reporte-pdf.croquis { max-width: 720px; margin: 0 auto; }
+  .reporte-pdf .datos-croquis {
+    width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 0.85rem;
+    border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden;
+  }
+  .reporte-pdf .datos-croquis td { padding: 9px 14px; border-bottom: 1px solid var(--line-soft); }
+  .reporte-pdf .datos-croquis tr:last-child td { border-bottom: none; }
+  .reporte-pdf .datos-croquis td.etiqueta { width: 38%; color: var(--ink-soft); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--paper-raised); }
+  .reporte-pdf .firma-bloque { margin-top: 48px; padding-top: 10px; border-top: 1px solid var(--ink); width: 280px; font-size: 0.82rem; }
+  .reporte-pdf .firma-bloque strong { display: block; font-size: 0.88rem; }
 
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -2194,6 +2206,12 @@
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
 
+    // Vía de frente, como primer borrador de "dirección" en el croquis de sitio — el usuario la puede
+    // afinar a mano en el formulario, esto es solo para no arrancar de un campo vacío.
+    var idxFrenteCroquis = estado.tipoLado.indexOf('frente');
+    var direccionSugerida = (idxFrenteCroquis !== -1 && estado.ladosInfo[idxFrenteCroquis].via && estado.ladosInfo[idxFrenteCroquis].via.nombre)
+      ? estado.ladosInfo[idxFrenteCroquis].via.nombre : '';
+
     panel.innerHTML =
       '<div class="result-head">' +
         '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
@@ -2223,6 +2241,18 @@
         '<button id="btn-pdf-cliente" class="btn btn-ghost" style="width:100%;margin-top:10px;">📄 Generar informe PDF</button>' +
         '<button id="btn-descargar-obj" class="btn btn-ghost" style="width:100%;margin-top:8px;">📦 Descargar modelo 3D (.obj)</button>' +
         '<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">Editable en ArchiCAD, Revit, SketchUp, 3ds Max — la masa, no los planos de IPRUS.</div>' +
+      '</div>' +
+      '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
+        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Croquis de sitio (trámite bancario)</div>' +
+        '<label class="label-croquis">Propietario (o copropietarios)</label>' +
+        '<input type="text" id="croquis-propietario" class="input-croquis" placeholder="Nombre completo">' +
+        '<label class="label-croquis">Cédula o RUC</label>' +
+        '<input type="text" id="croquis-cedula" class="input-croquis" placeholder="Ej. 0102030405">' +
+        '<label class="label-croquis">Dirección / sector</label>' +
+        '<input type="text" id="croquis-direccion" class="input-croquis" value="' + direccionSugerida.replace(/"/g, '&quot;') + '">' +
+        '<label class="label-croquis">Observaciones (opcional)</label>' +
+        '<textarea id="croquis-observaciones" class="input-croquis" rows="2" placeholder="Ej. predio sin construir"></textarea>' +
+        '<button id="btn-croquis-sitio" class="btn btn-ghost" style="width:100%;margin-top:10px;">📍 Generar croquis de sitio (A4)</button>' +
       '</div>';
 
     // activarModo3D ANTES de recomputarYRenderizar (que termina en dibujarVolumetria, donde se mide
@@ -2271,6 +2301,19 @@
     var btnObj = document.getElementById('btn-descargar-obj');
     if (btnObj) btnObj.addEventListener('click', function () {
       descargarModeloOBJ(estado);
+    });
+
+    var btnCroquis = document.getElementById('btn-croquis-sitio');
+    if (btnCroquis) btnCroquis.addEventListener('click', function () {
+      var propietario = (document.getElementById('croquis-propietario').value || '').trim();
+      var cedula = (document.getElementById('croquis-cedula').value || '').trim();
+      if (!propietario) { alert('Falta el nombre del propietario.'); return; }
+      generarCroquisSitio(estado, areaM2, {
+        propietario: propietario,
+        cedula: cedula,
+        direccion: (document.getElementById('croquis-direccion').value || '').trim(),
+        observaciones: (document.getElementById('croquis-observaciones').value || '').trim()
+      });
     });
   }
 
@@ -3747,6 +3790,67 @@
     } else {
       window.print();
     }
+  }
+
+  // Parroquia/sector a partir de la clave catastral de Cuenca — mismo diccionario y misma lógica de
+  // disección que ya usa TramaUrbana/motor-lamina.js para el membrete de láminas IPRUS (dígitos 5-6 de
+  // la clave = código de parroquia urbana). Portado acá tal cual para que el croquis de sitio no
+  // dependa de que el usuario escriba la parroquia a mano — es un dato público, se puede sacar solo.
+  var DICC_PARROQUIAS_CUENCA = {
+    '01': 'EL SAGRARIO', '02': 'SAN BLAS', '03': 'GIL RAMÍREZ DÁVALOS',
+    '04': 'HUAYNA CÁPAC', '05': 'BELLAVISTA', '06': 'EL VECINO',
+    '07': 'SAN SEBASTIÁN', '08': 'TOTORACOCHA', '09': 'MONAY',
+    '10': 'YANUNCAY', '11': 'SUCRE', '12': 'CAÑARIBAMBA',
+    '13': 'EL BATÁN', '14': 'MACHÁNGARA', '15': 'HERMANO MIGUEL'
+  };
+  function parroquiaYSectorDeClave(clave) {
+    if (!clave || clave.length < 8) return { parroquia: 'S/N', sector: 'S/N' };
+    var codParroquia = clave.substring(4, 6), codSector = clave.substring(6, 8);
+    return {
+      parroquia: DICC_PARROQUIAS_CUENCA[codParroquia] || ('PARROQUIA ' + codParroquia),
+      sector: 'ZONA ' + codSector
+    };
+  }
+
+  // Croquis de sitio para trámite bancario — mucho más simple que generarInformePDF: sin normativa, sin
+  // 3D, solo la ubicación (esta vez CON escala y norte — acá sí son convención esperada, a diferencia
+  // de la tarjetita mini sobre el 3D) y el recuadro de datos que pide un banco. Reusa el mismo
+  // contenedor #reporte-pdf (y su CSS @media print ya existente) en vez de armar un pipeline de
+  // impresión aparte.
+  function generarCroquisSitio(estado, areaM2, datos) {
+    var svgUbicacion = '';
+    try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
+    var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+    var pys = parroquiaYSectorDeClave(estado.clave);
+    function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+    document.getElementById('reporte-pdf').className = 'reporte-pdf croquis';
+    document.getElementById('reporte-pdf').innerHTML =
+      '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
+      '<h1>Croquis de ubicación</h1>' +
+      '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
+      (svgUbicacion || '<div class="aviso-legal">⚠️ No se pudo generar el dibujo de ubicación para este predio.</div>') +
+      '<table class="datos-croquis"><tbody>' +
+        '<tr><td class="etiqueta">Propietario</td><td>' + escaparCroquis(datos.propietario) + '</td></tr>' +
+        '<tr><td class="etiqueta">Cédula / RUC</td><td>' + (escaparCroquis(datos.cedula) || '—') + '</td></tr>' +
+        '<tr><td class="etiqueta">Dirección / sector</td><td>' + (escaparCroquis(datos.direccion) || '—') + '</td></tr>' +
+        '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
+        '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
+        '<tr><td class="etiqueta">Área del terreno</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
+        (datos.observaciones ? '<tr><td class="etiqueta">Observaciones</td><td>' + escaparCroquis(datos.observaciones) + '</td></tr>' : '') +
+      '</tbody></table>' +
+      '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
+      '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>';
+
+    var tituloOriginal = document.title;
+    document.title = 'Croquis de ubicacion ' + estado.clave;
+    function restaurarTitulo() {
+      document.title = tituloOriginal;
+      document.getElementById('reporte-pdf').className = 'reporte-pdf';
+      window.removeEventListener('afterprint', restaurarTitulo);
+    }
+    window.addEventListener('afterprint', restaurarTitulo);
+    window.print();
   }
 
   // ---------- formulario de acceso anticipado ----------
