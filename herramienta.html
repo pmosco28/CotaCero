@@ -270,12 +270,12 @@
        navegadores ni impresoras), lo que vuelve inútil cualquier grosor de línea fijo en mm (ver
        construirPlanoUbicacionSVG más abajo: ahí se asume que el plano del croquis siempre ocupa
        exactamente 180mm de ancho — 210mm de A4 menos 15mm de margen por lado). */
-    /* 12mm, no 15mm — pedido explícito de recuperar alto para que el croquis entre en una sola hoja.
+    /* 8mm — pedido explícito: "los márgenes pueden ser más pequeños, menores a 10mm y mayores a 6mm".
        OJO: esto es el margen que ESTA página le pide al navegador; el encabezado/pie que Chrome agrega
        solo (fecha/hora, título, URL, número de página) es una opción APARTE del diálogo de impresión
        ("Más opciones" → destildar "Encabezados y pies de página") — ninguna regla de CSS de esta
        página puede apagar eso, es decisión del navegador, no nuestra. */
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4; margin: 8mm; }
   }
   /* Vista previa EN LA MISMA PÁGINA (no un visor/modal aparte — probamos eso primero y el usuario lo
      pidió explícitamente así) antes de imprimir: generarCroquisSitio arma el documento y lo muestra
@@ -379,11 +379,11 @@
      no un tinte — y como el resto del CSS de .reporte-pdf ya lee estas variables (el fondo de la
      página, el de las celdas de etiqueta de la tabla, etc.), redeclararlas acá alcanza para que todo
      lo demás siga igual sin tocar cada regla una por una. */
-  /* max-width en mm, no px — ancho FÍSICO real del contenido impreso (210mm de A4 menos 12mm de
+  /* max-width en mm, no px — ancho FÍSICO real del contenido impreso (210mm de A4 menos 8mm de
      margen por lado, ver el @page de arriba), así la vista previa en pantalla mide EXACTAMENTE lo
      mismo que el papel real y los grosores de línea fijos en mm (construirPlanoUbicacionSVG) salen
      correctos en los dos lados sin depender de qué tan grande esté la ventana del navegador. */
-  .reporte-pdf.croquis { max-width: 186mm; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
+  .reporte-pdf.croquis { max-width: 194mm; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
   /* Aviso legal del croquis SIN la caja/fondo que usa en el resto de la herramienta (pedido explícito:
      "tiene mucha relevancia visual... la letra directo en el fondo blanco y de color gris") — texto
      chico, gris, sin recuadro ni relleno. De paso recupera algo del alto que la caja ocupaba. */
@@ -3589,7 +3589,15 @@
   // el resto de la herramienta, no un número inventado aparte. Si el lote en sí es más grande que el
   // radio base (predios tipo cancha/complejo), igual crece lo justo para no dejarlo con una esquina
   // afuera del plano — mismo criterio que ya usa el disco de contexto del modelo 3D.
-  function extentUbicacionCoherente(estado, areaM2) {
+  // relacionMinAnchoAlto (opcional): fuerza que el rectángulo de contexto nunca quede MÁS alto que
+  // ancho/relacionMinAnchoAlto — recortando el contexto VERTICAL que se muestra, no estirando ni
+  // deformando nada. El croquis la usa (ver ANCHO_IMPRESION_CROQUIS_MM más abajo) para poder imprimir
+  // el plano SIEMPRE a todo el ancho de la hoja (pedido explícito: "el dibujo debe estar a todo lo
+  // ancho, no en dos tercios") sin dejar de caber en una sola página — antes, para lograr lo segundo,
+  // se angostaba el plano entero en vez de recortar el contexto, y el dibujo quedaba chico y
+  // descentrado. Los demás usos de esta función (tarjetita de ubicación, inset del informe PDF) no
+  // pasan este parámetro y siguen sin el recorte.
+  function extentUbicacionCoherente(estado, areaM2, relacionMinAnchoAlto) {
     // Continuo en vez de dos escalones fijos (50/100m) — pedido explícito: "el zoom debe permitirme
     // alejarme un poco más, hasta los 100m, en función del tamaño del lote". Crece con la raíz del
     // área (así un lote 4x más grande no exige 4x más contexto, que sería desproporcionado) y tapa en
@@ -3604,32 +3612,22 @@
     // halfW/halfH por separado (no un solo radio) — un lote angosto y profundo no necesita el mismo
     // margen de sobra en las dos direcciones; con un radio único (circular, versión anterior) un lote
     // así quedaba con mucho aire de más a los costados solo para cubrir el largo.
-    return { halfW: Math.max(base, maxDx + 10), halfH: Math.max(base, maxDy + 10) };
+    var halfW = Math.max(base, maxDx + 10), halfH = Math.max(base, maxDy + 10);
+    if (relacionMinAnchoAlto) halfH = Math.min(halfH, halfW / relacionMinAnchoAlto);
+    return { halfW: halfW, halfH: halfH };
   }
-  // Ancho físico (mm) al que el plano del croquis debe imprimirse para que TODO el documento quepa en
-  // UNA sola hoja A4 — pedido explícito: "que la info se concentre solo en una página, no tenemos
-  // tanta información". El ancho de página disponible es 186mm (210mm - 12mm de margen por lado, ver
-  // @page), pero usarlo siempre a full para un lote angosto y muy alargado da un plano altísimo que
-  // empuja la tabla de datos/aviso legal/firma a una segunda hoja — confirmado con un caso real donde
-  // todavía se pasaba a una segunda hoja (solo la firma/QR, pero igual una hoja de más). ALTO_MAX_MM es
-  // un presupuesto conservador de cuánto alto le puede tocar al plano dejando lugar al resto
-  // (membrete+título+tabla+aviso+firma) — si la proporción del lote pide más alto que eso, se achica el
-  // ANCHO (manteniendo la proporción real) hasta que el alto entre en el presupuesto. Ojo: esto NO
-  // controla el encabezado/pie que el propio navegador agrega al imprimir (fecha, título, URL, número
-  // de página) — eso se apaga aparte, en el diálogo de impresión ("Más opciones" → destildar
-  // "Encabezados y pies de página"), y también se come espacio real de la hoja.
-  // nivelZoom se propaga igual que a construirPlanoUbicacionSVG: la relación halfW/halfH no cambia con
-  // el zoom (ambos se dividen por el mismo factor), así que este ancho sigue siendo válido en cualquier
-  // nivel — no hace falta recalcularlo en cada paso de zoom, solo una vez.
-  function anchoImpresionCroquisMM(estado, areaM2) {
-    // ALTO_MAX_MM 90, bajado de 115 — el primer presupuesto no alcanzó en un caso real (se pasaba a una
-    // segunda hoja solo con la firma/QR). Con el aviso legal ya sin caja (ver CSS, recupera algo de
-    // alto) y un presupuesto más chico, el plano queda más compacto pero el documento entero entra.
-    var ANCHO_MAX_MM = 186, ALTO_MAX_MM = 90;
-    var ext = extentUbicacionCoherente(estado, areaM2);
-    var proporcion = ext.halfW / ext.halfH; // ~ ancho:alto real del plano, el margen no la cambia casi nada
-    return Math.min(ANCHO_MAX_MM, ALTO_MAX_MM * proporcion);
-  }
+  // Ancho físico (mm) al que el plano del croquis se imprime — SIEMPRE el ancho completo de la hoja
+  // (pedido explícito), nunca más angosto. Lo que antes achicaba el ancho para lotes altos/angostos
+  // ahora recorta el CONTEXTO vertical en su lugar (ver relacionMinAnchoAlto arriba), así el documento
+  // entero sigue entrando en una sola hoja A4 sin que el plano pierda protagonismo visual.
+  // ALTO_MAX_PLANO_MM es el presupuesto de alto que le queda al plano dejando lugar al resto del
+  // documento (membrete+título+tabla+aviso+firma) — de ahí sale la proporción mínima ancho:alto que se
+  // le exige al contexto. Ojo: esto NO controla el encabezado/pie que el propio navegador agrega al
+  // imprimir (fecha, título, URL, número de página) — eso se apaga aparte, en el diálogo de impresión
+  // ("Más opciones" → destildar "Encabezados y pies de página").
+  var ANCHO_IMPRESION_CROQUIS_MM = 194; // 210mm A4 - 8mm de margen por lado, ver @page
+  var ALTO_MAX_PLANO_MM = 90;
+  var RELACION_MIN_ANCHO_ALTO_CROQUIS = ANCHO_IMPRESION_CROQUIS_MM / ALTO_MAX_PLANO_MM;
   // Nombre "real" de una vía — filtra los placeholders que a veces trae OSM literalmente como texto
   // ("Sin nombre", "S/N") en vez de dejar el campo vacío. Mostrar eso tal cual en un croquis que va a
   // un banco no sirve — pedido explícito del usuario tras un caso real con dos vías así.
@@ -3839,7 +3837,7 @@
   // contexto real (más manzana/calles), no el mismo dibujo encogido con líneas cada vez más finas.
   function construirPlanoUbicacionSVG(estado, areaM2, sinEscala, anchoImpresionMM, nivelZoom) {
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
-    var ext = extentUbicacionCoherente(estado, areaM2);
+    var ext = extentUbicacionCoherente(estado, areaM2, anchoImpresionMM ? RELACION_MIN_ANCHO_ALTO_CROQUIS : undefined);
     var factorZoom = nivelZoom || 1;
     var halfW = ext.halfW / factorZoom, halfH = ext.halfH / factorZoom;
     var rectanguloFeature = rectanguloComoPoligonoLocal(cx, cy, halfW, halfH);
@@ -4180,9 +4178,7 @@
     if (!wrap) return;
     var interior = wrap.querySelector('.zoom-plano-interior');
     var nivel = 1;
-    // Calculado UNA sola vez: la proporción halfW/halfH no cambia con el zoom (nivelZoom divide los
-    // dos por el mismo factor), así que este ancho sigue siendo válido en cualquier nivel.
-    var anchoImpresionMM = anchoImpresionCroquisMM(estado, areaM2);
+    var anchoImpresionMM = ANCHO_IMPRESION_CROQUIS_MM;
     function aplicar() {
       try {
         interior.innerHTML = construirPlanoUbicacionSVG(estado, areaM2, false, anchoImpresionMM, nivel);
@@ -4353,11 +4349,11 @@
   }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
-    // Ancho físico del plano en mm — normalmente 180 (ancho completo de la hoja, ver @page), pero
-    // anchoImpresionCroquisMM lo achica si el lote es angosto/alargado, para que el documento entero
-    // quepa en UNA sola hoja A4 (pedido explícito) en vez de empujar la tabla/firma a una segunda.
-    // Este mismo valor activa el grosor de línea fijo en mm dentro de construirPlanoUbicacionSVG.
-    var anchoImpresionMM = anchoImpresionCroquisMM(estado, areaM2);
+    // Ancho físico del plano en mm — SIEMPRE el ancho completo de la hoja (pedido explícito: "el
+    // dibujo debe estar a todo lo ancho"). Este mismo valor activa el grosor de línea fijo en mm
+    // dentro de construirPlanoUbicacionSVG; lo que antes achicaba el ancho para lotes altos/angostos
+    // ahora recorta el contexto vertical en su lugar (ver RELACION_MIN_ANCHO_ALTO_CROQUIS).
+    var anchoImpresionMM = ANCHO_IMPRESION_CROQUIS_MM;
     try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false, anchoImpresionMM); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
