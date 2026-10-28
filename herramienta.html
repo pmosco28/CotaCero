@@ -2221,6 +2221,8 @@
         '<label style="font-size:0.78rem;color:var(--ink-soft);display:block;margin:10px 0 4px;">Particularidades encontradas (opcional)</label>' +
         '<textarea id="notas-profesional" rows="3" placeholder="Ej. desnivel importante hacia el fondo, árbol patrimonial en el retiro frontal, acceso vehicular restringido…"></textarea>' +
         '<button id="btn-pdf-cliente" class="btn btn-ghost" style="width:100%;margin-top:10px;">📄 Generar informe PDF</button>' +
+        '<button id="btn-descargar-obj" class="btn btn-ghost" style="width:100%;margin-top:8px;">📦 Descargar modelo 3D (.obj)</button>' +
+        '<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">Editable en ArchiCAD, Revit, SketchUp, 3ds Max — la masa, no los planos de IPRUS.</div>' +
       '</div>';
 
     // activarModo3D ANTES de recomputarYRenderizar (que termina en dibujarVolumetria, donde se mide
@@ -2264,6 +2266,11 @@
     if (btnPdf) btnPdf.addEventListener('click', function () {
       var notasEl = document.getElementById('notas-profesional');
       generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasEl ? notasEl.value.trim() : '');
+    });
+
+    var btnObj = document.getElementById('btn-descargar-obj');
+    if (btnObj) btnObj.addEventListener('click', function () {
+      descargarModeloOBJ(estado);
     });
   }
 
@@ -3312,7 +3319,7 @@
 
     renderer.render(scene, camera);
 
-    ultimoRender3D = { renderer: renderer, scene: scene, camera: camera };
+    ultimoRender3D = { renderer: renderer, scene: scene, camera: camera, grupoVolumen: grupoVolumen };
   }
 
   // Captura un cuadro de la escena 3D para el informe PDF. VERSIÓN ANTERIOR (no repetir): creaba un
@@ -3391,6 +3398,68 @@
   function capturarImagen3D() {
     if (!ultimoRender3D) return '';
     return capturarViaRenderTarget() || capturarViaCanvasDirecto();
+  }
+
+  // Exportador OBJ propio, sin librería externa — three.js r128 no trae THREE.OBJExporter en el
+  // build de cdnjs que ya carga la página, y OBJ es un formato de texto simple (v/vn/f), así que no
+  // hace falta sumar una dependencia nueva para esto. Solo exporta MESHES (la masa real) — las líneas
+  // de piso/retiro (THREE.Line, agregadas al mismo grupoVolumen) se saltan a propósito, un .obj con
+  // líneas sueltas sin cara no aporta nada en ArchiCAD/Revit/SketchUp y solo ensucia el archivo.
+  function construirTextoOBJ(grupo) {
+    var lineas = ['# CotaCero — volumetría de referencia', '# Masa aproximada, no reemplaza un levantamiento ni un modelo BIM oficial', ''];
+    var offsetV = 1;
+    var v = new THREE.Vector3(), n = new THREE.Vector3();
+    var normalMatrix = new THREE.Matrix3();
+    grupo.updateWorldMatrix(true, true);
+    grupo.traverse(function (obj) {
+      if (!obj.isMesh || !obj.geometry || !obj.geometry.attributes || !obj.geometry.attributes.position) return;
+      var geo = obj.geometry;
+      var pos = geo.attributes.position;
+      var nor = geo.attributes.normal;
+      var nVert = pos.count;
+      normalMatrix.getNormalMatrix(obj.matrixWorld);
+      lineas.push('o ' + (obj.name || 'volumen_' + offsetV));
+      for (var i = 0; i < nVert; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld);
+        lineas.push('v ' + v.x.toFixed(4) + ' ' + v.y.toFixed(4) + ' ' + v.z.toFixed(4));
+        if (nor) {
+          n.fromBufferAttribute(nor, i).applyMatrix3(normalMatrix).normalize();
+          lineas.push('vn ' + n.x.toFixed(4) + ' ' + n.y.toFixed(4) + ' ' + n.z.toFixed(4));
+        }
+      }
+      var idx = geo.index;
+      function cara(a, b, c) {
+        a += offsetV; b += offsetV; c += offsetV;
+        lineas.push(nor ? ('f ' + a + '//' + a + ' ' + b + '//' + b + ' ' + c + '//' + c) : ('f ' + a + ' ' + b + ' ' + c));
+      }
+      if (idx) {
+        for (var f = 0; f < idx.count; f += 3) cara(idx.getX(f), idx.getX(f + 1), idx.getX(f + 2));
+      } else {
+        for (var f = 0; f < nVert; f += 3) cara(f, f + 1, f + 2);
+      }
+      offsetV += nVert;
+    });
+    return lineas.join('\n');
+  }
+  function descargarTexto(nombreArchivo, contenido, tipoMime) {
+    var blob = new Blob([contenido], { type: tipoMime || 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  function descargarModeloOBJ(estado) {
+    if (!ultimoRender3D || !ultimoRender3D.grupoVolumen) return;
+    try {
+      var texto = construirTextoOBJ(ultimoRender3D.grupoVolumen);
+      descargarTexto('cotacero-' + (estado.clave || 'volumetria') + '.obj', texto, 'text/plain');
+    } catch (e) {
+      console.error('descargarModeloOBJ: falló la exportación', e);
+      alert('No se pudo generar el archivo .obj. Probá de nuevo en un momento.');
+    }
   }
 
   // Plano de ubicación para el informe: dibujo VECTORIAL (SVG), no una foto. Una captura del mapa real
