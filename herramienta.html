@@ -2341,15 +2341,20 @@
       sliderPisos.addEventListener('input', onSliderPisosInput);
     }
 
+    // Mismo código de acceso fijo que el croquis (pedido explícito: "para todos los productos") — la
+    // volumetría en sí sigue gratis e instantánea (el visor 3D no pide nada), el candado es solo sobre
+    // los DESCARGABLES, que siempre fue la idea original de monetizar este producto gratuito.
     var btnPdf = document.getElementById('btn-pdf-cliente');
-    if (btnPdf) btnPdf.addEventListener('click', function () {
-      var notasEl = document.getElementById('notas-profesional');
-      generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasEl ? notasEl.value.trim() : '');
+    if (btnPdf) btnPdf.addEventListener('click', function (ev) {
+      pedirCodigoAcceso(ev.currentTarget, function () {
+        var notasEl = document.getElementById('notas-profesional');
+        generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasEl ? notasEl.value.trim() : '');
+      });
     });
 
     var btnObj = document.getElementById('btn-descargar-obj');
-    if (btnObj) btnObj.addEventListener('click', function () {
-      descargarModeloOBJ(estado);
+    if (btnObj) btnObj.addEventListener('click', function (ev) {
+      pedirCodigoAcceso(ev.currentTarget, function () { descargarModeloOBJ(estado); });
     });
 
     // estadoSeleccionado/areaM2Seleccionado (declaradas junto al catálogo de productos, al final del
@@ -4240,18 +4245,33 @@
       });
     });
   }
-  // Código corto para la descarga (pedido explícito: "que las personas con el código sí puedan abrir
-  // descargar el producto") — sin ambigüedades visuales (nada de 0/O/1/I/L) para que se pueda leer o
-  // dictar sin confusión. IMPORTANTE: esto es un candado del lado del navegador, no una entrega real a
-  // otro dispositivo — no hay backend conectado todavía (mismo tema pendiente que el formulario de
-  // acceso anticipado). El código solo sirve para desbloquear la descarga EN ESTA MISMA pestaña/sesión
-  // — sirve para no regalar el PDF con solo abrir la página, pero no para que un cliente lo canjee
-  // después desde su propio celular sin que el arquitecto se lo dicte primero.
-  function generarCodigoAcceso() {
-    var alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    var cod = '';
-    for (var i = 0; i < 6; i++) cod += alfabeto[Math.floor(Math.random() * alfabeto.length)];
-    return cod.slice(0, 3) + '-' + cod.slice(3);
+  // Código único y fijo (ya no uno random por documento) — pedido explícito: "solo generemos un
+  // código 12345S, para todos los productos, yo les envío el código para que puedan descargar". El
+  // arquitecto lo tiene memorizado y se lo pasa él mismo al cliente (WhatsApp, de palabra, etc.) una
+  // vez que arreglaron el pago — no hay backend conectado todavía (mismo tema pendiente que el
+  // formulario de acceso anticipado), así que esto sigue siendo un candado simple del lado del
+  // navegador, no una entrega real a otro dispositivo.
+  var CODIGO_ACCESO = '12345S';
+  // Reemplaza `boton` por un campo de código + confirmar, en el lugar — mismo patrón en los tres
+  // puntos de descarga de la herramienta (croquis, informe PDF, modelo OBJ) para que escriban el
+  // candado una sola vez en vez de reinventarlo en cada botón. Al acertar, llama `alDesbloquear` y no
+  // vuelve a pedir nada (la descarga sigue derecho).
+  function pedirCodigoAcceso(boton, alDesbloquear) {
+    var wrap = document.createElement('span');
+    wrap.className = 'codigo-acceso-wrap';
+    wrap.innerHTML =
+      '<input type="text" class="codigo-input" placeholder="Código de acceso" maxlength="10">' +
+      '<button type="button" class="btn">Confirmar</button>' +
+      '<span class="codigo-msg"></span>';
+    boton.replaceWith(wrap);
+    var input = wrap.querySelector('.codigo-input'), btnConfirmar = wrap.querySelector('.btn'), msg = wrap.querySelector('.codigo-msg');
+    function intentar() {
+      if ((input.value || '').trim().toUpperCase() === CODIGO_ACCESO) { alDesbloquear(); }
+      else { msg.textContent = 'Código incorrecto.'; input.select(); }
+    }
+    btnConfirmar.addEventListener('click', intentar);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); intentar(); } });
+    input.focus();
   }
   // Oculta la vista previa del croquis sin tocar el resto de la página — la usan tanto el botón
   // "Cerrar" de la vista previa como aplicarProductoActivo() al cambiar a otro producto de la barra.
@@ -4318,18 +4338,17 @@
       '</div>';
 
     // Pasarela de pago TODAVÍA NO conectada (a pedido explícito: "no conectes aún la pasarela de
-    // pago") — en su lugar, un código de acceso corto (ver generarCodigoAcceso) hace de candado
-    // simple: recién con el código correcto aparece el botón real de imprimir/descargar.
-    var codigoAcceso = generarCodigoAcceso();
+    // pago") — en su lugar, el código de acceso fijo (ver CODIGO_ACCESO) hace de candado simple:
+    // recién con el código correcto se desbloquea la descarga real.
     var rep = document.getElementById('reporte-pdf');
     rep.className = 'reporte-pdf croquis preview-activo';
     rep.innerHTML =
       '<div class="preview-toolbar">' +
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
-        '<div class="codigo-acceso-wrap" id="codigoAccesoWrap">' +
-          '<button id="btn-croquis-generar-codigo" class="btn" type="button">🔑 Generar código de acceso</button>' +
+        '<span class="codigo-acceso-wrap">' +
+          '<button id="btn-croquis-descargar" class="btn" type="button">🔒 Ingresa el código para descargar</button>' +
           '<span class="codigo-msg" id="codigoMsgValidacion"></span>' +
-        '</div>' +
+        '</span>' +
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4338,9 +4357,8 @@
 
     document.getElementById('btn-croquis-cerrar').addEventListener('click', cerrarPreviewCroquis);
 
-    var wrapCodigo = document.getElementById('codigoAccesoWrap');
-    document.getElementById('btn-croquis-generar-codigo').addEventListener('click', function () {
-      // Correo obligatorio antes de generar el código (pedido explícito: "para enviar el documento
+    document.getElementById('btn-croquis-descargar').addEventListener('click', function (ev) {
+      // Correo obligatorio antes de pedir el código (pedido explícito: "para enviar el documento
       // deberían también agregar el correo") — se lee directo de la celda (no de datosCroquisActual,
       // que solo se actualiza al confirmar un doble clic — si el usuario nunca llegó a hacer blur en
       // esa celda, datosCroquisActual todavía no lo tendría).
@@ -4348,33 +4366,13 @@
       var correoVal = celdaCorreo ? celdaCorreo.textContent.trim() : '';
       var msgValidacion = document.getElementById('codigoMsgValidacion');
       if (!celdaCorreo || celdaCorreo.classList.contains('vacio') || !/^\S+@\S+\.\S+$/.test(correoVal)) {
-        // El botón se queda (no se reemplaza por el mensaje) para poder reintentar después de
-        // completar el correo — reemplazarlo entero fue un bug real: dejaba sin forma de volver a
-        // intentar sin cerrar y reabrir toda la vista previa.
-        if (msgValidacion) msgValidacion.textContent = '✉️ Completá un correo válido en la tabla de arriba antes de generar el código.';
+        if (msgValidacion) msgValidacion.textContent = '✉️ Completá un correo válido en la tabla de arriba antes de descargar.';
         if (celdaCorreo) celdaCorreo.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
       if (msgValidacion) msgValidacion.textContent = '';
       datosCroquisActual.correo = correoVal;
-      wrapCodigo.innerHTML =
-        '<span class="codigo-valor">Código: <strong>' + codigoAcceso + '</strong></span>' +
-        '<input type="text" id="codigo-input" class="codigo-input" placeholder="Ingresa el código" maxlength="7">' +
-        '<button id="btn-codigo-confirmar" class="btn" type="button">Descargar</button>' +
-        '<span class="codigo-msg" id="codigoMsg"></span>';
-      var inputCodigo = document.getElementById('codigo-input');
-      var msg = document.getElementById('codigoMsg');
-      function intentar() {
-        if ((inputCodigo.value || '').trim().toUpperCase() === codigoAcceso) {
-          imprimirCroquisActivo(estado);
-        } else {
-          msg.textContent = 'Código incorrecto.';
-          inputCodigo.select();
-        }
-      }
-      document.getElementById('btn-codigo-confirmar').addEventListener('click', intentar);
-      inputCodigo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); intentar(); } });
-      inputCodigo.focus();
+      pedirCodigoAcceso(ev.currentTarget, function () { imprimirCroquisActivo(estado); });
     });
   }
 
