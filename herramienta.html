@@ -270,7 +270,12 @@
        navegadores ni impresoras), lo que vuelve inútil cualquier grosor de línea fijo en mm (ver
        construirPlanoUbicacionSVG más abajo: ahí se asume que el plano del croquis siempre ocupa
        exactamente 180mm de ancho — 210mm de A4 menos 15mm de margen por lado). */
-    @page { size: A4; margin: 15mm; }
+    /* 12mm, no 15mm — pedido explícito de recuperar alto para que el croquis entre en una sola hoja.
+       OJO: esto es el margen que ESTA página le pide al navegador; el encabezado/pie que Chrome agrega
+       solo (fecha/hora, título, URL, número de página) es una opción APARTE del diálogo de impresión
+       ("Más opciones" → destildar "Encabezados y pies de página") — ninguna regla de CSS de esta
+       página puede apagar eso, es decisión del navegador, no nuestra. */
+    @page { size: A4; margin: 12mm; }
   }
   /* Vista previa EN LA MISMA PÁGINA (no un visor/modal aparte — probamos eso primero y el usuario lo
      pidió explícitamente así) antes de imprimir: generarCroquisSitio arma el documento y lo muestra
@@ -374,11 +379,17 @@
      no un tinte — y como el resto del CSS de .reporte-pdf ya lee estas variables (el fondo de la
      página, el de las celdas de etiqueta de la tabla, etc.), redeclararlas acá alcanza para que todo
      lo demás siga igual sin tocar cada regla una por una. */
-  /* max-width en mm, no px — ancho FÍSICO real del contenido impreso (210mm de A4 menos 15mm de
+  /* max-width en mm, no px — ancho FÍSICO real del contenido impreso (210mm de A4 menos 12mm de
      margen por lado, ver el @page de arriba), así la vista previa en pantalla mide EXACTAMENTE lo
      mismo que el papel real y los grosores de línea fijos en mm (construirPlanoUbicacionSVG) salen
      correctos en los dos lados sin depender de qué tan grande esté la ventana del navegador. */
-  .reporte-pdf.croquis { max-width: 180mm; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
+  .reporte-pdf.croquis { max-width: 186mm; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
+  /* Aviso legal del croquis SIN la caja/fondo que usa en el resto de la herramienta (pedido explícito:
+     "tiene mucha relevancia visual... la letra directo en el fondo blanco y de color gris") — texto
+     chico, gris, sin recuadro ni relleno. De paso recupera algo del alto que la caja ocupaba. */
+  .reporte-pdf.croquis .aviso-legal {
+    background: none; border-radius: 0; padding: 0; font-size: 0.68rem; color: var(--ink-soft);
+  }
   /* Sin tarjeta detrás del plano — a pedido explícito, "que las líneas queden pegadas sobre el
      espacio del papel sin ningún color por detrás". El recuadro punteado que marca el límite del
      recorte ya está DENTRO del SVG (ver construirPlanoUbicacionSVG); esto solo saca el fondo/borde/
@@ -3597,20 +3608,24 @@
   }
   // Ancho físico (mm) al que el plano del croquis debe imprimirse para que TODO el documento quepa en
   // UNA sola hoja A4 — pedido explícito: "que la info se concentre solo en una página, no tenemos
-  // tanta información". El ancho de página disponible es 180mm (210mm - 15mm de margen por lado, ver
+  // tanta información". El ancho de página disponible es 186mm (210mm - 12mm de margen por lado, ver
   // @page), pero usarlo siempre a full para un lote angosto y muy alargado da un plano altísimo que
-  // empuja la tabla de datos/aviso legal/firma a una segunda hoja. ALTO_MAX_MM es un presupuesto
-  // conservador de cuánto alto le puede tocar al plano dejando lugar al resto (membrete+título+tabla+
-  // aviso+firma miden ~130-140mm en total) — si la proporción del lote pide más alto que eso, se achica
-  // el ANCHO (manteniendo la proporción real) hasta que el alto entre en el presupuesto.
+  // empuja la tabla de datos/aviso legal/firma a una segunda hoja — confirmado con un caso real donde
+  // todavía se pasaba a una segunda hoja (solo la firma/QR, pero igual una hoja de más). ALTO_MAX_MM es
+  // un presupuesto conservador de cuánto alto le puede tocar al plano dejando lugar al resto
+  // (membrete+título+tabla+aviso+firma) — si la proporción del lote pide más alto que eso, se achica el
+  // ANCHO (manteniendo la proporción real) hasta que el alto entre en el presupuesto. Ojo: esto NO
+  // controla el encabezado/pie que el propio navegador agrega al imprimir (fecha, título, URL, número
+  // de página) — eso se apaga aparte, en el diálogo de impresión ("Más opciones" → destildar
+  // "Encabezados y pies de página"), y también se come espacio real de la hoja.
   // nivelZoom se propaga igual que a construirPlanoUbicacionSVG: la relación halfW/halfH no cambia con
   // el zoom (ambos se dividen por el mismo factor), así que este ancho sigue siendo válido en cualquier
   // nivel — no hace falta recalcularlo en cada paso de zoom, solo una vez.
   function anchoImpresionCroquisMM(estado, areaM2) {
-    // ALTO_MAX_MM 115, no 125 — margen de seguridad: el resto del documento (membrete + título + clave
-    // + tabla de 7 filas + aviso legal + firma/QR) ya suma ~145mm por su cuenta en una estimación
-    // conservadora, y una dirección larga que se parte en 2 líneas puede sumar otros ~8mm más.
-    var ANCHO_MAX_MM = 180, ALTO_MAX_MM = 115;
+    // ALTO_MAX_MM 90, bajado de 115 — el primer presupuesto no alcanzó en un caso real (se pasaba a una
+    // segunda hoja solo con la firma/QR). Con el aviso legal ya sin caja (ver CSS, recupera algo de
+    // alto) y un presupuesto más chico, el plano queda más compacto pero el documento entero entra.
+    var ANCHO_MAX_MM = 186, ALTO_MAX_MM = 90;
     var ext = extentUbicacionCoherente(estado, areaM2);
     var proporcion = ext.halfW / ext.halfH; // ~ ancho:alto real del plano, el margen no la cambia casi nada
     return Math.min(ANCHO_MAX_MM, ALTO_MAX_MM * proporcion);
