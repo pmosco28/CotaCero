@@ -264,7 +264,11 @@
   }
   .zoom-plano-controles button:hover { background: var(--line-soft); }
   .zoom-plano-scroll { overflow: auto; max-height: 65vh; border: 1px dashed transparent; }
-  .zoom-plano-interior { transform-origin: top left; }
+  /* Sin transform-origin explícito a propósito — el default del navegador es "center center" (50% 50%
+     del propio elemento), y el SITIO queda matemáticamente SIEMPRE justo ahí: extentUbicacionCoherente
+     arma el viewBox simétrico alrededor de estado.centroideLote (mismo punto que usa el rótulo
+     "SITIO"), así que escalar desde el centro del elemento escala desde el sitio mismo — crece parejo
+     para los cuatro lados en vez de desplazarse, sin necesitar ningún cálculo de scroll aparte. */
   .zoom-plano-interior svg { display: block; width: 100%; height: auto; }
   @media print {
     .zoom-plano-controles { display: none !important; }
@@ -321,6 +325,14 @@
   .reporte-pdf .datos-croquis td { padding: 9px 14px; border-bottom: 1px solid var(--line-soft); }
   .reporte-pdf .datos-croquis tr:last-child td { border-bottom: none; }
   .reporte-pdf .datos-croquis td.etiqueta { width: 38%; color: var(--ink-soft); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--paper-raised); }
+  /* Edición directa en la vista previa — doble clic en cualquier valor lo vuelve editable (pedido
+     explícito, en vez de obligar a volver al formulario de arriba). El hover es la pista de que se
+     puede; [contenteditable] marca con un asterisco visual (el recuadro punteado) mientras se edita. */
+  .reporte-pdf.croquis .preview-cuerpo .datos-croquis td:not(.etiqueta) { cursor: text; }
+  .reporte-pdf.croquis .preview-cuerpo .datos-croquis td:not(.etiqueta):hover { background: var(--line-soft); }
+  .reporte-pdf.croquis .preview-cuerpo .datos-croquis td[contenteditable="true"] { outline: 2px dashed var(--terracotta); outline-offset: -2px; background: var(--paper-raised); }
+  .editable-hint { font-size: 0.72rem; color: var(--ink-soft); margin: 6px 0 0; }
+  @media print { .editable-hint { display: none !important; } }
   .reporte-pdf .pie-croquis { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 48px; }
   .reporte-pdf .firma-bloque { padding-top: 10px; border-top: 1px solid var(--ink); width: 280px; font-size: 0.82rem; }
   .reporte-pdf .firma-bloque strong { display: block; font-size: 0.88rem; }
@@ -3594,27 +3606,44 @@
     if (!limpio || /^(s\/n|sn|sin nombre)$/i.test(limpio)) return null;
     return limpio;
   }
-  // Elige qué calle usar como "dirección" (y cuál rotular en el plano): el frente, si tiene un nombre
-  // real — si no (el caso real que motivó esto: frente sin nombre registrado en OSM, pero un lado del
-  // mismo predio sí), se busca OTRO lado del predio que sí tenga nombre real, y el frente sin nombre se
-  // cataloga como "Calle de retorno" en vez de mostrarse vacío o con el placeholder inútil. Pedido
-  // explícito: "por lo menos en la dirección salga una calle con nombre".
+  // Elige qué calle(s) usar como "dirección" (y cuáles rotular en el plano) — convención real de
+  // direcciones urbanas en Cuenca: la que hace FRENTE al predio, y como referencia secundaria la que
+  // se conecta/cruza más cerca de ese frente (no cualquier otro lado, la más cercana — pedido
+  // explícito). Si el frente no tiene nombre real (el caso real que motivó esto: frente sin nombre
+  // registrado en OSM, pero otro lado del mismo predio sí), se usa esa secundaria SOLA como dirección
+  // y el frente sin nombre se cataloga como "Calle de retorno" en vez de mostrarse vacío o con el
+  // placeholder inútil — "por lo menos en la dirección salga una calle con nombre". `lados` en el
+  // resultado son SIEMPRE lados con nombre real (0, 1 o 2) — construirPlanoUbicacionSVG rotula cada
+  // uno; nunca incluye el placeholder.
   function calcularDireccionYViaRotulo(estado) {
     var idxFrente = estado.tipoLado.indexOf('frente');
     var ladoFrente = idxFrente !== -1 ? estado.ladosInfo[idxFrente] : null;
     var nombreFrenteReal = ladoFrente ? nombreViaReal(ladoFrente.via) : null;
-    if (nombreFrenteReal) return { direccion: nombreFrenteReal, ladoRotulo: ladoFrente };
-    var frenteEsPlaceholder = !!(ladoFrente && ladoFrente.via && ladoFrente.via.nombre);
-    for (var i = 0; i < estado.ladosInfo.length; i++) {
-      var nombreReal = nombreViaReal(estado.ladosInfo[i].via);
-      if (nombreReal) {
-        return {
-          direccion: (frenteEsPlaceholder ? 'Calle de retorno y ' : '') + nombreReal,
-          ladoRotulo: estado.ladosInfo[i]
-        };
-      }
+    var frenteEsPlaceholder = !!(ladoFrente && ladoFrente.via && ladoFrente.via.nombre) && !nombreFrenteReal;
+    var refPunto = ladoFrente ? [(ladoFrente.p1[0] + ladoFrente.p2[0]) / 2, (ladoFrente.p1[1] + ladoFrente.p2[1]) / 2] : estado.centroideLote;
+    function distanciaA(lado) {
+      var m = [(lado.p1[0] + lado.p2[0]) / 2, (lado.p1[1] + lado.p2[1]) / 2];
+      return Math.hypot(m[0] - refPunto[0], m[1] - refPunto[1]);
     }
-    return { direccion: '', ladoRotulo: null };
+    function otrosConNombreOrdenados(excluirNombre) {
+      return estado.ladosInfo
+        .filter(function (li) { return li !== ladoFrente && nombreViaReal(li.via) && nombreViaReal(li.via) !== excluirNombre; })
+        .sort(function (a, b) { return distanciaA(a) - distanciaA(b); });
+    }
+
+    if (nombreFrenteReal) {
+      var otros = otrosConNombreOrdenados(nombreFrenteReal);
+      if (otros.length) return { direccion: nombreFrenteReal + ' y ' + nombreViaReal(otros[0].via), lados: [ladoFrente, otros[0]] };
+      return { direccion: nombreFrenteReal, lados: [ladoFrente] };
+    }
+    var candidatos = otrosConNombreOrdenados(null);
+    if (candidatos.length) {
+      return {
+        direccion: (frenteEsPlaceholder ? 'Calle de retorno y ' : '') + nombreViaReal(candidatos[0].via),
+        lados: [candidatos[0]]
+      };
+    }
+    return { direccion: '', lados: [] };
   }
   // Recorte real contra el rectángulo de contexto — ANTES solo se decidía incluir o no un elemento
   // entero ("¿algún punto de esta vía cae adentro?"), así que una vía larga que solo ROZABA el borde se
@@ -3713,38 +3742,45 @@
 
     // Grosores/tamaños como FRACCIÓN del ancho total, no un valor fijo en metros — así un lote chico y
     // uno grande (manzana de cancha, 100m+) quedan igual de legibles, ninguno con líneas invisibles o
-    // gigantes.
-    var fino = anchoM * 0.0015, medio = anchoM * 0.003, textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
+    // gigantes. Jerarquía a pedido explícito: calles finas y punteadas (son contexto, no protagonismo),
+    // predios en línea media, el sitio en línea ancha — tres niveles, no dos.
+    var fino = anchoM * 0.0015, medio = anchoM * 0.003, ancho = anchoM * 0.006, textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
 
     var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion">';
     // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
     svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
     anillosManzana.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '"/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
     });
     anillosVecinos.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + fino + '"/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
     });
     tramosVias.forEach(function (tramo) {
-      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + medio + '"/>';
+      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"/>';
     });
-    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + medio + '"/>';
+    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"/>';
 
     // Rótulo "SITIO" directo sobre el predio marcado — a pedido explícito, para que no haya dudas de
     // cuál es el lote del croquis (el relleno terracota ya lo distingue, pero un texto es inequívoco).
     var pSitio = svgPt(estado.centroideLote).split(',');
     svg += '<text x="' + pSitio[0] + '" y="' + pSitio[1] + '" font-size="' + (textoChico * 1.15) + '" font-weight="700" fill="#8F3F23" text-anchor="middle">SITIO</text>';
 
-    // Nombre de UNA calle de referencia — la que calcularDireccionYViaRotulo eligió como "dirección"
-    // (el frente, si tiene nombre real; si no, otro lado del mismo predio que sí lo tenga — nunca un
-    // placeholder tipo "Sin nombre" tal cual, ver esa función).
+    // Nombre de cada calle de referencia (frente y, si existe, la secundaria más cercana — ver
+    // calcularDireccionYViaRotulo), rotado para seguir la dirección real de la línea — a pedido
+    // explícito, para que lean como un rótulo de plano de verdad, no un texto suelto flotando.
+    // Ángulo calculado en coordenadas YA proyectadas a pantalla (svgPt invierte Y), y normalizado a
+    // [-90°,90°] para que el texto nunca quede patas para arriba, sea cual sea la orientación real de
+    // la calle.
     var refDireccion = calcularDireccionYViaRotulo(estado);
-    if (refDireccion.ladoRotulo) {
-      var l = refDireccion.ladoRotulo;
+    refDireccion.lados.forEach(function (l) {
       var medioLado = [(l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2];
-      var pTxt = svgPt(medioLado).split(',');
-      svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle">' + nombreViaReal(l.via) + '</text>';
-    }
+      var pTxt = svgPt(medioLado).split(',').map(Number);
+      var p1px = svgPt(l.p1).split(',').map(Number), p2px = svgPt(l.p2).split(',').map(Number);
+      var anguloTxt = Math.atan2(p2px[1] - p1px[1], p2px[0] - p1px[0]) * 180 / Math.PI;
+      if (anguloTxt > 90) anguloTxt -= 180;
+      if (anguloTxt < -90) anguloTxt += 180;
+      svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle" transform="rotate(' + anguloTxt.toFixed(1) + ' ' + pTxt[0] + ' ' + pTxt[1] + ')">' + nombreViaReal(l.via) + '</text>';
+    });
 
     // Norte (arriba-derecha) y escala (abajo-izquierda) — convenciones mínimas de un plano de ubicación.
     var nx = anchoM - anchoM * 0.08, ny = altoM * 0.08;
@@ -3948,6 +3984,30 @@
       aplicar();
     }, { passive: false });
   }
+  // Edición directa en la vista previa — pedido explícito: "si hago doble clic en el nombre cédula
+  // dirección o lo que sea me deja editar". contentEditable nativo del navegador sobre la celda misma
+  // (no un <input> aparte) — así lo que se ve en pantalla es EXACTAMENTE lo que después se imprime, sin
+  // un paso de "guardar" que sincronice dos lugares distintos. imprimirCroquisActivo mueve estos mismos
+  // nodos del DOM tal cual al camino de impresión, así que una corrección hecha acá SÍ sale en el PDF.
+  function activarEdicionCroquis(contenedor) {
+    var celdas = contenedor.querySelectorAll('.datos-croquis td:not(.etiqueta)');
+    celdas.forEach(function (td) {
+      td.addEventListener('dblclick', function () {
+        td.contentEditable = 'true';
+        td.focus();
+        var rango = document.createRange();
+        rango.selectNodeContents(td);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(rango);
+      });
+      td.addEventListener('blur', function () { td.contentEditable = 'false'; });
+      td.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
+        if (e.key === 'Escape') { td.blur(); }
+      });
+    });
+  }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
     try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
@@ -3987,6 +4047,7 @@
         '<tr><td class="etiqueta">Área del terreno</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
         (datos.observaciones ? '<tr><td class="etiqueta">Observaciones</td><td>' + escaparCroquis(datos.observaciones) + '</td></tr>' : '') +
       '</tbody></table>' +
+      '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla para corregirlo acá mismo.</p>' +
       '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
       '<div class="pie-croquis">' +
         '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
@@ -4003,6 +4064,7 @@
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
     activarZoomPlano(rep);
+    activarEdicionCroquis(rep);
 
     document.getElementById('btn-croquis-cerrar').addEventListener('click', function () {
       rep.className = 'reporte-pdf';
