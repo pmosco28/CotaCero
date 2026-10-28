@@ -320,11 +320,22 @@
      arma el viewBox simétrico alrededor de estado.centroideLote (mismo punto que usa el rótulo
      "SITIO"), así que escalar desde el centro del elemento escala desde el sitio mismo — crece parejo
      para los cuatro lados en vez de desplazarse, sin necesitar ningún cálculo de scroll aparte. */
-  .zoom-plano-interior svg { display: block; width: 100%; height: auto; }
+  /* max-height + aspect-ratio (el aspect-ratio real de CADA plano va inline en el propio <svg>, ver
+     construirPlanoUbicacionSVG — cada predio tiene una proporción distinta) en vez de
+     "width:100%;height:auto" puro — un lote muy angosto y alargado (halfH >> halfW en
+     extentUbicacionCoherente) puede dar un SVG mucho más alto que ancho; con height:auto eso se salía
+     de los 65vh de .zoom-plano-scroll y recién se veía completo alejando con el zoom (bug real
+     reportado: "para ese predio en específico necesito hacer más zoom out"). Con aspect-ratio +
+     max-height, Chrome transfiere el límite de alto también al ancho — el plano se achica
+     proporcionalmente para entrar completo en 65vh sin desbordar NI reservar una caja vacía cuando no
+     hace falta (a diferencia de forzar height:65vh siempre). En impresión se vuelve a la proporción
+     real sin tope de alto (ver @media print). */
+  .zoom-plano-interior svg { display: block; width: 100%; height: auto; max-height: 65vh; margin: 0 auto; }
   @media print {
     .zoom-plano-controles { display: none !important; }
     .zoom-plano-scroll { overflow: visible !important; max-height: none !important; }
     .zoom-plano-interior { transform: none !important; }
+    .zoom-plano-interior svg { max-height: none; }
   }
   .reporte-pdf .membrete { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 22px; }
   .reporte-pdf .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
@@ -3792,36 +3803,61 @@
     // uno grande (manzana de cancha, 100m+) quedan igual de legibles, ninguno con líneas invisibles o
     // gigantes. Jerarquía a pedido explícito: calles finas y punteadas (son contexto, no protagonismo),
     // predios en línea media, el sitio en línea ancha — tres niveles, no dos.
-    var fino, medio, ancho;
+    var fino, medio, ancho, efectoFijo = '';
     if (anchoImpresionMM) {
-      // Grosor FIJO en mm de papel (pedido explícito: 0.1/0.3/0.8mm, iguales en cualquier croquis) —
-      // 1 unidad de este SVG = 1 metro real (ver svgPt arriba), y anchoM metros reales van a ocupar
-      // exactamente anchoImpresionMM mm de papel, así que mmPorUnidad convierte mm deseados -> unidades.
-      var mmPorUnidad = anchoImpresionMM / anchoM;
-      fino = 0.1 / mmPorUnidad; medio = 0.3 / mmPorUnidad; ancho = 0.8 / mmPorUnidad;
+      // Grosor FIJO EN PÍXELES CSS (no en unidades del viewBox) + vector-effect="non-scaling-stroke"
+      // en cada elemento con trazo — eso hace que el navegador ignore TANTO el escalado del viewBox
+      // COMO cualquier transform CSS externo (el zoom +/- de la vista previa) al dibujar el trazo, así
+      // que el grosor queda clavado en esos px pase lo que pase. 1 CSS px = 1/96in, por eso
+      // pxPorMM = 96/25.4 — a la hora de imprimir, Chrome respeta la misma conversión px->mm, así que
+      // el resultado en papel sigue siendo 0.1/0.3/0.8mm reales (ver @page más arriba).
+      // Encontrado con un lote angosto y muy alargado: al no entrar entero en los 65vh de la vista
+      // previa, alejar con el zoom (pensado antes como escalado proporcional del dibujo) adelgazaba
+      // estas líneas hasta volverlas invisibles — "el zoom out debe dejar ver las líneas". Con esto,
+      // el grosor ya no depende del zoom en absoluto.
+      var pxPorMM = 96 / 25.4;
+      fino = (0.1 * pxPorMM).toFixed(3); medio = (0.3 * pxPorMM).toFixed(3); ancho = (0.8 * pxPorMM).toFixed(3);
+      efectoFijo = ' vector-effect="non-scaling-stroke"';
     } else {
       fino = anchoM * 0.0015; medio = anchoM * 0.003; ancho = anchoM * 0.006;
     }
-    var textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
+    // Tamaño de letra: mismo criterio que el grosor de línea (pedido explícito: "siempre el mismo y
+    // legible, entre 1.5 y 2.5mm") — fijo en mm de papel para el croquis, en vez de depender del
+    // tamaño del contexto dibujado. vector-effect no existe para texto (solo afecta trazos), así que
+    // acá SÍ hace falta convertir a unidades del viewBox (mmPorUnidad) en vez de usar px directos —
+    // por eso el texto, a diferencia de las líneas de arriba, puede volver a angostarse si se aleja
+    // mucho con el zoom; con el ajuste de .zoom-plano-interior svg (ver CSS) ya no hace falta alejar
+    // tanto para que el plano entre completo, así en la práctica no llega a pasar.
+    var textoChico, textoFlecha;
+    if (anchoImpresionMM) {
+      var mmPorUnidadTexto = anchoImpresionMM / anchoM;
+      textoChico = 2 / mmPorUnidadTexto; // ~2mm, dentro del rango 1.5-2.5mm pedido
+      textoFlecha = textoChico * 1.25;
+    } else {
+      textoChico = anchoM * 0.016; textoFlecha = anchoM * 0.02;
+    }
 
-    var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion">';
+    // aspect-ratio inline (no en el CSS global, que es compartido por cualquier predio) — le dice al
+    // navegador la proporción REAL de este plano puntual, para que el max-height:65vh de
+    // .zoom-plano-interior svg (ver CSS) sepa cuánto achicar el ancho también, no solo el alto.
+    var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion" style="aspect-ratio:' + anchoM.toFixed(2) + '/' + altoM.toFixed(2) + '">';
     // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
-    svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
+    svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"' + efectoFijo + '/>';
     anillosManzana.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="none" stroke="#D8D0BC" stroke-width="' + medio + '"' + efectoFijo + '/>';
     });
     anillosVecinos.forEach(function (a) {
-      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
+      svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"' + efectoFijo + '/>';
     });
     tramosVias.forEach(function (tramo) {
-      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"/>';
+      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"' + efectoFijo + '/>';
     });
-    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"/>';
+    svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"' + efectoFijo + '/>';
 
     // Rótulo "SITIO" directo sobre el predio marcado — a pedido explícito, para que no haya dudas de
     // cuál es el lote del croquis (el relleno terracota ya lo distingue, pero un texto es inequívoco).
     var pSitio = svgPt(estado.centroideLote).split(',');
-    svg += '<text x="' + pSitio[0] + '" y="' + pSitio[1] + '" font-size="' + (textoChico * 1.15) + '" font-weight="700" fill="#8F3F23" text-anchor="middle">SITIO</text>';
+    svg += '<text x="' + pSitio[0] + '" y="' + pSitio[1] + '" font-size="' + (textoChico * 1.25) + '" font-weight="700" fill="#8F3F23" text-anchor="middle">SITIO</text>';
 
     // Nombre de cada calle de referencia (frente y, si existe, la secundaria más cercana — ver
     // calcularDireccionYViaRotulo), rotado para seguir la dirección real de la línea — a pedido
@@ -3841,10 +3877,12 @@
     });
 
     // Norte (arriba-derecha) y escala (abajo-izquierda) — convenciones mínimas de un plano de ubicación.
+    // vector-effect NO se hereda del <g> a sus hijos (no es una propiedad heredable en SVG) — hace
+    // falta repetirlo en cada <line>/<polygon> con trazo, no alcanza con ponerlo una vez arriba.
     var nx = anchoM - anchoM * 0.08, ny = altoM * 0.08;
     svg += '<g stroke="#5B5546" stroke-width="' + fino + '" fill="#5B5546">' +
-      '<line x1="' + nx + '" y1="' + (ny + textoFlecha) + '" x2="' + nx + '" y2="' + (ny - textoFlecha * 0.4) + '"/>' +
-      '<polygon points="' + nx + ',' + (ny - textoFlecha * 0.7) + ' ' + (nx - textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + ' ' + (nx + textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + '"/>' +
+      '<line x1="' + nx + '" y1="' + (ny + textoFlecha) + '" x2="' + nx + '" y2="' + (ny - textoFlecha * 0.4) + '"' + efectoFijo + '/>' +
+      '<polygon points="' + nx + ',' + (ny - textoFlecha * 0.7) + ' ' + (nx - textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + ' ' + (nx + textoFlecha * 0.3) + ',' + (ny + textoFlecha * 0.3) + '"' + efectoFijo + '/>' +
       '<text x="' + nx + '" y="' + (ny + textoFlecha * 1.8) + '" font-size="' + textoChico + '" text-anchor="middle" stroke="none">N</text>' +
     '</g>';
     // La escala gráfica es convención de plano impreso (el informe PDF) — en la tarjetita mini sobre
@@ -3853,7 +3891,7 @@
     if (!sinEscala) {
       var escalaM = anchoM > 200 ? 50 : anchoM > 80 ? 20 : 10;
       var ex = anchoM * 0.06, ey = altoM - altoM * 0.06;
-      svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"/>' +
+      svg += '<line x1="' + ex + '" y1="' + ey + '" x2="' + (ex + escalaM) + '" y2="' + ey + '" stroke="#1C1A16" stroke-width="' + medio + '"' + efectoFijo + '/>' +
         '<text x="' + ex + '" y="' + (ey - textoChico * 0.4) + '" font-size="' + textoChico + '" fill="#5B5546">' + escalaM + ' m</text>';
     }
 
@@ -4118,31 +4156,18 @@
         (svgQr ? '<div class="qr-bloque">' + svgQr + '<span>Escaneá para ver<br>la ubicación en tu celular</span></div>' : '') +
       '</div>';
 
-    // Precio referencial actual de este producto (el mismo que muestra/edita la barra de arriba) —
-    // la descarga real queda bloqueada hasta "pagar" (ver btn-croquis-pagar). Sin pasarela de pago de
-    // verdad conectada todavía: esto es un candado de UI que simula el paso, no un cobro real — se lo
-    // explico al usuario aparte, no alcanza con un comentario acá.
-    var productoCroquis = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === 'croquis'; })[0];
-    var precioCroquis = precioGuardado('croquis', productoCroquis ? productoCroquis.precioBase : '15');
-
-    // Marca de agua repetida — NO es una medida anti-captura real (no existe tal cosa en una página
-    // web, se lo explico al usuario). Es una muestra de uso: el documento se puede revisar completo
-    // antes de pagar, pero no sirve tal cual para el trámite si alguien lo copia así.
-    var lineaMarca = 'VISTA PREVIA · NO VÁLIDO PARA TRÁMITES';
-    var textoMarca = [lineaMarca, lineaMarca, lineaMarca, lineaMarca, lineaMarca, lineaMarca].join('\n');
-
+    // Pasarela de pago TODAVÍA NO conectada (a pedido explícito del usuario, "no conectes aún la
+    // pasarela de pago") — el botón descarga/imprime directo, sin paso de pago intermedio. El CSS de
+    // la marca de agua (.marca-agua/.sin-pagar) queda construido y listo para cuando sí haya una
+    // pasarela real: solo hace falta volver a agregar la clase "sin-pagar" acá y el botón de pago.
     var rep = document.getElementById('reporte-pdf');
-    rep.className = 'reporte-pdf croquis preview-activo sin-pagar';
+    rep.className = 'reporte-pdf croquis preview-activo';
     rep.innerHTML =
       '<div class="preview-toolbar">' +
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
-        '<button id="btn-croquis-pagar" class="btn" type="button">💳 Pagar $' + precioCroquis + ' y descargar</button>' +
-        '<button id="btn-croquis-imprimir" class="btn" type="button" style="display:none;">🖨️ Imprimir / Guardar PDF</button>' +
+        '<button id="btn-croquis-imprimir" class="btn" type="button">🖨️ Imprimir / Guardar PDF</button>' +
       '</div>' +
-      '<div class="preview-cuerpo">' +
-        '<div class="marca-agua"><span>' + textoMarca + '</span></div>' +
-        contenidoCroquis +
-      '</div>';
+      '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
     activarZoomPlano(rep);
     activarEdicionCroquis(rep);
@@ -4151,19 +4176,7 @@
       rep.className = 'reporte-pdf';
       rep.innerHTML = '';
     });
-    var btnPagar = document.getElementById('btn-croquis-pagar');
-    var btnImprimir = document.getElementById('btn-croquis-imprimir');
-    btnPagar.addEventListener('click', function () {
-      var confirmado = confirm(
-        'Modo demo — todavía no hay una pasarela de pago conectada.\n\n' +
-        '¿Simular el pago de $' + precioCroquis + ' para desbloquear la descarga de este croquis?'
-      );
-      if (!confirmado) return;
-      rep.classList.remove('sin-pagar');
-      btnPagar.style.display = 'none';
-      btnImprimir.style.display = '';
-    });
-    btnImprimir.addEventListener('click', function () {
+    document.getElementById('btn-croquis-imprimir').addEventListener('click', function () {
       imprimirCroquisActivo(estado);
     });
   }
