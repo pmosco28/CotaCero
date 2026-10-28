@@ -421,29 +421,6 @@
   .btn-ghost:hover { background: var(--line-soft); }
 
   /* ---------- sections ---------- */
-  section.strip { max-width: 1180px; margin: 0 auto; padding: 56px 32px; border-top: 1px solid var(--line); }
-  .strip h2 { font-size: 1.7rem; margin: 0 0 8px; }
-  .strip p.sub { color: var(--ink-soft); max-width: 60ch; margin: 0 0 34px; }
-
-  .cta-band {
-    max-width: 1116px; margin: 0 auto 64px; padding: 0 32px 56px;
-    display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px; align-items: start;
-  }
-  @media (max-width: 880px) { .cta-band { grid-template-columns: 1fr; } }
-  .cta-band h2 { margin: 0 0 10px; font-size: 1.6rem; }
-  .cta-band p { color: var(--ink-soft); margin: 0; font-size: 0.95rem; }
-
-  .signup-form { display: flex; flex-direction: column; gap: 10px; }
-  .signup-form input {
-    padding: 10px 2px; border: none; border-bottom: 1px solid var(--line);
-    background: transparent; color: var(--ink); font-family: 'Hanken Grotesk'; font-size: 0.92rem;
-  }
-  .signup-form input:focus { outline: none; border-bottom-color: var(--terracotta); }
-  .signup-form input::placeholder { color: var(--ink-soft); }
-  .signup-msg { font-size: 0.82rem; }
-  .signup-msg.ok { color: var(--good); }
-  .signup-msg.err { color: var(--terracotta-dark); }
-
   footer { text-align: center; padding: 30px; font-size: 0.78rem; color: var(--ink-soft); border-top: 1px solid var(--line); }
 </style>
 
@@ -451,8 +428,6 @@
   <div class="brand">CotaCero<span class="dot">.</span></div>
   <nav>
     <a href="#herramienta">La herramienta</a>
-    <a href="#como-funciona">Cómo funciona</a>
-    <a href="#acceso">Acceso anticipado</a>
   </nav>
 </div>
 
@@ -513,19 +488,6 @@
     </div>
   </div>
 </div>
-
-<section class="strip cta-band" id="acceso">
-  <div>
-    <h2>Esto es la punta del iceberg.</h2>
-    <p>CotaCero arma tu plano planimétrico completo para el IPRUS — predio, edificaciones, topografía, lámina vectorial lista para imprimir. Déjanos tu mail y te avisamos apenas abrimos acceso anticipado.</p>
-  </div>
-  <form class="signup-form" id="signup-form">
-    <input type="text" id="signup-nombre" placeholder="Tu nombre" required>
-    <input type="email" id="signup-email" placeholder="tu@mail.com" required>
-    <button type="submit" class="btn">Quiero acceso anticipado</button>
-    <div class="signup-msg" id="signup-msg"></div>
-  </form>
-</section>
 
 <footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: pmoscosocorral28@gmail.com</footer>
 
@@ -4340,6 +4302,7 @@
       '<table class="datos-croquis"><tbody>' +
         filaEditable('Propietario', 'propietario', datos.propietario, 'Doble clic para completar') +
         filaEditable('Cédula / RUC', 'cedula', datos.cedula, 'Doble clic para completar') +
+        filaEditable('Correo electrónico', 'correo', datos.correo, 'Doble clic para completar — necesario para descargar') +
         filaEditable('Dirección / sector', 'direccion', datos.direccion, 'Doble clic para completar') +
         '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
         '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
@@ -4347,6 +4310,7 @@
         filaEditable('Observaciones', 'observaciones', datos.observaciones, 'Doble clic para agregar (opcional)') +
       '</tbody></table>' +
       '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla (o en el nombre de una calle, en el plano) para corregirlo acá mismo — y arrastrá el nombre de una calle para moverlo a lo largo de su eje.</p>' +
+      '<p class="editable-hint">🔒 Tu correo se usa para enviarte este documento y para que CotaCero pueda contarte sobre futuros productos — nunca se comparte con terceros. Podés pedir que lo eliminemos cuando quieras, escribiendo a pmoscosocorral28@gmail.com.</p>' +
       '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
       '<div class="pie-croquis">' +
         '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
@@ -4364,6 +4328,7 @@
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
         '<div class="codigo-acceso-wrap" id="codigoAccesoWrap">' +
           '<button id="btn-croquis-generar-codigo" class="btn" type="button">🔑 Generar código de acceso</button>' +
+          '<span class="codigo-msg" id="codigoMsgValidacion"></span>' +
         '</div>' +
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
@@ -4375,6 +4340,23 @@
 
     var wrapCodigo = document.getElementById('codigoAccesoWrap');
     document.getElementById('btn-croquis-generar-codigo').addEventListener('click', function () {
+      // Correo obligatorio antes de generar el código (pedido explícito: "para enviar el documento
+      // deberían también agregar el correo") — se lee directo de la celda (no de datosCroquisActual,
+      // que solo se actualiza al confirmar un doble clic — si el usuario nunca llegó a hacer blur en
+      // esa celda, datosCroquisActual todavía no lo tendría).
+      var celdaCorreo = rep.querySelector('[data-campo="correo"]');
+      var correoVal = celdaCorreo ? celdaCorreo.textContent.trim() : '';
+      var msgValidacion = document.getElementById('codigoMsgValidacion');
+      if (!celdaCorreo || celdaCorreo.classList.contains('vacio') || !/^\S+@\S+\.\S+$/.test(correoVal)) {
+        // El botón se queda (no se reemplaza por el mensaje) para poder reintentar después de
+        // completar el correo — reemplazarlo entero fue un bug real: dejaba sin forma de volver a
+        // intentar sin cerrar y reabrir toda la vista previa.
+        if (msgValidacion) msgValidacion.textContent = '✉️ Completá un correo válido en la tabla de arriba antes de generar el código.';
+        if (celdaCorreo) celdaCorreo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (msgValidacion) msgValidacion.textContent = '';
+      datosCroquisActual.correo = correoVal;
       wrapCodigo.innerHTML =
         '<span class="codigo-valor">Código: <strong>' + codigoAcceso + '</strong></span>' +
         '<input type="text" id="codigo-input" class="codigo-input" placeholder="Ingresa el código" maxlength="7">' +
@@ -4484,7 +4466,7 @@
   // perdería lo que se hubiera editado, porque generarCroquisSitio() se vuelve a llamar desde cero
   // cada vez que ese producto se vuelve a activar. `clave` decide si estos datos siguen siendo del
   // predio actual o hay que resetearlos (predio nuevo = formulario en blanco de nuevo).
-  var datosCroquisActual = { clave: null, propietario: '', cedula: '', direccion: '', observaciones: '' };
+  var datosCroquisActual = { clave: null, propietario: '', cedula: '', correo: '', direccion: '', observaciones: '' };
   // Declarada acá afuera (no como function-declaration dentro del if de abajo) y asignada más abajo
   // — mostrarResultado() más arriba en el archivo la llama cada vez que termina de reconstruir el
   // panel de un predio nuevo, para que la vista siga la selección actual de la barra. Una
@@ -4528,8 +4510,10 @@
         }
         detalleCont.hidden = true; detalleCont.innerHTML = '';
         if (datosCroquisActual.clave !== estadoSeleccionado.clave) {
+          // El correo NO se resetea con el predio — misma sesión, mismo cliente, probablemente el
+          // mismo correo para el próximo croquis que pida en la misma visita.
           datosCroquisActual = {
-            clave: estadoSeleccionado.clave, propietario: '', cedula: '',
+            clave: estadoSeleccionado.clave, propietario: '', cedula: '', correo: datosCroquisActual.correo || '',
             direccion: calcularDireccionYViaRotulo(estadoSeleccionado).direccion, observaciones: ''
           };
         }
@@ -4550,16 +4534,9 @@
             '<span class="badge badge-demo">Próximamente</span></div>' +
           '<p class="pd-desc">' + producto.descripcion + '</p>' +
           '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
-            ' — todavía no se puede comprar en línea. <a href="#acceso" id="pd-ir-acceso">Dejá tu correo</a> y te avisamos apenas esté disponible.</p>';
+            ' — todavía no se puede comprar en línea. <a href="mailto:pmoscosocorral28@gmail.com?subject=' +
+            encodeURIComponent('Quiero ' + producto.nombre) + '">Escribinos</a> y te avisamos apenas esté disponible.</p>';
         detalleCont.hidden = false;
-        var link = document.getElementById('pd-ir-acceso');
-        if (link) link.addEventListener('click', function (e) {
-          e.preventDefault();
-          var destino = document.getElementById('acceso');
-          if (destino) destino.scrollIntoView({ behavior: 'smooth' });
-          var campoEmail = document.getElementById('signup-email');
-          if (campoEmail) campoEmail.focus();
-        });
       }
     }
 
@@ -4606,23 +4583,5 @@
     });
   }
 
-  // ---------- formulario de acceso anticipado ----------
-  document.getElementById('signup-form').addEventListener('submit', async function (ev) {
-    ev.preventDefault();
-    var msg = document.getElementById('signup-msg');
-    var nombre = document.getElementById('signup-nombre').value.trim();
-    var email = document.getElementById('signup-email').value.trim();
-    msg.className = 'signup-msg'; msg.textContent = 'Guardando…';
-    try {
-      var db = await claude.use('db');
-      if (!db) { msg.className = 'signup-msg err'; msg.textContent = 'Necesitas estar logueado en Claude para dejar tu mail acá — o escríbenos directo a pmoscosocorral28@gmail.com.'; return; }
-      await db.collection('leads').doc(Date.now().toString(36) + Math.random().toString(36).slice(2, 7)).set({ nombre: nombre, email: email, fecha: new Date().toISOString() });
-      msg.className = 'signup-msg ok'; msg.textContent = '¡Listo! Te escribimos apenas abramos acceso.';
-      ev.target.reset();
-    } catch (err) {
-      console.error(err);
-      msg.className = 'signup-msg err'; msg.textContent = 'No se pudo guardar. Escríbenos directo a pmoscosocorral28@gmail.com.';
-    }
-  });
 })();
 </script>
