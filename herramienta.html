@@ -231,12 +231,11 @@
     font-size: 0.76rem; color: var(--ink-soft); background: var(--line-soft); border-radius: 10px;
     padding: 10px 12px; line-height: 1.45;
   }
-  #notas-profesional, .input-croquis {
+  #notas-profesional {
     width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.82rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
-  .label-croquis { font-size: 0.78rem; color: var(--ink-soft); display: block; margin: 10px 0 4px; }
 
   /* Informe PDF: oculto siempre en pantalla, visible SOLO al imprimir — y cuando se imprime, es lo
      ÚNICO visible. Ocultar el resto con `display:none` (no visibility+position:absolute, que probamos
@@ -288,27 +287,28 @@
   }
   .preview-cuerpo { padding: 0 24px 24px; position: relative; }
   @media print { .preview-toolbar { display: none !important; } }
-  /* Marca de agua de la vista previa SIN PAGAR — no es una medida real contra captura de pantalla (eso
-     no existe de verdad en la web, ver la respuesta al usuario), es una muestra de uso: el documento
-     se ve completo para revisarlo, pero no sirve tal cual para el trámite. Desaparece sola al
-     "pagar" (ver btn-croquis-pagar) y @media print la saca siempre, por si alguna vez quedara mal
-     sincronizada con el botón real de imprimir. */
-  .marca-agua {
-    display: none; position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden;
-    align-items: center; justify-content: center;
+  /* Código de acceso (ver generarCodigoAcceso) — candado simple del lado del navegador en vez de la
+     marca de agua/pasarela de pago que se probaron antes: el botón real de imprimir/descargar recién
+     aparece (ver imprimirCroquisActivo) con el código correcto. */
+  .codigo-acceso-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .codigo-valor { font-size: 0.82rem; color: var(--ink-soft); }
+  .codigo-valor strong { font-family: 'IBM Plex Mono'; color: var(--terracotta-dark); letter-spacing: 0.04em; }
+  .codigo-input {
+    width: 108px; font-family: 'IBM Plex Mono'; font-size: 0.85rem; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--ink);
+    text-transform: uppercase;
   }
-  .reporte-pdf.croquis.sin-pagar .marca-agua { display: flex; }
-  .marca-agua span {
-    display: block; width: 200%; text-align: center; transform: rotate(-32deg);
-    font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 1.8rem; letter-spacing: 0.05em;
-    color: rgba(178, 80, 46, 0.16); line-height: 4.2; white-space: pre-wrap; user-select: none;
-  }
-  @media print { .marca-agua { display: none !important; } }
+  .codigo-msg { font-size: 0.74rem; color: #B5355A; width: 100%; }
+  @media print { .codigo-acceso-wrap { display: none !important; } }
   /* Zoom del plano dentro de la vista previa — pellizco/ctrl+scroll (mismo criterio que el mapa y el
      3D en el resto de la herramienta) o los botones +/−. overflow:auto en .zoom-plano-scroll deja
      recorrer el dibujo una vez agrandado. */
   .zoom-plano-wrap { position: relative; margin: 20px 0; }
   .zoom-plano-controles { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; }
+  /* Nombre de calle del croquis — doble clic para editar, arrastre para mover a lo largo del eje vial
+     (ver activarPlanoInteractivo). cursor:grab da la pista de que se puede tomar y mover. */
+  .etiqueta-via { cursor: grab; user-select: none; }
+  @media print { .etiqueta-via { cursor: default; } }
   .zoom-plano-controles button {
     width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper-raised);
     font-size: 1.15rem; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;
@@ -397,6 +397,10 @@
   .reporte-pdf.croquis .preview-cuerpo .datos-croquis td:not(.etiqueta) { cursor: text; }
   .reporte-pdf.croquis .preview-cuerpo .datos-croquis td:not(.etiqueta):hover { background: var(--line-soft); }
   .reporte-pdf.croquis .preview-cuerpo .datos-croquis td[contenteditable="true"] { outline: 2px dashed var(--terracotta); outline-offset: -2px; background: var(--paper-raised); }
+  /* Celda sin valor todavía (propietario/cédula/dirección/observaciones antes de completarlos) — ya
+     no hay formulario aparte (pedido explícito: la vista previa aparece sola al elegir "Croquis de
+     sitio"), así que el placeholder itálico es la única pista de que ahí falta un dato real. */
+  .reporte-pdf.croquis .preview-cuerpo .datos-croquis td.vacio { color: var(--ink-soft); font-style: italic; }
   .editable-hint { font-size: 0.72rem; color: var(--ink-soft); margin: 6px 0 0; }
   @media print { .editable-hint { display: none !important; } }
   .reporte-pdf .pie-croquis { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 48px; }
@@ -2301,17 +2305,10 @@
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
 
-    // Primer borrador de "dirección" en el croquis de sitio — el usuario la puede afinar a mano en el
-    // formulario, esto es solo para no arrancar de un campo vacío. calcularDireccionYViaRotulo ya
-    // resuelve el caso de frente sin nombre real (ver esa función).
-    var direccionSugerida = calcularDireccionYViaRotulo(estado).direccion;
-
-    // El panel entero se sigue calculando siempre completo (volumetría + croquis juntos) — es la
-    // única lógica que de verdad depende de `estado`/`esCentroHistorico` recién resueltos. Lo que
-    // cambia según el producto elegido en la barra de arriba es solo qué MITAD se ve: envueltas en
-    // #vista-volumetria / #vista-croquis, mostradas/ocultadas por aplicarProductoActivo() sin volver
-    // a tocar este HTML. Así "croquis" puede mostrar DIRECTO su formulario+vista previa (pedido
-    // explícito) sin arrastrar las estadísticas de retiros/pisos que no le sirven a ese producto.
+    // El croquis ya NO tiene un formulario propio acá — pedido explícito: "la vista previa aparece
+    // apenas hago clic en croquis, la parte de los datos se completa en la misma vista previa, no en
+    // las cajas de texto". aplicarProductoActivo() llama directo a generarCroquisSitio() cuando el
+    // producto activo es 'croquis', usando estadoSeleccionado/areaM2Seleccionado (guardados abajo).
     panel.innerHTML =
       '<div id="vista-volumetria">' +
         '<div class="result-head">' +
@@ -2343,17 +2340,6 @@
           '<button id="btn-descargar-obj" class="btn btn-ghost" style="width:100%;margin-top:8px;">📦 Descargar modelo 3D (.obj)</button>' +
           '<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">Editable en ArchiCAD, Revit, SketchUp, 3ds Max — la masa, no los planos de IPRUS.</div>' +
         '</div>' +
-      '</div>' +
-      '<div id="vista-croquis" hidden>' +
-        '<label class="label-croquis">Propietario (o copropietarios)</label>' +
-        '<input type="text" id="croquis-propietario" class="input-croquis" placeholder="Nombre completo">' +
-        '<label class="label-croquis">Cédula o RUC</label>' +
-        '<input type="text" id="croquis-cedula" class="input-croquis" placeholder="Ej. 0102030405">' +
-        '<label class="label-croquis">Dirección / sector</label>' +
-        '<input type="text" id="croquis-direccion" class="input-croquis" value="' + direccionSugerida.replace(/"/g, '&quot;') + '">' +
-        '<label class="label-croquis">Observaciones (opcional)</label>' +
-        '<textarea id="croquis-observaciones" class="input-croquis" rows="2" placeholder="Ej. predio sin construir"></textarea>' +
-        '<button id="btn-croquis-sitio" class="btn btn-ghost" style="width:100%;margin-top:10px;">📍 Generar croquis de sitio (A4)</button>' +
       '</div>';
 
     // activarModo3D ANTES de recomputarYRenderizar (que termina en dibujarVolumetria, donde se mide
@@ -2404,22 +2390,14 @@
       descargarModeloOBJ(estado);
     });
 
-    var btnCroquis = document.getElementById('btn-croquis-sitio');
-    if (btnCroquis) btnCroquis.addEventListener('click', function () {
-      var propietario = (document.getElementById('croquis-propietario').value || '').trim();
-      var cedula = (document.getElementById('croquis-cedula').value || '').trim();
-      if (!propietario) { alert('Falta el nombre del propietario.'); return; }
-      generarCroquisSitio(estado, areaM2, {
-        propietario: propietario,
-        cedula: cedula,
-        direccion: (document.getElementById('croquis-direccion').value || '').trim(),
-        observaciones: (document.getElementById('croquis-observaciones').value || '').trim()
-      });
-    });
+    // estadoSeleccionado/areaM2Seleccionado (declaradas junto al catálogo de productos, al final del
+    // archivo) son el predio "actual" para cualquier producto que lo necesite — hoy solo croquis, que
+    // genera su vista previa directo desde aplicarProductoActivo() sin pasar por un botón de formulario.
+    estadoSeleccionado = estado; areaM2Seleccionado = areaM2;
 
-    // El panel recién se reconstruyó completo (#vista-volumetria + #vista-croquis) — aplicar de nuevo
-    // cuál de los dos productos está activo en la barra de arriba, si no esta función deja siempre
-    // la volumetría visible sin importar qué había elegido el usuario antes de tocar este predio.
+    // El panel recién se reconstruyó completo (#vista-volumetria) — aplicar de nuevo cuál es el
+    // producto activo en la barra de arriba, si no esta función deja siempre la volumetría visible
+    // sin importar qué había elegido el usuario antes de tocar este predio.
     aplicarProductoActivo();
   }
 
@@ -3757,6 +3735,63 @@
     if (actual.length >= 2) tramos.push(actual);
     return tramos;
   }
+  // Geometría pura compartida entre la GENERACIÓN del plano (etiquetas de calle, ver
+  // construirPlanoUbicacionSVG) y la interacción en vivo de arrastrar una etiqueta (ver
+  // activarPlanoInteractivo) — las dos trabajan sobre el MISMO formato de puntos: ya proyectados al
+  // espacio del viewBox (lo que devuelve svgPt, y también lo que devuelve getScreenCTM().inverse() al
+  // arrastrar), nunca metros locales de `estado`. Así un cálculo nuevo de posición (al arrastrar) y el
+  // cálculo original (al generar) son exactamente consistentes entre sí.
+  function parsePts(str) {
+    return str.split(' ').map(function (s) { return s.split(',').map(Number); });
+  }
+  // Punto + ángulo (grados, normalizado a [-90,90] para que el texto nunca quede patas para arriba) a
+  // una fracción `t` (0-1) del largo TOTAL de la polilínea `proy` — y de paso el largo total, que
+  // sirve para decidir si un tramo es demasiado corto como para ponerle nombre.
+  function puntoYAnguloEnPolilinea(proy, t) {
+    var lens = [], total = 0;
+    for (var i = 1; i < proy.length; i++) {
+      var L = Math.hypot(proy[i][0] - proy[i - 1][0], proy[i][1] - proy[i - 1][1]);
+      lens.push(L); total += L;
+    }
+    var destino = Math.max(0, Math.min(1, t)) * total, acc = 0;
+    for (var i = 0; i < lens.length; i++) {
+      if (acc + lens[i] >= destino || i === lens.length - 1) {
+        var lt = lens[i] > 1e-6 ? (destino - acc) / lens[i] : 0;
+        var p0 = proy[i], p1 = proy[i + 1];
+        var ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180 / Math.PI;
+        if (ang > 90) ang -= 180;
+        if (ang < -90) ang += 180;
+        return { x: p0[0] + (p1[0] - p0[0]) * lt, y: p0[1] + (p1[1] - p0[1]) * lt, angulo: ang, largoTotal: total };
+      }
+      acc += lens[i];
+    }
+    return { x: proy[0][0], y: proy[0][1], angulo: 0, largoTotal: total };
+  }
+  // Inverso del anterior — dado un punto (px,py) cualquiera (ej. el puntero durante un arrastre),
+  // encuentra la fracción `t` del punto MÁS CERCANO sobre la polilínea `proy`. Proyección estándar
+  // punto-a-segmento, el mínimo de todos los segmentos.
+  function tMasCercanoEnPolilinea(proy, px, py) {
+    var lens = [], total = 0;
+    for (var i = 1; i < proy.length; i++) { lens.push(Math.hypot(proy[i][0] - proy[i - 1][0], proy[i][1] - proy[i - 1][1])); }
+    for (var i = 0; i < lens.length; i++) total += lens[i];
+    if (total < 1e-6) return 0.5;
+    var mejorD = Infinity, mejorAcc = 0, acc = 0;
+    for (var i = 0; i < lens.length; i++) {
+      var p0 = proy[i], p1 = proy[i + 1];
+      var dx = p1[0] - p0[0], dy = p1[1] - p0[1];
+      var L2 = dx * dx + dy * dy;
+      var tSeg = L2 > 1e-9 ? Math.max(0, Math.min(1, ((px - p0[0]) * dx + (py - p0[1]) * dy) / L2)) : 0;
+      var cx = p0[0] + dx * tSeg, cy = p0[1] + dy * tSeg;
+      var d = Math.hypot(px - cx, py - cy);
+      if (d < mejorD) { mejorD = d; mejorAcc = acc + lens[i] * tSeg; }
+      acc += lens[i];
+    }
+    return Math.max(0, Math.min(1, mejorAcc / total));
+  }
+  // Escape mínimo para texto de usuario insertado en el SVG — antes esto no hacía falta (los nombres
+  // de calle venían solo de OSM, ya texto plano confiable); ahora que el nombre de una calle se puede
+  // escribir a mano (ver activarPlanoInteractivo), un "<" o "&" tipeado rompería el XML del SVG.
+  function escaparSvg(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   // anchoImpresionMM (opcional): ancho FÍSICO real, en mm, al que este SVG va a quedar impreso/
   // mostrado — SOLO el croquis lo pasa (180mm, ver generarCroquisSitio y el @page de arriba). Cuando
   // viene, los grosores de línea y el tamaño de letra salen fijos en mm de papel (pedido explícito)
@@ -3765,7 +3800,7 @@
   // de siempre — ahí no hay un tamaño de impresión fijo del cual partir.
   //
   // nivelZoom (opcional, default 1): en vez de CSS transform:scale() sobre un dibujo ya fijo —
-  // probado primero y descartado, ver activarZoomPlano más abajo para el porqué exacto — "zoom" acá
+  // probado primero y descartado, ver activarPlanoInteractivo más abajo para el porqué exacto — "zoom" acá
   // es volver a llamar a ESTA MISMA función con un radio de contexto más chico (zoom in, nivelZoom>1)
   // o más grande (zoom out, nivelZoom<1), re-recortando la MISMA geometría ya cargada en `estado`
   // (nada de red de por medio, estado.featureManzana/vecinosFeatures/viasDibujo ya están en memoria).
@@ -3792,9 +3827,16 @@
       });
     });
 
+    // Cada tramo guarda de qué vía (y qué índice de vía/tramo) salió, no solo sus puntos — antes se
+    // perdía ese dato (una lista plana de polilíneas) porque nada lo necesitaba; ahora hace falta para
+    // poder etiquetar cada calle dibujada con su nombre real (o "Calle sin nombre") y para que el
+    // arrastre/doble clic de esa etiqueta (ver activarPlanoInteractivo) sepa a qué vía de
+    // estado.viasDibujo escribirle de vuelta.
     var tramosVias = [];
-    (estado.viasDibujo || []).forEach(function (via) {
-      recortarLineaARectangulo(via.pts, cx, cy, halfW, halfH).forEach(function (t) { tramosVias.push(t); });
+    (estado.viasDibujo || []).forEach(function (via, viaIdx) {
+      recortarLineaARectangulo(via.pts, cx, cy, halfW, halfH).forEach(function (t, idxTramo) {
+        tramosVias.push({ pts: t, via: via, viaIdx: viaIdx, idxTramo: idxTramo });
+      });
     });
 
     // El viewBox sale de halfW/halfH, no de los puntos sobrevivientes — así el dibujo es siempre ese
@@ -3842,8 +3884,8 @@
     anillosVecinos.forEach(function (a) {
       svg += '<polygon points="' + svgPts(a) + '" fill="#E8E2D1" fill-opacity="0.6" stroke="#D8D0BC" stroke-width="' + medio + '"/>';
     });
-    tramosVias.forEach(function (tramo) {
-      svg += '<polyline points="' + svgPts(tramo) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"/>';
+    tramosVias.forEach(function (item) {
+      svg += '<polyline points="' + svgPts(item.pts) + '" fill="none" stroke="#8C8C84" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 2.5) + ',' + (fino * 2) + '"/>';
     });
     svg += '<polygon points="' + svgPts(estado.pts) + '" fill="#B2502E" fill-opacity="0.3" stroke="#B2502E" stroke-width="' + ancho + '"/>';
 
@@ -3852,22 +3894,46 @@
     var pSitio = svgPt(estado.centroideLote).split(',');
     svg += '<text x="' + pSitio[0] + '" y="' + pSitio[1] + '" font-size="' + (textoChico * 1.25) + '" font-weight="700" fill="#8F3F23" text-anchor="middle">SITIO</text>';
 
-    // Nombre de cada calle de referencia (frente y, si existe, la secundaria más cercana — ver
-    // calcularDireccionYViaRotulo), rotado para seguir la dirección real de la línea — a pedido
-    // explícito, para que lean como un rótulo de plano de verdad, no un texto suelto flotando.
-    // Ángulo calculado en coordenadas YA proyectadas a pantalla (svgPt invierte Y), y normalizado a
-    // [-90°,90°] para que el texto nunca quede patas para arriba, sea cual sea la orientación real de
-    // la calle.
-    var refDireccion = calcularDireccionYViaRotulo(estado);
-    refDireccion.lados.forEach(function (l) {
-      var medioLado = [(l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2];
-      var pTxt = svgPt(medioLado).split(',').map(Number);
-      var p1px = svgPt(l.p1).split(',').map(Number), p2px = svgPt(l.p2).split(',').map(Number);
-      var anguloTxt = Math.atan2(p2px[1] - p1px[1], p2px[0] - p1px[0]) * 180 / Math.PI;
-      if (anguloTxt > 90) anguloTxt -= 180;
-      if (anguloTxt < -90) anguloTxt += 180;
-      svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle" transform="rotate(' + anguloTxt.toFixed(1) + ' ' + pTxt[0] + ' ' + pTxt[1] + ')">' + nombreViaReal(l.via) + '</text>';
-    });
+    if (anchoImpresionMM) {
+      // Nombre de CADA calle dibujada (no solo frente/secundaria como antes) — pedido explícito. Sin
+      // nombre real (nombreViaReal filtra los placeholders de OSM tipo "S/N") se muestra "Calle sin
+      // nombre" en vez de omitir la etiqueta, para que se note que falta el dato y se pueda completar
+      // ahí mismo (ver activarPlanoInteractivo, doble clic). Tramos demasiado cortos (una esquina que
+      // apenas roza el rectángulo de recorte) no alcanzan para un nombre legible y se saltan.
+      // Posición/ángulo salen de puntoYAnguloEnPolilinea sobre los puntos YA proyectados (mismo
+      // criterio que usa el arrastre en vivo, así son consistentes); `t` por defecto es el centro del
+      // tramo (0.5) salvo que el usuario ya haya arrastrado esa etiqueta antes (via._tramoOffsets,
+      // persiste en el objeto `via` — sobrevive a un cambio de zoom). `dy` negativo (no un desplazamiento
+      // perpendicular calculado a mano) deja el texto apoyado JUSTO ENCIMA del eje vial una vez rotado,
+      // que es "sobre la calle" sin que la línea atraviese las letras.
+      tramosVias.forEach(function (item) {
+        var proy = item.pts.map(svgPt).map(function (s) { return s.split(',').map(Number); });
+        var largoInfo = puntoYAnguloEnPolilinea(proy, 0.5);
+        if (largoInfo.largoTotal < anchoM * 0.035) return;
+        var tGuardado = (item.via._tramoOffsets && item.via._tramoOffsets[item.idxTramo] != null) ? item.via._tramoOffsets[item.idxTramo] : 0.5;
+        var info = puntoYAnguloEnPolilinea(proy, tGuardado);
+        var nombre = nombreViaReal(item.via) || 'Calle sin nombre';
+        svg += '<text class="etiqueta-via" data-via-i="' + item.viaIdx + '" data-tramo-i="' + item.idxTramo + '" data-pts="' + svgPts(item.pts) + '"' +
+          ' x="' + info.x.toFixed(1) + '" y="' + info.y.toFixed(1) + '" dy="' + (-textoChico * 0.35).toFixed(2) + '"' +
+          ' font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle"' +
+          ' transform="rotate(' + info.angulo.toFixed(1) + ' ' + info.x.toFixed(1) + ' ' + info.y.toFixed(1) + ')">' +
+          escaparSvg(nombre) + '</text>';
+      });
+    } else {
+      // Mini tarjeta de ubicación / inset del informe PDF: sigue con el criterio histórico, solo la(s)
+      // calle(s) de referencia (frente y, si existe, la secundaria más cercana) — etiquetar CADA calle
+      // ahí sería ilegible a ese tamaño tan chico, y no son interactivas (no hace falta poder editarlas).
+      var refDireccion = calcularDireccionYViaRotulo(estado);
+      refDireccion.lados.forEach(function (l) {
+        var medioLado = [(l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2];
+        var pTxt = svgPt(medioLado).split(',').map(Number);
+        var p1px = svgPt(l.p1).split(',').map(Number), p2px = svgPt(l.p2).split(',').map(Number);
+        var anguloTxt = Math.atan2(p2px[1] - p1px[1], p2px[0] - p1px[0]) * 180 / Math.PI;
+        if (anguloTxt > 90) anguloTxt -= 180;
+        if (anguloTxt < -90) anguloTxt += 180;
+        svg += '<text x="' + pTxt[0] + '" y="' + pTxt[1] + '" font-size="' + textoChico + '" fill="#5B5546" text-anchor="middle" transform="rotate(' + anguloTxt.toFixed(1) + ' ' + pTxt[0] + ' ' + pTxt[1] + ')">' + nombreViaReal(l.via) + '</text>';
+      });
+    }
 
     // Norte (arriba-derecha) y escala (abajo-izquierda) — convenciones mínimas de un plano de ubicación.
     var nx = anchoM - anchoM * 0.08, ny = altoM * 0.08;
@@ -4069,7 +4135,10 @@
   // físico sin importar el nivel — y alejar de verdad trae más manzana/calles reales (re-recortadas
   // de estado.featureManzana/vecinosFeatures/viasDibujo, ya en memoria, sin red de por medio), no el
   // mismo dibujo encogido.
-  function activarZoomPlano(contenedor, estado, areaM2) {
+  // Además del zoom (ver más arriba), esta función ahora también maneja la edición de nombres de
+  // calle y el arrastre de sus etiquetas a lo largo del eje vial (pedido explícito) — las tres cosas
+  // comparten el mismo `wrap`/`aplicar()`, por eso viven juntas acá en vez de en funciones sueltas.
+  function activarPlanoInteractivo(contenedor, estado, areaM2) {
     var wrap = contenedor.querySelector('.zoom-plano-wrap');
     if (!wrap) return;
     var interior = wrap.querySelector('.zoom-plano-interior');
@@ -4077,7 +4146,7 @@
     function aplicar() {
       try {
         interior.innerHTML = construirPlanoUbicacionSVG(estado, areaM2, false, 180, nivel);
-      } catch (e) { console.warn('activarZoomPlano: no se pudo re-generar el plano', e); }
+      } catch (e) { console.warn('activarPlanoInteractivo: no se pudo re-generar el plano', e); }
     }
     var btnOut = wrap.querySelector('.btn-zoom-out'), btnIn = wrap.querySelector('.btn-zoom-in');
     // 0.35-4: de ~3x más contexto real a ~4x más detalle — más allá de 0.35 el recorte empieza a
@@ -4090,17 +4159,106 @@
       nivel = Math.max(0.35, Math.min(4, nivel - e.deltaY * 0.006));
       aplicar();
     }, { passive: false });
+
+    // --- Nombre de calle editable con doble clic directo sobre la etiqueta ---
+    // Un <text> de SVG no soporta contentEditable de forma confiable entre navegadores (a diferencia
+    // de una <td> HTML, que sí — ver activarEdicionCroquis). En vez de eso, un <input> HTML normal se
+    // posiciona ENCIMA del texto con coordenadas reales de pantalla (getBoundingClientRect) mientras
+    // dura la edición, y se descarta al confirmar — el SVG en sí nunca contiene el input.
+    wrap.addEventListener('dblclick', function (ev) {
+      var txt = ev.target.closest('.etiqueta-via');
+      if (!txt) return;
+      ev.preventDefault();
+      var via = (estado.viasDibujo || [])[parseInt(txt.dataset.viaI, 10)];
+      if (!via) return;
+      var rect = txt.getBoundingClientRect();
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = nombreViaReal(via) || '';
+      input.placeholder = 'Calle sin nombre';
+      input.style.cssText = 'position:fixed; left:' + (rect.left - 10) + 'px; top:' + (rect.top - 3) + 'px; ' +
+        'width:' + Math.max(120, rect.width + 20) + 'px; font-size:' + Math.max(12, rect.height) + 'px; z-index:2000; ' +
+        'border:2px solid #B2502E; border-radius:4px; padding:1px 4px; background:#fff; color:#1C1A16; ' +
+        'font-family:inherit; text-align:center;';
+      document.body.appendChild(input);
+      input.focus(); input.select();
+      function commit() {
+        via.nombre = input.value.trim() || null;
+        input.remove();
+        aplicar();
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.removeEventListener('blur', commit); input.remove(); }
+      });
+      // El dblclick que abrió este input también puede haber iniciado un "arrastre" (ver abajo) sobre
+      // el mismo <text> — cancelarlo, si no al soltar el mouse dentro del input se movería la etiqueta.
+      arrastre = null;
+    });
+
+    // --- Arrastrar la etiqueta a lo largo del eje de SU calle (pedido explícito: "que me deje
+    // moverlo por el eje") ---
+    // El puntero se convierte a coordenadas de usuario del SVG (getScreenCTM().inverse() — el mismo
+    // espacio en el que ya viven los puntos guardados en data-pts, ver construirPlanoUbicacionSVG) y
+    // se proyecta sobre la polilínea de ESE tramo para encontrar la fracción 0-1 más cercana
+    // (tMasCercanoEnPolilinea). Esa fracción se guarda en via._tramoOffsets[idxTramo] — directo sobre
+    // el objeto `via`, que vive en estado.viasDibujo y no se recrea entre renders, así que la posición
+    // sobrevive a un cambio de zoom o a volver a imprimir. Mientras se arrastra, el <text> ya en
+    // pantalla se mueve en vivo (setAttribute) en vez de regenerar todo el SVG en cada pixel.
+    var arrastre = null;
+    wrap.addEventListener('pointerdown', function (ev) {
+      var txt = ev.target.closest('.etiqueta-via');
+      if (!txt || !txt.ownerSVGElement) return;
+      arrastre = {
+        txt: txt, svg: txt.ownerSVGElement,
+        viaIdx: parseInt(txt.dataset.viaI, 10), tramoIdx: parseInt(txt.dataset.tramoI, 10),
+        proy: parsePts(txt.dataset.pts),
+        moved: false, startX: ev.clientX, startY: ev.clientY
+      };
+    });
+    wrap.addEventListener('pointermove', function (ev) {
+      if (!arrastre) return;
+      if (!arrastre.moved && Math.hypot(ev.clientX - arrastre.startX, ev.clientY - arrastre.startY) < 3) return;
+      arrastre.moved = true;
+      arrastre.txt.style.cursor = 'grabbing';
+      var pt = arrastre.svg.createSVGPoint();
+      pt.x = ev.clientX; pt.y = ev.clientY;
+      var local;
+      try { local = pt.matrixTransform(arrastre.svg.getScreenCTM().inverse()); } catch (e) { return; }
+      var t = tMasCercanoEnPolilinea(arrastre.proy, local.x, local.y);
+      var via = (estado.viasDibujo || [])[arrastre.viaIdx];
+      if (via) { via._tramoOffsets = via._tramoOffsets || {}; via._tramoOffsets[arrastre.tramoIdx] = t; }
+      var info = puntoYAnguloEnPolilinea(arrastre.proy, t);
+      arrastre.txt.setAttribute('x', info.x.toFixed(1));
+      arrastre.txt.setAttribute('y', info.y.toFixed(1));
+      arrastre.txt.setAttribute('transform', 'rotate(' + info.angulo.toFixed(1) + ' ' + info.x.toFixed(1) + ' ' + info.y.toFixed(1) + ')');
+    });
+    ['pointerup', 'pointercancel'].forEach(function (nombreEvento) {
+      wrap.addEventListener(nombreEvento, function () {
+        if (arrastre) arrastre.txt.style.cursor = '';
+        arrastre = null;
+      });
+    });
   }
   // Edición directa en la vista previa — pedido explícito: "si hago doble clic en el nombre cédula
   // dirección o lo que sea me deja editar". contentEditable nativo del navegador sobre la celda misma
   // (no un <input> aparte) — así lo que se ve en pantalla es EXACTAMENTE lo que después se imprime, sin
   // un paso de "guardar" que sincronice dos lugares distintos. imprimirCroquisActivo mueve estos mismos
   // nodos del DOM tal cual al camino de impresión, así que una corrección hecha acá SÍ sale en el PDF.
+  //
+  // Cada <td> trae data-campo="propietario|cedula|direccion|observaciones" — al confirmar (blur/Enter)
+  // el valor se escribe de vuelta en datosCroquisActual (declarado junto al catálogo de productos, más
+  // abajo), así sobrevive si el usuario cambia de pestaña y vuelve a "Croquis de sitio" — sin esto,
+  // generarCroquisSitio() volvería a arrancar en blanco cada vez que se reactiva ese producto.
   function activarEdicionCroquis(contenedor) {
     var celdas = contenedor.querySelectorAll('.datos-croquis td:not(.etiqueta)');
     celdas.forEach(function (td) {
       td.addEventListener('dblclick', function () {
         td.contentEditable = 'true';
+        // Celda todavía vacía (placeholder tipo "Doble clic para completar") — arrancar en blanco en
+        // vez de obligar a borrar el placeholder a mano primero.
+        if (td.classList.contains('vacio')) { td.textContent = ''; td.classList.remove('vacio'); }
         td.focus();
         var rango = document.createRange();
         rango.selectNodeContents(td);
@@ -4108,12 +4266,36 @@
         sel.removeAllRanges();
         sel.addRange(rango);
       });
-      td.addEventListener('blur', function () { td.contentEditable = 'false'; });
+      td.addEventListener('blur', function () {
+        td.contentEditable = 'false';
+        if (td.dataset.campo && typeof datosCroquisActual === 'object') {
+          datosCroquisActual[td.dataset.campo] = td.textContent.trim();
+        }
+      });
       td.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
         if (e.key === 'Escape') { td.blur(); }
       });
     });
+  }
+  // Código corto para la descarga (pedido explícito: "que las personas con el código sí puedan abrir
+  // descargar el producto") — sin ambigüedades visuales (nada de 0/O/1/I/L) para que se pueda leer o
+  // dictar sin confusión. IMPORTANTE: esto es un candado del lado del navegador, no una entrega real a
+  // otro dispositivo — no hay backend conectado todavía (mismo tema pendiente que el formulario de
+  // acceso anticipado). El código solo sirve para desbloquear la descarga EN ESTA MISMA pestaña/sesión
+  // — sirve para no regalar el PDF con solo abrir la página, pero no para que un cliente lo canjee
+  // después desde su propio celular sin que el arquitecto se lo dicte primero.
+  function generarCodigoAcceso() {
+    var alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var cod = '';
+    for (var i = 0; i < 6; i++) cod += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+    return cod.slice(0, 3) + '-' + cod.slice(3);
+  }
+  // Oculta la vista previa del croquis sin tocar el resto de la página — la usan tanto el botón
+  // "Cerrar" de la vista previa como aplicarProductoActivo() al cambiar a otro producto de la barra.
+  function cerrarPreviewCroquis() {
+    var rep = document.getElementById('reporte-pdf');
+    if (rep && rep.className.indexOf('croquis') !== -1) { rep.className = 'reporte-pdf'; rep.innerHTML = ''; }
   }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
@@ -4123,6 +4305,14 @@
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    // Fila de dato editable: si todavía no hay valor, muestra un placeholder claro en vez de dejar la
+    // celda vacía (invisible, nadie sabría que ahí se puede hacer doble clic) — clase "vacio" para que
+    // activarEdicionCroquis sepa que tiene que arrancar en blanco, no agregarse al texto del placeholder.
+    function filaEditable(etiqueta, campo, valor, placeholder) {
+      var esVacio = !valor;
+      return '<tr><td class="etiqueta">' + etiqueta + '</td><td data-campo="' + campo + '"' + (esVacio ? ' class="vacio"' : '') + '>' +
+        (esVacio ? placeholder : escaparCroquis(valor)) + '</td></tr>';
+    }
 
     var svgQr = '';
     try {
@@ -4148,43 +4338,61 @@
       '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
       planoZoomable +
       '<table class="datos-croquis"><tbody>' +
-        '<tr><td class="etiqueta">Propietario</td><td>' + escaparCroquis(datos.propietario) + '</td></tr>' +
-        '<tr><td class="etiqueta">Cédula / RUC</td><td>' + (escaparCroquis(datos.cedula) || '—') + '</td></tr>' +
-        '<tr><td class="etiqueta">Dirección / sector</td><td>' + (escaparCroquis(datos.direccion) || '—') + '</td></tr>' +
+        filaEditable('Propietario', 'propietario', datos.propietario, 'Doble clic para completar') +
+        filaEditable('Cédula / RUC', 'cedula', datos.cedula, 'Doble clic para completar') +
+        filaEditable('Dirección / sector', 'direccion', datos.direccion, 'Doble clic para completar') +
         '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
         '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
         '<tr><td class="etiqueta">Área del terreno</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
-        (datos.observaciones ? '<tr><td class="etiqueta">Observaciones</td><td>' + escaparCroquis(datos.observaciones) + '</td></tr>' : '') +
+        filaEditable('Observaciones', 'observaciones', datos.observaciones, 'Doble clic para agregar (opcional)') +
       '</tbody></table>' +
-      '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla para corregirlo acá mismo.</p>' +
+      '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla (o en el nombre de una calle, en el plano) para corregirlo acá mismo — y arrastrá el nombre de una calle para moverlo a lo largo de su eje.</p>' +
       '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
       '<div class="pie-croquis">' +
         '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
         (svgQr ? '<div class="qr-bloque">' + svgQr + '<span>Escaneá para ver<br>la ubicación en tu celular</span></div>' : '') +
       '</div>';
 
-    // Pasarela de pago TODAVÍA NO conectada (a pedido explícito del usuario, "no conectes aún la
-    // pasarela de pago") — el botón descarga/imprime directo, sin paso de pago intermedio. El CSS de
-    // la marca de agua (.marca-agua/.sin-pagar) queda construido y listo para cuando sí haya una
-    // pasarela real: solo hace falta volver a agregar la clase "sin-pagar" acá y el botón de pago.
+    // Pasarela de pago TODAVÍA NO conectada (a pedido explícito: "no conectes aún la pasarela de
+    // pago") — en su lugar, un código de acceso corto (ver generarCodigoAcceso) hace de candado
+    // simple: recién con el código correcto aparece el botón real de imprimir/descargar.
+    var codigoAcceso = generarCodigoAcceso();
     var rep = document.getElementById('reporte-pdf');
     rep.className = 'reporte-pdf croquis preview-activo';
     rep.innerHTML =
       '<div class="preview-toolbar">' +
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
-        '<button id="btn-croquis-imprimir" class="btn" type="button">🖨️ Imprimir / Guardar PDF</button>' +
+        '<div class="codigo-acceso-wrap" id="codigoAccesoWrap">' +
+          '<button id="btn-croquis-generar-codigo" class="btn" type="button">🔑 Generar código de acceso</button>' +
+        '</div>' +
       '</div>' +
       '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    activarZoomPlano(rep, estado, areaM2);
+    activarPlanoInteractivo(rep, estado, areaM2);
     activarEdicionCroquis(rep);
 
-    document.getElementById('btn-croquis-cerrar').addEventListener('click', function () {
-      rep.className = 'reporte-pdf';
-      rep.innerHTML = '';
-    });
-    document.getElementById('btn-croquis-imprimir').addEventListener('click', function () {
-      imprimirCroquisActivo(estado);
+    document.getElementById('btn-croquis-cerrar').addEventListener('click', cerrarPreviewCroquis);
+
+    var wrapCodigo = document.getElementById('codigoAccesoWrap');
+    document.getElementById('btn-croquis-generar-codigo').addEventListener('click', function () {
+      wrapCodigo.innerHTML =
+        '<span class="codigo-valor">Código: <strong>' + codigoAcceso + '</strong></span>' +
+        '<input type="text" id="codigo-input" class="codigo-input" placeholder="Ingresa el código" maxlength="7">' +
+        '<button id="btn-codigo-confirmar" class="btn" type="button">Descargar</button>' +
+        '<span class="codigo-msg" id="codigoMsg"></span>';
+      var inputCodigo = document.getElementById('codigo-input');
+      var msg = document.getElementById('codigoMsg');
+      function intentar() {
+        if ((inputCodigo.value || '').trim().toUpperCase() === codigoAcceso) {
+          imprimirCroquisActivo(estado);
+        } else {
+          msg.textContent = 'Código incorrecto.';
+          inputCodigo.select();
+        }
+      }
+      document.getElementById('btn-codigo-confirmar').addEventListener('click', intentar);
+      inputCodigo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); intentar(); } });
+      inputCodigo.focus();
     });
   }
 
@@ -4194,6 +4402,11 @@
   // vista previa — mismo pipeline probado, nada nuevo en el camino real de impresión.
   function imprimirCroquisActivo(estado) {
     var rep = document.getElementById('reporte-pdf');
+    // Una celda que el usuario nunca llegó a completar (propietario, dirección...) todavía tiene el
+    // texto de placeholder ("Doble clic para completar") — eso NUNCA debe salir impreso tal cual en
+    // el documento real, así que se cambia por un guion antes de imprimir (mismo criterio que ya
+    // usaban cédula/dirección cuando quedaban vacías, antes de que esta vista previa existiera).
+    rep.querySelectorAll('.datos-croquis td.vacio').forEach(function (td) { td.textContent = '—'; });
     var toolbar = rep.querySelector('.preview-toolbar');
     if (toolbar) toolbar.remove();
     var cuerpo = rep.querySelector('.preview-cuerpo');
@@ -4262,12 +4475,21 @@
   var detalleCont = document.getElementById('productoDetalle');
   var toolEl = document.querySelector('.tool');
   var productoActivo = 'volumetria';
+  // El predio "actual" (último elegido en el mapa) — croquis lo necesita para generar su vista previa
+  // directo desde aplicarProductoActivo(), sin pasar por un botón de formulario (pedido explícito).
+  // Se asignan al final de mostrarResultado(), bastante más arriba en este archivo.
+  var estadoSeleccionado = null, areaM2Seleccionado = null;
+  // Los datos que el usuario ya haya escrito a mano en la vista previa del croquis (propietario,
+  // cédula, dirección, observaciones) — sin esto, cambiar de pestaña y volver a "Croquis de sitio"
+  // perdería lo que se hubiera editado, porque generarCroquisSitio() se vuelve a llamar desde cero
+  // cada vez que ese producto se vuelve a activar. `clave` decide si estos datos siguen siendo del
+  // predio actual o hay que resetearlos (predio nuevo = formulario en blanco de nuevo).
+  var datosCroquisActual = { clave: null, propietario: '', cedula: '', direccion: '', observaciones: '' };
   // Declarada acá afuera (no como function-declaration dentro del if de abajo) y asignada más abajo
   // — mostrarResultado() más arriba en el archivo la llama cada vez que termina de reconstruir el
-  // panel de un predio nuevo, para que la mitad visible (volumetría/croquis) siga la selección
-  // actual de la barra. Una function-declaration anidada en un bloque solo sube de scope por
-  // Annex B (comportamiento "sloppy mode", no garantizado igual en todos los motores) — mejor no
-  // depender de eso.
+  // panel de un predio nuevo, para que la vista siga la selección actual de la barra. Una
+  // function-declaration anidada en un bloque solo sube de scope por Annex B (comportamiento "sloppy
+  // mode", no garantizado igual en todos los motores) — mejor no depender de eso.
   var aplicarProductoActivo = function () {};
 
   if (barraCont && detalleCont) {
@@ -4282,22 +4504,45 @@
       }).join('');
     }
 
-    // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito) — para
-    // los dos productos reales, es el panel de siempre (#panel, con su mitad #vista-volumetria o
-    // #vista-croquis mostrada); para los otros 4 (todavía no construidos), es una ficha de
-    // descripción/precio en vez del panel, que se oculta entero mientras tanto.
+    // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito). Volumetría
+    // usa el panel de siempre (#panel/#vista-volumetria). Croquis YA NO tiene un formulario propio —
+    // "la vista previa aparece apenas hago clic en croquis" — así que acá mismo se genera y muestra
+    // directo (o se pide elegir un predio primero, si todavía no hay ninguno). Los otros 4 productos
+    // (sin construir todavía) muestran una ficha de descripción/precio en vez de cualquiera de los dos.
     aplicarProductoActivo = function () {
       barraCont.querySelectorAll('.chip-producto').forEach(function (b) {
         b.classList.toggle('activa', b.dataset.id === productoActivo);
       });
       var producto = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === productoActivo; })[0];
       if (!producto) return;
+
+      if (producto.id === 'croquis') {
+        if (toolEl) toolEl.style.display = 'none';
+        if (!estadoSeleccionado) {
+          cerrarPreviewCroquis();
+          detalleCont.innerHTML =
+            '<div class="pd-head"><h3><span class="chip-icono">' + ICONOS_PRODUCTO.croquis + '</span>Croquis de sitio</h3></div>' +
+            '<p class="pd-desc">Elige un predio en el mapa, arriba, para generar su croquis.</p>';
+          detalleCont.hidden = false;
+          return;
+        }
+        detalleCont.hidden = true; detalleCont.innerHTML = '';
+        if (datosCroquisActual.clave !== estadoSeleccionado.clave) {
+          datosCroquisActual = {
+            clave: estadoSeleccionado.clave, propietario: '', cedula: '',
+            direccion: calcularDireccionYViaRotulo(estadoSeleccionado).direccion, observaciones: ''
+          };
+        }
+        generarCroquisSitio(estadoSeleccionado, areaM2Seleccionado, datosCroquisActual);
+        return;
+      }
+
+      cerrarPreviewCroquis();
       if (PRODUCTOS_CONSTRUIDOS[producto.id]) {
         detalleCont.hidden = true; detalleCont.innerHTML = '';
         if (toolEl) toolEl.style.display = '';
-        var vVol = document.getElementById('vista-volumetria'), vCro = document.getElementById('vista-croquis');
-        if (vVol) vVol.hidden = producto.id !== 'volumetria';
-        if (vCro) vCro.hidden = producto.id !== 'croquis';
+        var vVol = document.getElementById('vista-volumetria');
+        if (vVol) vVol.hidden = false;
       } else {
         if (toolEl) toolEl.style.display = 'none';
         detalleCont.innerHTML =
@@ -4326,7 +4571,9 @@
       if (!btn || productoActivo === btn.dataset.id) return;
       productoActivo = btn.dataset.id;
       aplicarProductoActivo();
-      var destino = PRODUCTOS_CONSTRUIDOS[productoActivo] ? document.getElementById('panel') : detalleCont;
+      var destino = productoActivo === 'croquis'
+        ? document.getElementById('reporte-pdf')
+        : (PRODUCTOS_CONSTRUIDOS[productoActivo] ? document.getElementById('panel') : detalleCont);
       if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
