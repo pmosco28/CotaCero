@@ -125,9 +125,14 @@
      bloquea clics al mapa de abajo (pointer-events:none), solo cada burbuja individual los recibe.
      Precio referencial y EDITABLE ahí mismo (doble clic, mismo patrón que la vista previa del
      croquis) — persiste en localStorage de este navegador; no hay panel de administración todavía
-     (a futuro), esto es el primer paso del patrón visual. */
+     (a futuro), esto es el primer paso del patrón visual.
+     z-index: 1200 — Leaflet usa z-index internos hasta 800 (.leaflet-control) y 600/500 para sus
+     propias capas (mapa-cargando/mapa-fade) DENTRO del mismo contexto de apilamiento que este
+     contenedor (ningún ancestro en el medio crea uno aislado) — con z-index:15 las burbujas quedaban
+     tapadas por esas capas en casi toda su superficie, y solo se veía la que caía justo en la franja
+     más transparente del difuminado circular. Bug real, encontrado probando en el sitio en vivo. */
   .productos-burbujas {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15;
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1200;
     display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 94%;
     pointer-events: none;
   }
