@@ -62,16 +62,6 @@
   .hero p.lede { font-size: 1.1rem; color: var(--ink-soft); max-width: 56ch; margin: 0 0 8px; }
   .hero .small-note { font-size: 0.82rem; color: var(--ink-soft); }
 
-  /* ---------- lámina: un solo fondo continuo, sin tarjetas flotantes ---------- */
-  /* Numeración de secciones, estilo lámina arquitectónica ("02 PROYECTO ARQUITECTÓNICO") — se usa
-     como rótulo de cada bloque en vez de encabezados de tarjeta con ícono. */
-  .seccion-num {
-    display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;
-  }
-  .seccion-num .num { font-family: 'Bricolage Grotesque', sans-serif; font-size: 2rem; font-weight: 700; color: var(--ink); line-height: 1; }
-  .seccion-num .titulo { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
-  hr.regla { border: none; border-top: 1px solid var(--line); margin: 10px 0 28px; }
-
   /* ---------- tool ---------- */
   .mapa-hero { max-width: 1180px; margin: 36px auto 0; padding: 0 32px; }
 
@@ -121,42 +111,40 @@
   }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
-  /* Burbujas de producto flotando sobre el área del mapa (pedido explícito) — el contenedor no
-     bloquea clics al mapa de abajo (pointer-events:none), solo cada burbuja individual los recibe.
-     Precio referencial y EDITABLE ahí mismo (doble clic, mismo patrón que la vista previa del
-     croquis) — persiste en localStorage de este navegador; no hay panel de administración todavía
-     (a futuro), esto es el primer paso del patrón visual.
-     z-index: 1200 — Leaflet usa z-index internos hasta 800 (.leaflet-control) y 600/500 para sus
-     propias capas (mapa-cargando/mapa-fade) DENTRO del mismo contexto de apilamiento que este
-     contenedor (ningún ancestro en el medio crea uno aislado) — con z-index:15 las burbujas quedaban
-     tapadas por esas capas en casi toda su superficie, y solo se veía la que caía justo en la franja
-     más transparente del difuminado circular. Bug real, encontrado probando en el sitio en vivo. */
-  .productos-burbujas {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 1200;
-    display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 94%;
-    pointer-events: none;
+  /* Catálogo de productos: barra horizontal scrolleable DEBAJO del área de mapa/3D (ya no flotando
+     ENCIMA del mapa — ahí competía con el z-index real de las capas internas de Leaflet, bug ya
+     corregido una vez, pero mejor sacarla del todo de esa zona). Ícono monocromo de trazo simple
+     (stroke=currentColor — así `.activa` solo cambia `color` y el ícono se recolorea solo, sin
+     tocar el SVG) + nombre + precio, en fila con scroll horizontal NATIVO del navegador (gesto
+     táctil/trackpad estándar — nada de JS de carrusel). */
+  .barra-productos {
+    max-width: 1180px; margin: 18px auto 0; padding: 0 32px 8px;
+    display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin;
   }
-  .burbuja-producto {
-    pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2px; width: 74px; height: 74px; border-radius: 50%; border: 1px solid var(--line-soft);
-    background: rgba(255, 253, 248, 0.92); box-shadow: 0 6px 18px rgba(28, 26, 22, 0.12);
-    cursor: pointer; font-family: 'Hanken Grotesk'; color: var(--ink);
-    transition: transform 0.15s ease, box-shadow 0.15s ease; padding: 0;
+  .chip-producto {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    width: 92px; padding: 12px 8px 10px; border-radius: 12px; border: 1px solid var(--line-soft);
+    background: var(--paper-raised); color: var(--ink-soft); cursor: pointer;
+    font-family: 'Hanken Grotesk'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
   }
-  .burbuja-producto:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(28, 26, 22, 0.18); }
-  .burbuja-producto.activa { border: 2px solid var(--terracotta); box-shadow: 0 0 0 3px rgba(178, 80, 46, 0.18); }
-  .burbuja-producto .burbuja-icono { font-size: 1.5rem; line-height: 1; }
-  .burbuja-producto .burbuja-precio { font-size: 0.64rem; font-weight: 700; color: var(--terracotta-dark); }
-  @media (max-width: 720px) { .burbuja-producto { width: 60px; height: 60px; } .burbuja-producto .burbuja-icono { font-size: 1.2rem; } }
+  .chip-producto:hover { border-color: var(--line); }
+  .chip-producto.activa { border-color: var(--terracotta); color: var(--terracotta-dark); background: color-mix(in srgb, var(--terracotta) 6%, var(--paper-raised)); }
+  .chip-producto .chip-icono { width: 26px; height: 26px; color: inherit; }
+  .chip-producto .chip-icono svg { width: 100%; height: 100%; display: block; }
+  .chip-producto .chip-nombre { font-size: 0.68rem; font-weight: 600; line-height: 1.2; color: var(--ink); }
+  .chip-producto.activa .chip-nombre { color: var(--terracotta-dark); }
+  .chip-producto .chip-precio { font-size: 0.66rem; font-weight: 700; font-family: 'IBM Plex Mono'; }
+  @media (max-width: 720px) { .chip-producto { width: 78px; } }
 
-  .producto-detalle { max-width: 1180px; margin: 0 auto; padding: 28px 32px; border-top: 1px solid var(--line); }
+  .producto-detalle { max-width: 1180px; margin: 0 auto; padding: 18px 32px 28px; border-top: 1px solid var(--line); }
   .producto-detalle[hidden] { display: none; }
-  .producto-detalle .pd-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
-  .producto-detalle h3 { margin: 0; font-size: 1.3rem; font-family: 'Bricolage Grotesque'; }
-  .pd-precio-wrap { display: flex; align-items: baseline; gap: 6px; }
+  .producto-detalle .pd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .producto-detalle .pd-head .chip-icono { width: 22px; height: 22px; color: var(--terracotta-dark); }
+  .producto-detalle h3 { margin: 0; font-size: 1.15rem; font-family: 'Bricolage Grotesque'; display: flex; align-items: center; gap: 8px; }
+  .pd-precio-wrap { display: flex; align-items: baseline; gap: 6px; margin-left: auto; }
   .pd-precio-wrap label { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
   .pd-precio-wrap input {
-    width: 110px; font-family: 'IBM Plex Mono'; font-size: 1.05rem; font-weight: 600; padding: 6px 10px;
+    width: 90px; font-family: 'IBM Plex Mono'; font-size: 1rem; font-weight: 600; padding: 6px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--terracotta-dark);
   }
   .producto-detalle p.pd-desc { color: var(--ink-soft); max-width: 62ch; margin: 0 0 14px; }
@@ -278,6 +266,12 @@
     .reporte-pdf, .reporte-pdf * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body > *:not(.reporte-pdf) { display: none !important; }
     .reporte-pdf { display: block; }
+    /* Tamaño/márgenes de página FIJOS — sin esto, el ancho físico real que ocupa el croquis al
+       imprimir depende del margen que el navegador/impresora traiga por defecto (nunca idéntico entre
+       navegadores ni impresoras), lo que vuelve inútil cualquier grosor de línea fijo en mm (ver
+       construirPlanoUbicacionSVG más abajo: ahí se asume que el plano del croquis siempre ocupa
+       exactamente 180mm de ancho — 210mm de A4 menos 15mm de margen por lado). */
+    @page { size: A4; margin: 15mm; }
   }
   /* Vista previa EN LA MISMA PÁGINA (no un visor/modal aparte — probamos eso primero y el usuario lo
      pidió explícitamente así) antes de imprimir: generarCroquisSitio arma el documento y lo muestra
@@ -292,8 +286,24 @@
     position: sticky; top: 0; z-index: 10; display: flex; justify-content: flex-end; gap: 10px;
     padding: 14px 24px; background: inherit; border-bottom: 1px solid var(--line-soft);
   }
-  .preview-cuerpo { padding: 0 24px 24px; }
+  .preview-cuerpo { padding: 0 24px 24px; position: relative; }
   @media print { .preview-toolbar { display: none !important; } }
+  /* Marca de agua de la vista previa SIN PAGAR — no es una medida real contra captura de pantalla (eso
+     no existe de verdad en la web, ver la respuesta al usuario), es una muestra de uso: el documento
+     se ve completo para revisarlo, pero no sirve tal cual para el trámite. Desaparece sola al
+     "pagar" (ver btn-croquis-pagar) y @media print la saca siempre, por si alguna vez quedara mal
+     sincronizada con el botón real de imprimir. */
+  .marca-agua {
+    display: none; position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden;
+    align-items: center; justify-content: center;
+  }
+  .reporte-pdf.croquis.sin-pagar .marca-agua { display: flex; }
+  .marca-agua span {
+    display: block; width: 200%; text-align: center; transform: rotate(-32deg);
+    font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 1.8rem; letter-spacing: 0.05em;
+    color: rgba(178, 80, 46, 0.16); line-height: 4.2; white-space: pre-wrap; user-select: none;
+  }
+  @media print { .marca-agua { display: none !important; } }
   /* Zoom del plano dentro de la vista previa — pellizco/ctrl+scroll (mismo criterio que el mapa y el
      3D en el resto de la herramienta) o los botones +/−. overflow:auto en .zoom-plano-scroll deja
      recorrer el dibujo una vez agrandado. */
@@ -353,7 +363,11 @@
      no un tinte — y como el resto del CSS de .reporte-pdf ya lee estas variables (el fondo de la
      página, el de las celdas de etiqueta de la tabla, etc.), redeclararlas acá alcanza para que todo
      lo demás siga igual sin tocar cada regla una por una. */
-  .reporte-pdf.croquis { max-width: 720px; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
+  /* max-width en mm, no px — ancho FÍSICO real del contenido impreso (210mm de A4 menos 15mm de
+     margen por lado, ver el @page de arriba), así la vista previa en pantalla mide EXACTAMENTE lo
+     mismo que el papel real y los grosores de línea fijos en mm (construirPlanoUbicacionSVG) salen
+     correctos en los dos lados sin depender de qué tan grande esté la ventana del navegador. */
+  .reporte-pdf.croquis { max-width: 180mm; margin: 0 auto; --paper: #FFFFFF; --paper-raised: #FFFFFF; background: #FFFFFF; }
   /* Sin tarjeta detrás del plano — a pedido explícito, "que las líneas queden pegadas sobre el
      espacio del papel sin ningún color por detrás". El recuadro punteado que marca el límite del
      recorte ya está DENTRO del SVG (ver construirPlanoUbicacionSVG); esto solo saca el fondo/borde/
@@ -395,16 +409,6 @@
   section.strip { max-width: 1180px; margin: 0 auto; padding: 56px 32px; border-top: 1px solid var(--line); }
   .strip h2 { font-size: 1.7rem; margin: 0 0 8px; }
   .strip p.sub { color: var(--ink-soft); max-width: 60ch; margin: 0 0 34px; }
-
-  /* Listas numeradas estilo "PROGRAMA ARQ." de la lámina — se reusa para "cómo funciona" Y para la
-     lógica de parametrización, en vez de tarjetas con borde propio. */
-  .lista-programa { display: flex; flex-direction: column; gap: 18px; }
-  .lista-programa .item { display: grid; grid-template-columns: 2.4em 1fr; gap: 14px; }
-  .lista-programa .item .num { font-family: 'IBM Plex Mono'; color: var(--ochre); font-size: 0.85rem; font-weight: 600; padding-top: 0.2em; }
-  .lista-programa .item h3 { font-size: 1.02rem; margin: 0 0 4px; font-family: 'Hanken Grotesk'; font-weight: 600; }
-  .lista-programa .item p { font-size: 0.88rem; color: var(--ink-soft); margin: 0; max-width: 62ch; }
-  .lista-programa .item code { font-family: 'IBM Plex Mono'; font-size: 0.82rem; background: none; color: var(--surveyor); }
-  @media (min-width: 720px) { .lista-programa.cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; } .lista-programa.cols-3 .item { grid-template-columns: 1fr; } }
 
   .cta-band {
     max-width: 1116px; margin: 0 auto 64px; padding: 0 32px 56px;
@@ -456,7 +460,6 @@
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="productos-burbujas" id="productosBurbujas"></div>
   <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
@@ -484,6 +487,7 @@
   </div>
 </div>
 <div class="map-caption">Toca cualquier lote del catastro urbano de Cuenca — la geometría es real, consultada en vivo al GAD Municipal.</div>
+<div class="barra-productos" id="barraProductos"></div>
 <div class="producto-detalle" id="productoDetalle" hidden></div>
 
 <div class="tool">
@@ -494,29 +498,6 @@
     </div>
   </div>
 </div>
-
-<section class="strip" id="como-funciona">
-  <div class="seccion-num"><span class="num">01</span><span class="titulo">Cómo funciona</span></div>
-  <hr class="regla">
-  <p class="sub">Tres pasos, sin trámite — para que tengas una primera lectura del terreno antes de invertir tiempo en un levantamiento.</p>
-  <div class="lista-programa cols-3">
-    <div class="item"><span class="num">01</span><div><h3>Eliges el predio</h3><p>Clic en el mapa. Consultamos el catastro municipal real (misma fuente que un IPRUS) y traemos la geometría exacta de tu lote.</p></div></div>
-    <div class="item"><span class="num">02</span><div><h3>Vemos la normativa</h3><p>Lote mínimo, retiros, altura permitida, tipo de implantación — extraído directo del Plan de Uso y Gestión de Suelo del cantón Cuenca.</p></div></div>
-    <div class="item"><span class="num">03</span><div><h3>Generamos la volumetría</h3><p>Un modelo 3D de referencia de lo máximo edificable en tu lote, calculado con los retiros reales de tu zona.</p></div></div>
-  </div>
-</section>
-
-<section class="strip" id="logica">
-  <div class="seccion-num"><span class="num">02</span><span class="titulo">Parametrización — cómo se calcula cada cosa</span></div>
-  <hr class="regla">
-  <p class="sub">Nada de esto es una caja negra. Esta es la lógica real, en el mismo orden en que se aplica sobre tu predio.</p>
-  <div class="lista-programa">
-    <div class="item"><span class="num">01</span><div><h3>Regularización</h3><p>El polígono crudo del catastro se simplifica (Douglas-Peucker), se le quitan los vértices colineales que sobran, y se ortogonaliza: las esquinas que ya están cerca de 90° se fijan exactas — sin inventar escuadra donde el lote de verdad es oblicuo.</p></div></div>
-    <div class="item"><span class="num">02</span><div><h3>Frente / lateral / posterior</h3><p>Se arma la manzana real (tu predio fusionado con sus vecinos reales, por adyacencia geométrica real — no una capa de manzana del catastro). Un lado que da a la calle queda en el borde EXTERIOR de esa manzana; un lado que es pared medianera queda enterrado adentro, sin importar qué tan cerca esté de una vía por coincidencia. El posterior se distingue del lateral por ÁNGULO (paralelo al frente), no por distancia.</p></div></div>
-    <div class="item"><span class="num">03</span><div><h3>Retiros por lado</h3><p>Cada lado se recorta con SU retiro (frontal/lateral/posterior), no un promedio uniforme — un semiplano por lado, en cadena. Las plantas altas reducen el retiro frontal por el voladizo de referencia (1.2m).</p></div></div>
-    <div class="item"><span class="num">04</span><div><h3>Patio interno</h3><p>Profundidad máxima servida por una ventana: <code>6m</code>. Más allá de esa franja desde el frente (y desde el posterior si tiene fachada libre) hace falta un patio. Tamaño mínimo real: <code>3.6m</code>, o <code>altura/3</code> si la norma de luces rectas pide más — nunca "toda la zona disponible": el patio es del tamaño que la norma exige, no del espacio que sobra.</p></div></div>
-  </div>
-</section>
 
 <section class="strip cta-band" id="acceso">
   <div>
@@ -2314,38 +2295,45 @@
     // resuelve el caso de frente sin nombre real (ver esa función).
     var direccionSugerida = calcularDireccionYViaRotulo(estado).direccion;
 
+    // El panel entero se sigue calculando siempre completo (volumetría + croquis juntos) — es la
+    // única lógica que de verdad depende de `estado`/`esCentroHistorico` recién resueltos. Lo que
+    // cambia según el producto elegido en la barra de arriba es solo qué MITAD se ve: envueltas en
+    // #vista-volumetria / #vista-croquis, mostradas/ocultadas por aplicarProductoActivo() sin volver
+    // a tocar este HTML. Así "croquis" puede mostrar DIRECTO su formulario+vista previa (pedido
+    // explícito) sin arrastrar las estadísticas de retiros/pisos que no le sirven a ese producto.
     panel.innerHTML =
-      '<div class="result-head">' +
-        '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
-        '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
-        '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : 'Normativa de referencia') + '</span>' +
+      '<div id="vista-volumetria">' +
+        '<div class="result-head">' +
+          '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
+          '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
+          '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : 'Normativa de referencia') + '</span>' +
+        '</div>' +
+        '<div class="stat-row">' +
+          '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
+          '<div class="stat"><div class="label">Patio interno</div><div class="value" id="info-patio" style="font-size:0.8rem;">—</div></div>' +
+        '</div>' +
+        notaCentro + filasTablaHtml + notaTopeReal +
+        (estado.frenteARio ? '<div style="font-size:0.8rem; color:var(--terracotta); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏞️ Frente a río/quebrada detectado (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — del piso 4 en adelante, cada piso retrocede ' + 3 + 'm adicionales sobre ese lado.</div>' : '') +
+        '<div>' +
+          '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Clasificación de lados (manzana real, vecinos y vías de Cuenca)</div>' +
+          '<div>' + filasLados + '</div>' +
+        '</div>' +
+        '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
+          '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Editor en vivo</div>' +
+          '<div style="font-size:0.82rem;">🎚️ El control de <strong>pisos</strong> (y sombras) está junto a la ubicación, arriba, sobre el modelo 3D.</div>' +
+          '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola). La cantidad y posición de los patios se calcula sola (la mínima que respeta la profundidad de luz — 6m con un solo lado, 10m con dos). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
+        '</div>' +
+        '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
+          '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Informe para el cliente</div>' +
+          '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, a partir de datos públicos del catastro municipal y OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
+          '<label style="font-size:0.78rem;color:var(--ink-soft);display:block;margin:10px 0 4px;">Particularidades encontradas (opcional)</label>' +
+          '<textarea id="notas-profesional" rows="3" placeholder="Ej. desnivel importante hacia el fondo, árbol patrimonial en el retiro frontal, acceso vehicular restringido…"></textarea>' +
+          '<button id="btn-pdf-cliente" class="btn btn-ghost" style="width:100%;margin-top:10px;">📄 Generar informe PDF</button>' +
+          '<button id="btn-descargar-obj" class="btn btn-ghost" style="width:100%;margin-top:8px;">📦 Descargar modelo 3D (.obj)</button>' +
+          '<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">Editable en ArchiCAD, Revit, SketchUp, 3ds Max — la masa, no los planos de IPRUS.</div>' +
+        '</div>' +
       '</div>' +
-      '<div class="stat-row">' +
-        '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
-        '<div class="stat"><div class="label">Patio interno</div><div class="value" id="info-patio" style="font-size:0.8rem;">—</div></div>' +
-      '</div>' +
-      notaCentro + filasTablaHtml + notaTopeReal +
-      (estado.frenteARio ? '<div style="font-size:0.8rem; color:var(--terracotta); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏞️ Frente a río/quebrada detectado (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — del piso 4 en adelante, cada piso retrocede ' + 3 + 'm adicionales sobre ese lado.</div>' : '') +
-      '<div>' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Clasificación de lados (manzana real, vecinos y vías de Cuenca)</div>' +
-        '<div>' + filasLados + '</div>' +
-      '</div>' +
-      '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Editor en vivo</div>' +
-        '<div style="font-size:0.82rem;">🎚️ El control de <strong>pisos</strong> (y sombras) está junto a la ubicación, arriba, sobre el modelo 3D.</div>' +
-        '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola). La cantidad y posición de los patios se calcula sola (la mínima que respeta la profundidad de luz — 6m con un solo lado, 10m con dos). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
-      '</div>' +
-      '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Informe para el cliente</div>' +
-        '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, a partir de datos públicos del catastro municipal y OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
-        '<label style="font-size:0.78rem;color:var(--ink-soft);display:block;margin:10px 0 4px;">Particularidades encontradas (opcional)</label>' +
-        '<textarea id="notas-profesional" rows="3" placeholder="Ej. desnivel importante hacia el fondo, árbol patrimonial en el retiro frontal, acceso vehicular restringido…"></textarea>' +
-        '<button id="btn-pdf-cliente" class="btn btn-ghost" style="width:100%;margin-top:10px;">📄 Generar informe PDF</button>' +
-        '<button id="btn-descargar-obj" class="btn btn-ghost" style="width:100%;margin-top:8px;">📦 Descargar modelo 3D (.obj)</button>' +
-        '<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">Editable en ArchiCAD, Revit, SketchUp, 3ds Max — la masa, no los planos de IPRUS.</div>' +
-      '</div>' +
-      '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Croquis de sitio (trámite bancario)</div>' +
+      '<div id="vista-croquis" hidden>' +
         '<label class="label-croquis">Propietario (o copropietarios)</label>' +
         '<input type="text" id="croquis-propietario" class="input-croquis" placeholder="Nombre completo">' +
         '<label class="label-croquis">Cédula o RUC</label>' +
@@ -2417,6 +2405,11 @@
         observaciones: (document.getElementById('croquis-observaciones').value || '').trim()
       });
     });
+
+    // El panel recién se reconstruyó completo (#vista-volumetria + #vista-croquis) — aplicar de nuevo
+    // cuál de los dos productos está activo en la barra de arriba, si no esta función deja siempre
+    // la volumetría visible sin importar qué había elegido el usuario antes de tocar este predio.
+    aplicarProductoActivo();
   }
 
   // Vértices arrastrables del perímetro editable (planta alta) — clavados a no volver el polígono
@@ -3628,7 +3621,11 @@
   // radio base (predios tipo cancha/complejo), igual crece lo justo para no dejarlo con una esquina
   // afuera del plano — mismo criterio que ya usa el disco de contexto del modelo 3D.
   function extentUbicacionCoherente(estado, areaM2) {
-    var base = areaM2 > 500 ? 100 : 50;
+    // Continuo en vez de dos escalones fijos (50/100m) — pedido explícito: "el zoom debe permitirme
+    // alejarme un poco más, hasta los 100m, en función del tamaño del lote". Crece con la raíz del
+    // área (así un lote 4x más grande no exige 4x más contexto, que sería desproporcionado) y tapa en
+    // 100m — un lote chico ya no queda encerrado en los 50m fijos de antes.
+    var base = Math.min(100, 50 + Math.sqrt(areaM2) * 1.2);
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
     var maxDx = 0, maxDy = 0;
     estado.pts.forEach(function (p) {
@@ -3749,7 +3746,15 @@
     if (actual.length >= 2) tramos.push(actual);
     return tramos;
   }
-  function construirPlanoUbicacionSVG(estado, areaM2, sinEscala) {
+  // anchoImpresionMM (opcional): ancho FÍSICO real, en mm, al que este SVG va a quedar impreso/
+  // mostrado — SOLO el croquis lo pasa (180mm, ver generarCroquisSitio y el @page de arriba). Cuando
+  // viene, los grosores de línea salen fijos en mm de papel (0.1/0.3/0.8mm, pedido explícito) en vez
+  // de la fracción del ancho dibujado — un croquis de lote chico y uno de lote grande deben salir con
+  // EL MISMO grosor de línea en la hoja A4, no uno más grueso que el otro. Los demás usos de esta
+  // función (tarjetita de ubicación sobre el 3D, inset del informe PDF) no pasan este parámetro y
+  // siguen con el criterio proporcional de siempre — ahí no hay un tamaño de impresión fijo del cual
+  // partir.
+  function construirPlanoUbicacionSVG(estado, areaM2, sinEscala, anchoImpresionMM) {
     var cx = estado.centroideLote[0], cy = estado.centroideLote[1];
     var ext = extentUbicacionCoherente(estado, areaM2);
     var halfW = ext.halfW, halfH = ext.halfH;
@@ -3787,7 +3792,17 @@
     // uno grande (manzana de cancha, 100m+) quedan igual de legibles, ninguno con líneas invisibles o
     // gigantes. Jerarquía a pedido explícito: calles finas y punteadas (son contexto, no protagonismo),
     // predios en línea media, el sitio en línea ancha — tres niveles, no dos.
-    var fino = anchoM * 0.0015, medio = anchoM * 0.003, ancho = anchoM * 0.006, textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
+    var fino, medio, ancho;
+    if (anchoImpresionMM) {
+      // Grosor FIJO en mm de papel (pedido explícito: 0.1/0.3/0.8mm, iguales en cualquier croquis) —
+      // 1 unidad de este SVG = 1 metro real (ver svgPt arriba), y anchoM metros reales van a ocupar
+      // exactamente anchoImpresionMM mm de papel, así que mmPorUnidad convierte mm deseados -> unidades.
+      var mmPorUnidad = anchoImpresionMM / anchoM;
+      fino = 0.1 / mmPorUnidad; medio = 0.3 / mmPorUnidad; ancho = 0.8 / mmPorUnidad;
+    } else {
+      fino = anchoM * 0.0015; medio = anchoM * 0.003; ancho = anchoM * 0.006;
+    }
+    var textoChico = anchoM * 0.016, textoFlecha = anchoM * 0.02;
 
     var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion">';
     // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
@@ -4016,14 +4031,18 @@
     var interior = wrap.querySelector('.zoom-plano-interior');
     var scroll = wrap.querySelector('.zoom-plano-scroll');
     var nivel = 1;
+    // Mínimo 0.6, no 1 — a pedido explícito ("alejarme un poco más"), para poder achicar la vista y
+    // ver el dibujo completo de una sola vez cuando no entra entero en pantalla a tamaño real (el
+    // CONTEXTO real que se dibuja ya creció con extentUbicacionCoherente; esto es aparte, el zoom de
+    // la vista previa en pantalla sobre ese dibujo ya hecho).
     function aplicar() { interior.style.transform = 'scale(' + nivel + ')'; }
     var btnOut = wrap.querySelector('.btn-zoom-out'), btnIn = wrap.querySelector('.btn-zoom-in');
-    if (btnOut) btnOut.addEventListener('click', function () { nivel = Math.max(1, nivel - 0.4); aplicar(); });
+    if (btnOut) btnOut.addEventListener('click', function () { nivel = Math.max(0.6, nivel - 0.4); aplicar(); });
     if (btnIn) btnIn.addEventListener('click', function () { nivel = Math.min(4, nivel + 0.4); aplicar(); });
     scroll.addEventListener('wheel', function (e) {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      nivel = Math.max(1, Math.min(4, nivel - e.deltaY * 0.01));
+      nivel = Math.max(0.6, Math.min(4, nivel - e.deltaY * 0.01));
       aplicar();
     }, { passive: false });
   }
@@ -4053,7 +4072,9 @@
   }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
-    try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
+    // 180 = ancho físico fijo del croquis en mm (ver @page y .reporte-pdf.croquis) — activa el grosor
+    // de línea fijo en mm dentro de construirPlanoUbicacionSVG, en vez del proporcional de siempre.
+    try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false, 180); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
@@ -4097,14 +4118,31 @@
         (svgQr ? '<div class="qr-bloque">' + svgQr + '<span>Escaneá para ver<br>la ubicación en tu celular</span></div>' : '') +
       '</div>';
 
+    // Precio referencial actual de este producto (el mismo que muestra/edita la barra de arriba) —
+    // la descarga real queda bloqueada hasta "pagar" (ver btn-croquis-pagar). Sin pasarela de pago de
+    // verdad conectada todavía: esto es un candado de UI que simula el paso, no un cobro real — se lo
+    // explico al usuario aparte, no alcanza con un comentario acá.
+    var productoCroquis = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === 'croquis'; })[0];
+    var precioCroquis = precioGuardado('croquis', productoCroquis ? productoCroquis.precioBase : '15');
+
+    // Marca de agua repetida — NO es una medida anti-captura real (no existe tal cosa en una página
+    // web, se lo explico al usuario). Es una muestra de uso: el documento se puede revisar completo
+    // antes de pagar, pero no sirve tal cual para el trámite si alguien lo copia así.
+    var lineaMarca = 'VISTA PREVIA · NO VÁLIDO PARA TRÁMITES';
+    var textoMarca = [lineaMarca, lineaMarca, lineaMarca, lineaMarca, lineaMarca, lineaMarca].join('\n');
+
     var rep = document.getElementById('reporte-pdf');
-    rep.className = 'reporte-pdf croquis preview-activo';
+    rep.className = 'reporte-pdf croquis preview-activo sin-pagar';
     rep.innerHTML =
       '<div class="preview-toolbar">' +
         '<button id="btn-croquis-cerrar" class="btn btn-ghost" type="button">✕ Cerrar</button>' +
-        '<button id="btn-croquis-imprimir" class="btn" type="button">🖨️ Imprimir / Guardar PDF</button>' +
+        '<button id="btn-croquis-pagar" class="btn" type="button">💳 Pagar $' + precioCroquis + ' y descargar</button>' +
+        '<button id="btn-croquis-imprimir" class="btn" type="button" style="display:none;">🖨️ Imprimir / Guardar PDF</button>' +
       '</div>' +
-      '<div class="preview-cuerpo">' + contenidoCroquis + '</div>';
+      '<div class="preview-cuerpo">' +
+        '<div class="marca-agua"><span>' + textoMarca + '</span></div>' +
+        contenidoCroquis +
+      '</div>';
     rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
     activarZoomPlano(rep);
     activarEdicionCroquis(rep);
@@ -4113,7 +4151,19 @@
       rep.className = 'reporte-pdf';
       rep.innerHTML = '';
     });
-    document.getElementById('btn-croquis-imprimir').addEventListener('click', function () {
+    var btnPagar = document.getElementById('btn-croquis-pagar');
+    var btnImprimir = document.getElementById('btn-croquis-imprimir');
+    btnPagar.addEventListener('click', function () {
+      var confirmado = confirm(
+        'Modo demo — todavía no hay una pasarela de pago conectada.\n\n' +
+        '¿Simular el pago de $' + precioCroquis + ' para desbloquear la descarga de este croquis?'
+      );
+      if (!confirmado) return;
+      rep.classList.remove('sin-pagar');
+      btnPagar.style.display = 'none';
+      btnImprimir.style.display = '';
+    });
+    btnImprimir.addEventListener('click', function () {
       imprimirCroquisActivo(estado);
     });
   }
@@ -4145,26 +4195,40 @@
     window.print();
   }
 
-  // ---------- burbujas de producto ----------
-  // Primer paso del patrón visual del catálogo (pedido explícito) — precios REFERENCIALES, editables
-  // con doble clic sobre el número en el panel de detalle (mismo patrón que ya usa la vista previa del
-  // croquis) y persistidos en localStorage de este navegador. Sin panel de administración todavía
-  // (el usuario ya lo pidió como siguiente paso, a futuro) — esto es la base para construirlo encima,
-  // no el producto final.
+  // ---------- catálogo de productos (barra horizontal) ----------
+  // Precios REFERENCIALES, editables con doble clic directo sobre el precio de cada chip (mismo
+  // patrón que ya usan las celdas del croquis) y persistidos en localStorage de este navegador. Sin
+  // panel de administración todavía (a futuro, ya pedido) — esto es la base para construirlo encima.
   var CATALOGO_PRODUCTOS = [
-    { id: 'planimetrico', icono: '📐', nombre: 'Plano planimétrico', precioBase: '25', nota: 'por predio',
+    { id: 'planimetrico', nombre: 'Plano planimétrico', precioBase: '25', nota: 'por predio',
       descripcion: 'Plano del predio en el formato que exige el municipio, con curvas de nivel públicas e inmediatas — sin necesidad de un levantamiento en sitio.' },
-    { id: 'levantamiento', icono: '📡', nombre: 'Levantamiento topográfico', precioBase: '80', nota: 'por predio',
+    { id: 'levantamiento', nombre: 'Levantamiento topográfico', precioBase: '80', nota: 'por predio',
       descripcion: 'Levantamiento topográfico detallado y en sitio, para predios donde el dato público no alcanza (pendiente fuerte, irregularidad, precisión insuficiente).' },
-    { id: 'planimetrico-iprus', icono: '🏛️', nombre: 'Planimétrico + gestión IPRUS', precioBase: '60', nota: 'por trámite',
+    { id: 'planimetrico-iprus', nombre: 'Planimétrico + gestión IPRUS', precioBase: '60', nota: 'por trámite',
       descripcion: 'El plano planimétrico más la gestión del trámite IPRUS ante el GAD Municipal de Cuenca, de principio a fin.' },
-    { id: 'analisis-sitio', icono: '🔍', nombre: 'Análisis de sitio', precioBase: '18', nota: 'desde, 3 niveles',
+    { id: 'analisis-sitio', nombre: 'Análisis de sitio', precioBase: '18', nota: 'desde, 3 niveles',
       descripcion: 'Tres escalas de profundidad — macro, medio y micro — sobre equipamientos cercanos, accesibilidad y entorno real del predio.' },
-    { id: 'croquis', icono: '📍', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
+    { id: 'croquis', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
       descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
-    { id: 'volumetria', icono: '🧊', nombre: 'Volumetría de referencia', precioGratis: true,
+    { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
+  // Íconos monocromos de trazo simple (currentColor — heredan el color del botón, así ".activa" los
+  // recolorea solo cambiando `color`, sin tocar el SVG) — pedido explícito en vez de los emoji de
+  // antes. El de "análisis de sitio" son 3 anillos concéntricos a propósito: son las 3 escalas reales
+  // del producto (macro/medio/micro), no una forma genérica de lupa.
+  var ICONOS_PRODUCTO = {
+    planimetrico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17"/><path d="M3.5 13.5h7.5M11 13.5V21"/><path d="M11 13.5a4 4 0 0 1 4 4" stroke-dasharray="1.2 2.2"/></svg>',
+    levantamiento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.7"/><path d="M12 6.7V12"/><path d="M12 12 5.5 20.5M12 12l6.5 8.5M8.2 20.5h7.6"/></svg>',
+    'planimetrico-iprus': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.8h8.2l3 3V21H6z"/><path d="M14.2 2.8v3h3"/><circle cx="11.5" cy="14.8" r="3.3"/><path d="M10 14.9l1.1 1.1 2.1-2.4"/></svg>',
+    'analisis-sitio': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.4"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    croquis: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.2s7.1-7.3 7.1-12.2a7.1 7.1 0 1 0-14.2 0c0 4.9 7.1 12.2 7.1 12.2z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+    volumetria: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 7.3v9.4L12 21 4 16.7V7.3z"/><path d="M12 3v9m0 9v-9M4 7.3 12 12l8-4.7"/></svg>'
+  };
+  // Los únicos dos productos ya construidos de verdad hoy — los otros 4 muestran descripción/precio y
+  // un enlace al formulario de acceso anticipado que ya existe más abajo en la página, en vez de
+  // duplicar un formulario de correo nuevo por cada uno.
+  var PRODUCTOS_CONSTRUIDOS = { volumetria: true, croquis: true };
   function precioGuardado(id, precioBase) {
     try {
       var guardado = window.localStorage.getItem('cotacero_precio_' + id);
@@ -4174,54 +4238,104 @@
   function guardarPrecio(id, valor) {
     try { window.localStorage.setItem('cotacero_precio_' + id, valor); } catch (e) { /* localStorage puede fallar en privado/incógnito — no es crítico, el precio solo no persiste */ }
   }
-  var burbujasCont = document.getElementById('productosBurbujas');
+  var barraCont = document.getElementById('barraProductos');
   var detalleCont = document.getElementById('productoDetalle');
-  if (burbujasCont && detalleCont) {
-    burbujasCont.innerHTML = CATALOGO_PRODUCTOS.map(function (p) {
-      var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
-      return '<button type="button" class="burbuja-producto" data-id="' + p.id + '">' +
-        '<span class="burbuja-icono">' + p.icono + '</span>' +
-        '<span class="burbuja-precio">' + precioTxt + '</span>' +
-      '</button>';
-    }).join('');
+  var toolEl = document.querySelector('.tool');
+  var productoActivo = 'volumetria';
+  // Declarada acá afuera (no como function-declaration dentro del if de abajo) y asignada más abajo
+  // — mostrarResultado() más arriba en el archivo la llama cada vez que termina de reconstruir el
+  // panel de un predio nuevo, para que la mitad visible (volumetría/croquis) siga la selección
+  // actual de la barra. Una function-declaration anidada en un bloque solo sube de scope por
+  // Annex B (comportamiento "sloppy mode", no garantizado igual en todos los motores) — mejor no
+  // depender de eso.
+  var aplicarProductoActivo = function () {};
 
-    function mostrarProducto(p) {
-      burbujasCont.querySelectorAll('.burbuja-producto').forEach(function (b) {
-        b.classList.toggle('activa', b.dataset.id === p.id);
-      });
-      var precioActual = p.precioGratis ? null : precioGuardado(p.id, p.precioBase);
-      detalleCont.innerHTML =
-        '<div class="pd-head">' +
-          '<h3>' + p.icono + ' ' + p.nombre + '</h3>' +
-          (p.precioGratis
-            ? '<span class="badge badge-demo">Gratis</span>'
-            : '<div class="pd-precio-wrap"><label>Precio</label><span class="mono">$</span>' +
-                '<input type="text" inputmode="decimal" id="pd-precio-input" value="' + precioActual + '">' +
-                '<span class="pd-nota">' + (p.nota || '') + '</span></div>') +
-        '</div>' +
-        '<p class="pd-desc">' + p.descripcion + '</p>' +
-        '<p class="pd-nota">💡 Precio referencial — editalo directo ahí arriba, se guarda en este navegador. El panel de administración real todavía no existe.</p>';
-      detalleCont.hidden = false;
-      var inputPrecio = document.getElementById('pd-precio-input');
-      if (inputPrecio) {
-        inputPrecio.addEventListener('change', function () {
-          var limpio = inputPrecio.value.replace(/[^0-9.]/g, '') || p.precioBase;
-          inputPrecio.value = limpio;
-          guardarPrecio(p.id, limpio);
-          var burbuja = burbujasCont.querySelector('.burbuja-producto[data-id="' + p.id + '"] .burbuja-precio');
-          if (burbuja) burbuja.textContent = '$' + limpio;
-        });
-      }
-      detalleCont.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (barraCont && detalleCont) {
+    function renderBarra() {
+      barraCont.innerHTML = CATALOGO_PRODUCTOS.map(function (p) {
+        var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
+        return '<button type="button" class="chip-producto' + (p.id === productoActivo ? ' activa' : '') + '" data-id="' + p.id + '">' +
+          '<span class="chip-icono">' + (ICONOS_PRODUCTO[p.id] || '') + '</span>' +
+          '<span class="chip-nombre">' + p.nombre + '</span>' +
+          '<span class="chip-precio" data-id="' + p.id + '">' + precioTxt + '</span>' +
+        '</button>';
+      }).join('');
     }
 
-    burbujasCont.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('.burbuja-producto');
-      if (!btn) return;
-      var activa = btn.classList.contains('activa');
-      if (activa) { btn.classList.remove('activa'); detalleCont.hidden = true; detalleCont.innerHTML = ''; return; }
-      var producto = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === btn.dataset.id; })[0];
-      if (producto) mostrarProducto(producto);
+    // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito) — para
+    // los dos productos reales, es el panel de siempre (#panel, con su mitad #vista-volumetria o
+    // #vista-croquis mostrada); para los otros 4 (todavía no construidos), es una ficha de
+    // descripción/precio en vez del panel, que se oculta entero mientras tanto.
+    aplicarProductoActivo = function () {
+      barraCont.querySelectorAll('.chip-producto').forEach(function (b) {
+        b.classList.toggle('activa', b.dataset.id === productoActivo);
+      });
+      var producto = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === productoActivo; })[0];
+      if (!producto) return;
+      if (PRODUCTOS_CONSTRUIDOS[producto.id]) {
+        detalleCont.hidden = true; detalleCont.innerHTML = '';
+        if (toolEl) toolEl.style.display = '';
+        var vVol = document.getElementById('vista-volumetria'), vCro = document.getElementById('vista-croquis');
+        if (vVol) vVol.hidden = producto.id !== 'volumetria';
+        if (vCro) vCro.hidden = producto.id !== 'croquis';
+      } else {
+        if (toolEl) toolEl.style.display = 'none';
+        detalleCont.innerHTML =
+          '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
+            '<span class="badge badge-demo">Próximamente</span></div>' +
+          '<p class="pd-desc">' + producto.descripcion + '</p>' +
+          '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
+            ' — todavía no se puede comprar en línea. <a href="#acceso" id="pd-ir-acceso">Dejá tu correo</a> y te avisamos apenas esté disponible.</p>';
+        detalleCont.hidden = false;
+        var link = document.getElementById('pd-ir-acceso');
+        if (link) link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var destino = document.getElementById('acceso');
+          if (destino) destino.scrollIntoView({ behavior: 'smooth' });
+          var campoEmail = document.getElementById('signup-email');
+          if (campoEmail) campoEmail.focus();
+        });
+      }
+    }
+
+    renderBarra();
+    aplicarProductoActivo();
+
+    barraCont.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.chip-producto');
+      if (!btn || productoActivo === btn.dataset.id) return;
+      productoActivo = btn.dataset.id;
+      aplicarProductoActivo();
+      var destino = PRODUCTOS_CONSTRUIDOS[productoActivo] ? document.getElementById('panel') : detalleCont;
+      if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // Precio editable con doble clic directo sobre el número del chip — mismo gesto que ya usan las
+    // celdas de datos del croquis, en vez de un input aparte en un panel de detalle que ya no existe
+    // para estos dos productos.
+    barraCont.addEventListener('dblclick', function (ev) {
+      var span = ev.target.closest('.chip-precio');
+      if (!span) return;
+      var id = span.dataset.id;
+      var producto = CATALOGO_PRODUCTOS.filter(function (p) { return p.id === id; })[0];
+      if (!producto || producto.precioGratis) return;
+      var actual = precioGuardado(id, producto.precioBase);
+      var input = document.createElement('input');
+      input.type = 'text'; input.inputMode = 'decimal'; input.value = actual;
+      input.style.cssText = 'width:44px;font:inherit;text-align:center;border:1px solid var(--terracotta);border-radius:4px;background:var(--paper-raised);';
+      span.replaceWith(input);
+      input.focus(); input.select();
+      function commit() {
+        var limpio = input.value.replace(/[^0-9.]/g, '') || producto.precioBase;
+        guardarPrecio(id, limpio);
+        renderBarra();
+        aplicarProductoActivo();
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = actual; input.blur(); }
+      });
     });
   }
 
