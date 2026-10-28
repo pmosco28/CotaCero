@@ -3595,6 +3595,26 @@
     // así quedaba con mucho aire de más a los costados solo para cubrir el largo.
     return { halfW: Math.max(base, maxDx + 10), halfH: Math.max(base, maxDy + 10) };
   }
+  // Ancho físico (mm) al que el plano del croquis debe imprimirse para que TODO el documento quepa en
+  // UNA sola hoja A4 — pedido explícito: "que la info se concentre solo en una página, no tenemos
+  // tanta información". El ancho de página disponible es 180mm (210mm - 15mm de margen por lado, ver
+  // @page), pero usarlo siempre a full para un lote angosto y muy alargado da un plano altísimo que
+  // empuja la tabla de datos/aviso legal/firma a una segunda hoja. ALTO_MAX_MM es un presupuesto
+  // conservador de cuánto alto le puede tocar al plano dejando lugar al resto (membrete+título+tabla+
+  // aviso+firma miden ~130-140mm en total) — si la proporción del lote pide más alto que eso, se achica
+  // el ANCHO (manteniendo la proporción real) hasta que el alto entre en el presupuesto.
+  // nivelZoom se propaga igual que a construirPlanoUbicacionSVG: la relación halfW/halfH no cambia con
+  // el zoom (ambos se dividen por el mismo factor), así que este ancho sigue siendo válido en cualquier
+  // nivel — no hace falta recalcularlo en cada paso de zoom, solo una vez.
+  function anchoImpresionCroquisMM(estado, areaM2) {
+    // ALTO_MAX_MM 115, no 125 — margen de seguridad: el resto del documento (membrete + título + clave
+    // + tabla de 7 filas + aviso legal + firma/QR) ya suma ~145mm por su cuenta en una estimación
+    // conservadora, y una dirección larga que se parte en 2 líneas puede sumar otros ~8mm más.
+    var ANCHO_MAX_MM = 180, ALTO_MAX_MM = 115;
+    var ext = extentUbicacionCoherente(estado, areaM2);
+    var proporcion = ext.halfW / ext.halfH; // ~ ancho:alto real del plano, el margen no la cambia casi nada
+    return Math.min(ANCHO_MAX_MM, ALTO_MAX_MM * proporcion);
+  }
   // Nombre "real" de una vía — filtra los placeholders que a veces trae OSM literalmente como texto
   // ("Sin nombre", "S/N") en vez de dejar el campo vacío. Mostrar eso tal cual en un croquis que va a
   // un banco no sirve — pedido explícito del usuario tras un caso real con dos vías así.
@@ -3641,7 +3661,32 @@
         lados: [candidatos[0]]
       };
     }
-    return { direccion: '', lados: [] };
+    // Respaldo: el catastro municipal (estado.ladosInfo/viasFlat) no encontró NINGUNA vía con nombre
+    // cerca de este predio — caso real reportado donde el plano sí mostraba bien "Emilio López Ortega"
+    // (viene de estado.viasDibujo/OSM, la misma fuente que ya dibuja el mapa) pero la Dirección
+    // quedaba vacía porque esa calle no tenía un lado municipal que la matcheara. En vez de rendirse,
+    // se busca directo en viasDibujo — la misma fuente ya comprobada confiable para el dibujo.
+    return { direccion: direccionDesdeViasDibujo(estado, refPunto), lados: [] };
+  }
+  // Busca la(s) vía(s) con nombre real más cercana(s) a `refPunto` directo en estado.viasDibujo (OSM)
+  // — respaldo de calcularDireccionYViaRotulo para cuando el catastro municipal no tiene ninguna vía
+  // cercana con nombre. No intenta identificar cuál es "frente" (esa info viene del catastro, que acá
+  // ya falló) — simplemente ordena por distancia real, igual que vería alguien parado en el predio.
+  function direccionDesdeViasDibujo(estado, refPunto) {
+    var conNombre = (estado.viasDibujo || [])
+      .map(function (v) {
+        var mejorD = Infinity;
+        for (var i = 0; i < v.pts.length - 1; i++) {
+          var d = distPuntoSegmento(refPunto, v.pts[i], v.pts[i + 1]);
+          if (d < mejorD) mejorD = d;
+        }
+        return { nombre: nombreViaReal(v), dist: mejorD };
+      })
+      .filter(function (c) { return c.nombre; })
+      .sort(function (a, b) { return a.dist - b.dist; });
+    if (!conNombre.length) return '';
+    var segunda = conNombre.filter(function (c) { return c.nombre !== conNombre[0].nombre; })[0];
+    return segunda ? conNombre[0].nombre + ' y ' + segunda.nombre : conNombre[0].nombre;
   }
   // Recorte real contra el rectángulo de contexto — ANTES solo se decidía incluir o no un elemento
   // entero ("¿algún punto de esta vía cae adentro?"), así que una vía larga que solo ROZABA el borde se
@@ -3844,7 +3889,12 @@
     // aspect-ratio inline (no en el CSS global, que es compartido por cualquier predio) — le dice al
     // navegador la proporción REAL de este plano puntual, para que el max-height:65vh de
     // .zoom-plano-interior svg (ver CSS) sepa cuánto achicar el ancho también, no solo el alto.
-    var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion" style="aspect-ratio:' + anchoM.toFixed(2) + '/' + altoM.toFixed(2) + '">';
+    // max-width inline SOLO para el croquis (anchoImpresionMM viene de anchoImpresionCroquisMM, ya
+    // más chico que 180mm si el lote es angosto/alargado) — así el plano en pantalla mide EXACTAMENTE
+    // lo mismo que va a medir impreso, sin sorpresas: ese ancho reducido es precisamente lo que
+    // garantiza que todo el documento entre en una sola hoja A4 (pedido explícito).
+    var estiloSvg = 'aspect-ratio:' + anchoM.toFixed(2) + '/' + altoM.toFixed(2) + (anchoImpresionMM ? ';max-width:' + anchoImpresionMM.toFixed(1) + 'mm' : '');
+    var svg = '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" xmlns="http://www.w3.org/2000/svg" class="plano-ubicacion" style="' + estiloSvg + '">';
     // Borde del rectángulo de recorte — deja claro que el dibujo termina ahí a propósito, no que "falta" algo.
     svg += '<rect x="' + margen.toFixed(1) + '" y="' + margen.toFixed(1) + '" width="' + (anchoM - 2 * margen).toFixed(1) + '" height="' + (altoM - 2 * margen).toFixed(1) + '" fill="none" stroke="#D8D0BC" stroke-width="' + fino + '" stroke-dasharray="' + (fino * 3) + ',' + (fino * 2) + '"/>';
     anillosManzana.forEach(function (a) {
@@ -4115,9 +4165,12 @@
     if (!wrap) return;
     var interior = wrap.querySelector('.zoom-plano-interior');
     var nivel = 1;
+    // Calculado UNA sola vez: la proporción halfW/halfH no cambia con el zoom (nivelZoom divide los
+    // dos por el mismo factor), así que este ancho sigue siendo válido en cualquier nivel.
+    var anchoImpresionMM = anchoImpresionCroquisMM(estado, areaM2);
     function aplicar() {
       try {
-        interior.innerHTML = construirPlanoUbicacionSVG(estado, areaM2, false, 180, nivel);
+        interior.innerHTML = construirPlanoUbicacionSVG(estado, areaM2, false, anchoImpresionMM, nivel);
       } catch (e) { console.warn('activarPlanoInteractivo: no se pudo re-generar el plano', e); }
     }
     var btnOut = wrap.querySelector('.btn-zoom-out'), btnIn = wrap.querySelector('.btn-zoom-in');
@@ -4285,9 +4338,12 @@
   }
   function generarCroquisSitio(estado, areaM2, datos) {
     var svgUbicacion = '';
-    // 180 = ancho físico fijo del croquis en mm (ver @page y .reporte-pdf.croquis) — activa el grosor
-    // de línea fijo en mm dentro de construirPlanoUbicacionSVG, en vez del proporcional de siempre.
-    try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false, 180); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
+    // Ancho físico del plano en mm — normalmente 180 (ancho completo de la hoja, ver @page), pero
+    // anchoImpresionCroquisMM lo achica si el lote es angosto/alargado, para que el documento entero
+    // quepa en UNA sola hoja A4 (pedido explícito) en vez de empujar la tabla/firma a una segunda.
+    // Este mismo valor activa el grosor de línea fijo en mm dentro de construirPlanoUbicacionSVG.
+    var anchoImpresionMM = anchoImpresionCroquisMM(estado, areaM2);
+    try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false, anchoImpresionMM); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
