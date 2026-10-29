@@ -423,14 +423,30 @@
      no hay formulario aparte (pedido explícito: la vista previa aparece sola al elegir "Croquis de
      sitio"), así que el placeholder itálico es la única pista de que ahí falta un dato real. */
   .reporte-pdf.croquis .preview-cuerpo .datos-croquis td.vacio { color: var(--ink-soft); font-style: italic; }
+  /* Propietario/cédula/dirección: <input> real en vez de contentEditable — se ve IGUAL que una celda
+     normal (sin borde ni fondo propio) pero es un input de verdad, con el autocompletado nativo del
+     navegador de regalo (pedido explícito — ver el comentario en filaInput, más abajo en el JS). El
+     placeholder nativo del <input> hace de pista visual de celda vacía, no hace falta la clase .vacio
+     acá (esa sigue siendo solo para Observaciones, que no es un input). */
+  .reporte-pdf.croquis .datos-croquis input.celda-input {
+    width: 100%; border: none; background: transparent; font: inherit; color: inherit; padding: 0; margin: 0;
+  }
+  .reporte-pdf.croquis .datos-croquis input.celda-input::placeholder { color: var(--ink-soft); font-style: italic; opacity: 1; }
+  .reporte-pdf.croquis .datos-croquis td:has(input.celda-input):hover { background: var(--line-soft); }
+  .reporte-pdf.croquis .datos-croquis input.celda-input:focus { outline: 2px dashed var(--terracotta); outline-offset: -2px; background: var(--paper-raised); }
+  @media print { .reporte-pdf.croquis .datos-croquis input.celda-input:focus { outline: none !important; background: none !important; } }
   .editable-hint { font-size: 0.72rem; color: var(--ink-soft); margin: 6px 0 0; }
   @media print { .editable-hint { display: none !important; } }
-  .reporte-pdf .pie-croquis { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 48px; }
-  .reporte-pdf .firma-bloque { padding-top: 10px; border-top: 1px solid var(--ink); width: 280px; font-size: 0.82rem; }
+  /* El aviso legal vive DENTRO de esta misma fila ahora (antes era un párrafo propio arriba, a todo el
+     ancho) — pedido explícito: "el aviso del croquis junto al QR pueden estar en una sola área
+     horizontal... ayudaría a ganar espacio para el mapa". Una fila menos de alto completo recuperada. */
+  .reporte-pdf .pie-croquis { display: flex; align-items: flex-end; gap: 20px; margin-top: 20px; }
+  .reporte-pdf .firma-bloque { padding-top: 10px; border-top: 1px solid var(--ink); width: 230px; font-size: 0.82rem; flex: none; }
   .reporte-pdf .firma-bloque strong { display: block; font-size: 0.88rem; }
+  .reporte-pdf .pie-croquis .aviso-legal { flex: 1; margin: 0; }
   .reporte-pdf .qr-bloque { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
-  .reporte-pdf .qr-bloque svg { width: 84px; height: 84px; display: block; }
-  .reporte-pdf .qr-bloque span { font-size: 0.68rem; color: var(--ink-soft); text-align: center; line-height: 1.3; }
+  .reporte-pdf .qr-bloque svg { width: 72px; height: 72px; display: block; }
+  .reporte-pdf .qr-bloque span { font-size: 0.64rem; color: var(--ink-soft); text-align: center; line-height: 1.3; }
 
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -3637,7 +3653,10 @@
   // imprimir (fecha, título, URL, número de página) — eso se apaga aparte, en el diálogo de impresión
   // ("Más opciones" → destildar "Encabezados y pies de página").
   var ANCHO_IMPRESION_CROQUIS_MM = 194; // 210mm A4 - 8mm de margen por lado, ver @page
-  var ALTO_MAX_PLANO_MM = 90;
+  // 110, subido de 90 — con el aviso legal ya fusionado a la fila de firma/QR (una fila completa
+  // menos) y el margen duplicado ya corregido, queda margen real de sobra en la hoja (confirmado con
+  // un PDF real) — pedido explícito: "el mapa sí puede ocupar un poco más de abajo y de arriba".
+  var ALTO_MAX_PLANO_MM = 110;
   var RELACION_MIN_ANCHO_ALTO_CROQUIS = ANCHO_IMPRESION_CROQUIS_MM / ALTO_MAX_PLANO_MM;
   // Nombre "real" de una vía — filtra los placeholders que a veces trae OSM literalmente como texto
   // ("Sin nombre", "S/N") en vez de dejar el campo vacío. Mostrar eso tal cual en un croquis que va a
@@ -4289,17 +4308,19 @@
     });
   }
   // Edición directa en la vista previa — pedido explícito: "si hago doble clic en el nombre cédula
-  // dirección o lo que sea me deja editar". contentEditable nativo del navegador sobre la celda misma
-  // (no un <input> aparte) — así lo que se ve en pantalla es EXACTAMENTE lo que después se imprime, sin
-  // un paso de "guardar" que sincronice dos lugares distintos. imprimirCroquisActivo mueve estos mismos
-  // nodos del DOM tal cual al camino de impresión, así que una corrección hecha acá SÍ sale en el PDF.
+  // dirección o lo que sea me deja editar". Observaciones sigue siendo contentEditable nativo sobre la
+  // celda misma (no un <input> aparte) — así lo que se ve en pantalla es EXACTAMENTE lo que después se
+  // imprime, sin un paso de "guardar" que sincronice dos lugares distintos. Propietario/cédula/
+  // dirección ya NO pasan por acá — son <input> de verdad (ver filaInput/activarAutocompletadoCroquis),
+  // que no necesitan el truco de contentEditable para ser editables (ya lo son nativamente) y de paso
+  // habilitan el autocompletado del navegador.
   //
-  // Cada <td> trae data-campo="propietario|cedula|direccion|observaciones" — al confirmar (blur/Enter)
-  // el valor se escribe de vuelta en datosCroquisActual (declarado junto al catálogo de productos, más
-  // abajo), así sobrevive si el usuario cambia de pestaña y vuelve a "Croquis de sitio" — sin esto,
-  // generarCroquisSitio() volvería a arrancar en blanco cada vez que se reactiva ese producto.
+  // Cada celda trae data-campo="observaciones" — al confirmar (blur/Enter) el valor se escribe de
+  // vuelta en datosCroquisActual (declarado junto al catálogo de productos, más abajo), así sobrevive
+  // si el usuario cambia de pestaña y vuelve a "Croquis de sitio" — sin esto, generarCroquisSitio()
+  // volvería a arrancar en blanco cada vez que se reactiva ese producto.
   function activarEdicionCroquis(contenedor) {
-    var celdas = contenedor.querySelectorAll('.datos-croquis td:not(.etiqueta)');
+    var celdas = contenedor.querySelectorAll('.datos-croquis td:not(.etiqueta):not(:has(input))');
     celdas.forEach(function (td) {
       td.addEventListener('dblclick', function () {
         td.contentEditable = 'true';
@@ -4322,6 +4343,28 @@
       td.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
         if (e.key === 'Escape') { td.blur(); }
+      });
+    });
+    activarAutocompletadoCroquis(contenedor);
+  }
+  // Propietario/cédula/dirección son <input> reales dentro de #form-datos-croquis (ver filaInput) —
+  // acá se los conecta con datosCroquisActual (igual que Observaciones) y, de paso, se dispara un
+  // submit del form (prevenido, nunca navega a ningún lado) cada vez que se confirma un valor. Eso es
+  // lo que hace que el propio navegador pueda guardar el valor en SU historial de autocompletado —
+  // pedido explícito del usuario, que ya vio ese comportamiento en otros formularios. No es algo que
+  // nosotros controlemos con certeza (depende de la configuración de autocompletado del navegador de
+  // quien lo usa), solo lo habilitamos de la forma estándar en que cualquier sitio lo haría.
+  function activarAutocompletadoCroquis(contenedor) {
+    var form = contenedor.querySelector('#form-datos-croquis');
+    if (!form) return;
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
+    form.querySelectorAll('.celda-input').forEach(function (input) {
+      input.addEventListener('change', function () {
+        if (input.dataset.campo && typeof datosCroquisActual === 'object') {
+          datosCroquisActual[input.dataset.campo] = input.value.trim();
+        }
+        if (form.requestSubmit) form.requestSubmit();
+        else form.dispatchEvent(new Event('submit', { cancelable: true }));
       });
     });
   }
@@ -4369,9 +4412,22 @@
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
-    // Fila de dato editable: si todavía no hay valor, muestra un placeholder claro en vez de dejar la
-    // celda vacía (invisible, nadie sabría que ahí se puede hacer doble clic) — clase "vacio" para que
-    // activarEdicionCroquis sepa que tiene que arrancar en blanco, no agregarse al texto del placeholder.
+    function escaparAtributo(t) { return escaparCroquis(t).replace(/"/g, '&quot;'); }
+    // Propietario/cédula/dirección: <input> real (no contentEditable) — pedido explícito: "cuando
+    // escribo datos para un formulario y después los vuelvo a escribir, ya están como para
+    // autocompletar, ¿se puede hacer esto?". Eso es el historial de autocompletado NATIVO del propio
+    // navegador (Chrome/Safari recuerdan valores ya tipeados en un <input> con name estable dentro de
+    // un <form>) — funciona solo con inputs de verdad, nunca con celdas contentEditable, así que estos
+    // tres campos pasan a ser inputs estilados para verse IGUAL que una celda normal (sin borde/fondo
+    // propio) pero siendo inputs reales por debajo. Sin backend de por medio — el "autocompletado" es
+    // 100% del navegador de quien lo usa, guardado en SU equipo, no algo que nosotros registremos.
+    function filaInput(etiqueta, campo, valor) {
+      return '<tr><td class="etiqueta">' + etiqueta + '</td><td>' +
+        '<input type="text" class="celda-input" name="croquis_' + campo + '" data-campo="' + campo + '" ' +
+        'value="' + escaparAtributo(valor) + '" placeholder="Clic para completar"></td></tr>';
+    }
+    // Observaciones: sigue siendo contentEditable (texto libre, más largo, no se beneficia tanto de
+    // autocompletar un valor exacto) — mismo patrón de antes, con placeholder mientras está vacía.
     function filaEditable(etiqueta, campo, valor, placeholder) {
       var esVacio = !valor;
       return '<tr><td class="etiqueta">' + etiqueta + '</td><td data-campo="' + campo + '"' + (esVacio ? ' class="vacio"' : '') + '>' +
@@ -4401,19 +4457,19 @@
       '<h1>Croquis de ubicación</h1>' +
       '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
       planoZoomable +
-      '<table class="datos-croquis"><tbody>' +
-        filaEditable('Propietario', 'propietario', datos.propietario, 'Doble clic para completar') +
-        filaEditable('Cédula / RUC', 'cedula', datos.cedula, 'Doble clic para completar') +
-        filaEditable('Dirección / sector', 'direccion', datos.direccion, 'Doble clic para completar') +
+      '<form id="form-datos-croquis"><table class="datos-croquis"><tbody>' +
+        filaInput('Propietario', 'propietario', datos.propietario) +
+        filaInput('Cédula / RUC', 'cedula', datos.cedula) +
+        filaInput('Dirección / sector', 'direccion', datos.direccion) +
         '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
         '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
         '<tr><td class="etiqueta">Área del terreno</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
         filaEditable('Observaciones', 'observaciones', datos.observaciones, 'Doble clic para agregar (opcional)') +
-      '</tbody></table>' +
-      '<p class="editable-hint">💡 Doble clic en cualquier dato de la tabla (o en el nombre de una calle, en el plano) para corregirlo acá mismo — y arrastrá el nombre de una calle para moverlo a lo largo de su eje.</p>' +
-      '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
+      '</tbody></table></form>' +
+      '<p class="editable-hint">💡 Hacé clic en cualquier dato de la tabla (o doble clic en el nombre de una calle, en el plano) para corregirlo acá mismo — y arrastrá el nombre de una calle para moverlo a lo largo de su eje.</p>' +
       '<div class="pie-croquis">' +
         '<div class="firma-bloque"><strong>Arq. Patricio Moscoso Corral</strong>SENESCYT: 1033-2019-2099051</div>' +
+        '<div class="aviso-legal">⚠️ Croquis de ubicación referencial, elaborado en base a información catastral pública del GAD Municipal de Cuenca. No constituye un levantamiento topográfico ni reemplaza una certificación catastral oficial.</div>' +
         (svgQr ? '<div class="qr-bloque">' + svgQr + '<span>Escaneá para ver<br>la ubicación en tu celular</span></div>' : '') +
       '</div>';
 
@@ -4445,11 +4501,14 @@
   // vista previa — mismo pipeline probado, nada nuevo en el camino real de impresión.
   function imprimirCroquisActivo(estado) {
     var rep = document.getElementById('reporte-pdf');
-    // Una celda que el usuario nunca llegó a completar (propietario, dirección...) todavía tiene el
-    // texto de placeholder ("Doble clic para completar") — eso NUNCA debe salir impreso tal cual en
-    // el documento real, así que se cambia por un guion antes de imprimir (mismo criterio que ya
-    // usaban cédula/dirección cuando quedaban vacías, antes de que esta vista previa existiera).
+    // Una celda que el usuario nunca llegó a completar todavía tiene el texto de placeholder ("Doble
+    // clic para completar") o, en los <input> (propietario/cédula/dirección), el atributo placeholder
+    // nativo — ninguno de los dos debe salir impreso tal cual (el placeholder de un input vacío ni
+    // siquiera se imprime normalmente, quedaría en blanco sin avisar) — se cambia por un guion.
     rep.querySelectorAll('.datos-croquis td.vacio').forEach(function (td) { td.textContent = '—'; });
+    rep.querySelectorAll('.datos-croquis input.celda-input').forEach(function (input) {
+      if (!input.value.trim()) input.value = '—';
+    });
     var toolbar = rep.querySelector('.preview-toolbar');
     if (toolbar) toolbar.remove();
     var cuerpo = rep.querySelector('.preview-cuerpo');
