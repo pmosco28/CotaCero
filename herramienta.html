@@ -471,6 +471,34 @@
 
   /* ---------- sections ---------- */
   footer { text-align: center; padding: 30px; font-size: 0.78rem; color: var(--ink-soft); border-top: 1px solid var(--line); }
+  footer a { color: var(--ink-soft); text-decoration: underline; }
+
+  /* ---------- privacidad (LOPDP) ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(28,26,22,0.45); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-privacidad {
+    background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px;
+    max-width: 640px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 28px 30px;
+  }
+  .modal-privacidad h2 { margin: 0 0 4px; font-size: 1.3rem; }
+  .modal-privacidad .modal-sub { font-size: 0.8rem; color: var(--ink-soft); margin: 0 0 20px; }
+  .modal-privacidad h3 { font-size: 0.88rem; margin: 20px 0 6px; }
+  .modal-privacidad p, .modal-privacidad li { font-size: 0.86rem; color: var(--ink-soft); line-height: 1.55; }
+  .modal-privacidad ul { margin: 4px 0; padding-left: 20px; }
+  .modal-privacidad .modal-cerrar {
+    display: block; margin: 22px 0 0 auto; background: none; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 16px; font-family: 'Hanken Grotesk'; font-size: 0.85rem; cursor: pointer;
+  }
+  .modal-privacidad .modal-cerrar:hover { background: var(--line-soft); }
+
+  .consentimiento-wrap {
+    display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; max-width: 52ch;
+  }
+  .consentimiento-wrap input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
+  .consentimiento-wrap label { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.4; }
+  .consentimiento-wrap a { color: var(--ink); }
 </style>
 
 <div class="topbar">
@@ -538,7 +566,16 @@
   </div>
 </div>
 
-<footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: pmoscosocorral28@gmail.com</footer>
+<footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: pmoscosocorral28@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a></footer>
+
+<div class="modal-overlay" id="modalPrivacidadOverlay" hidden>
+  <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
+    <h2 id="privacidad-titulo">Política de Privacidad</h2>
+    <p class="modal-sub">Última actualización: octubre 2026 — conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP).</p>
+    <div id="privacidadContenido"></div>
+    <button type="button" class="modal-cerrar" id="btnCerrarPrivacidad">Cerrar</button>
+  </div>
+</div>
 
 <!-- Informe PDF para el cliente final (ver generarInformePDF): vive fuera de `panel` a propósito, para
      que reconstruir el panel (nuevo predio, cambio de piso) no lo borre antes de imprimir. Oculto
@@ -743,6 +780,64 @@
   }
   document.getElementById('buscar-maps-btn').addEventListener('click', buscarPorGoogleMaps);
   document.getElementById('buscar-maps-input').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') buscarPorGoogleMaps(); });
+
+  // Política de privacidad (LOPDP) — pedido explícito: blindar legalmente la recopilación de datos
+  // de los formularios "por encargo" (nombre/predio/detalle, y para IPRUS, escritura + cédula).
+  // Contenido centralizado acá, en vez de en una página aparte, para no depender de una segunda ruta
+  // en gh-pages y que un solo deploy la mantenga consistente con el resto de la herramienta.
+  function textoPrivacidadHTML() {
+    return (
+      '<h3>¿Quién es el responsable de tus datos?</h3>' +
+      '<p>' + RESPONSABLE_TRATAMIENTO + ', a través de CotaCero (Cuenca, Ecuador). Contacto: ' +
+      '<a href="mailto:pmoscosocorral28@gmail.com">pmoscosocorral28@gmail.com</a>.</p>' +
+
+      '<h3>¿Qué datos recopilamos?</h3>' +
+      '<ul>' +
+        '<li>Al pedir un producto "por encargo": tu nombre, el predio de referencia (clave catastral o dirección) y el detalle que escribas.</li>' +
+        '<li>Para "Planimétrico + gestión IPRUS", además: una copia de tu cédula y la escritura del predio — estrictamente porque el trámite municipal las exige.</li>' +
+      '</ul>' +
+      '<p>Lo que escribís en el Croquis de sitio (propietario, cédula, dirección) queda solo en el documento que generás vos mismo en tu navegador — no se nos envía automáticamente.</p>' +
+
+      '<h3>¿Para qué los usamos?</h3>' +
+      '<p>Únicamente para gestionar el pedido o trámite que solicitaste: contactarte, preparar el documento, o iniciar el trámite ante el GAD Municipal de Cuenca cuando corresponda. No vendemos ni compartimos tus datos con terceros, salvo lo estrictamente necesario para ese trámite.</p>' +
+
+      '<h3>¿Dónde quedan guardados?</h3>' +
+      '<p>El pedido se envía directo a nuestro correo o WhatsApp desde tu propio dispositivo. La escritura y la cédula (solo para IPRUS) se guardan en un Google Drive privado de CotaCero, mediante un sistema que únicamente puede escribir ahí — no está indexado ni es accesible por link público. Google actúa como encargado del almacenamiento, conforme a sus propias políticas.</p>' +
+
+      '<h3>¿Cuánto tiempo los conservamos?</h3>' +
+      '<p>Mientras dure el trámite o pedido, y hasta 1 año después de finalizado (para atender reclamos o revisiones). Pasado ese plazo, se eliminan.</p>' +
+
+      '<h3>Tus derechos</h3>' +
+      '<p>Podés pedirnos en cualquier momento acceder, corregir, eliminar, u oponerte al uso de tus datos, o pedir que te los entreguemos en un formato portable — antes incluso del plazo de arriba. Escribinos a ' +
+      '<a href="mailto:pmoscosocorral28@gmail.com">pmoscosocorral28@gmail.com</a>.</p>' +
+
+      '<h3>Seguridad</h3>' +
+      '<p>El formulario viaja cifrado (HTTPS). Los archivos se guardan en un Drive privado con acceso restringido a escritura.</p>' +
+
+      '<h3>Marco legal</h3>' +
+      '<p>Este tratamiento se rige por la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP) y su Reglamento General.</p>'
+    );
+  }
+  (function inicializarModalPrivacidad() {
+    var overlay = document.getElementById('modalPrivacidadOverlay');
+    var contenido = document.getElementById('privacidadContenido');
+    var linkFooter = document.getElementById('link-privacidad');
+    var btnCerrar = document.getElementById('btnCerrarPrivacidad');
+    if (!overlay || !contenido || !linkFooter || !btnCerrar) return;
+    contenido.innerHTML = textoPrivacidadHTML();
+
+    function abrir(ev) { if (ev) ev.preventDefault(); overlay.hidden = false; }
+    function cerrar() { overlay.hidden = true; }
+
+    linkFooter.addEventListener('click', abrir);
+    btnCerrar.addEventListener('click', cerrar);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) cerrar(); });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !overlay.hidden) cerrar(); });
+
+    // Expuesto para que mostrarFormularioSolicitud pueda abrir el mismo modal desde el link de
+    // consentimiento del formulario, sin duplicar el contenido ni la lógica.
+    window.__abrirModalPrivacidad = abrir;
+  })();
 
   // ===================================================================================
   // Metodología portada de clasificar-frente.html (experimento validado en esta misma sesión
@@ -4410,6 +4505,17 @@
   // predio. Hasta que Patricio despliegue el script y pase la URL real, queda vacío y el formulario
   // cae de nuevo al recordatorio de "adjuntalos vos mismo" (ver mostrarFormularioSolicitud).
   var APPS_SCRIPT_URL_DOCUMENTOS = 'https://script.google.com/macros/s/AKfycbz1pkvyqmmrdzD4NOyyzDfa9CDSLlxeGuPHaoIzc5bIJBxUpCaudSV-ECPqDFl8xajaVA/exec';
+  // Mismo valor que TOKEN_SECRETO en apps-script-documentos-iprus.gs — no es secreto de verdad (va
+  // en el código del navegador, cualquiera puede leerlo), pero filtra bots genéricos que escanean
+  // URLs de Apps Script al azar. Si uno cambia, el otro tiene que cambiar junto.
+  var APPS_SCRIPT_TOKEN_DOCUMENTOS = '0837ef72eb35791287ae38f1d12674e0ecf5a186';
+  var TIPOS_DOCUMENTO_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png'];
+  var TAMANO_MAX_DOCUMENTO_BYTES = 15 * 1024 * 1024;
+  // Responsable del tratamiento según la LOPDP (Ley Orgánica de Protección de Datos Personales de
+  // Ecuador) — pedido explícito: "puede ser a mi nombre, pero yo puedo sacar RUC en un día, así que
+  // recuerda eso, porque sí o sí haremos el cambio". Queda en una sola constante a propósito, para
+  // que cambiar de persona natural a razón social con RUC sea editar esta línea nomás.
+  var RESPONSABLE_TRATAMIENTO = 'Patricio Moscoso Corral';
   // Reemplaza `boton` por un campo de código + confirmar, en el lugar — mismo patrón en los tres
   // puntos de descarga de la herramienta (croquis, informe PDF, modelo OBJ) para que escriban el
   // candado una sola vez en vez de reinventarlo en cada botón. Al acertar, llama `alDesbloquear` y no
@@ -4667,9 +4773,10 @@
         '<label>Copia de cédula</label>' +
         '<input type="file" id="sol-cedula" accept=".pdf,.jpg,.jpeg,.png">' +
         '<p class="pd-nota" style="margin-top:4px">' + (APPS_SCRIPT_URL_DOCUMENTOS ?
-          'Al enviar, estos archivos se guardan directo en nuestro Drive — no hace falta que los adjuntes a mano.' :
+          'Al enviar, estos archivos se guardan directo en nuestro Drive — no hace falta que los adjuntes a mano. Aceptamos PDF, JPG o PNG, hasta 15 MB cada uno.' :
           'Estos dos archivos no se suben aquí todavía — el botón de abajo te recuerda cuáles adjuntar directamente en tu correo o WhatsApp.') +
-        '</p>'
+        '</p>' +
+        '<p class="pd-nota" id="sol-doc-aviso" style="margin-top:4px; color:var(--terracotta); display:none"></p>'
         : '';
       detalleCont.innerHTML =
         '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
@@ -4685,12 +4792,31 @@
           '<label>Detalle (opcional)</label>' +
           '<textarea id="sol-detalle" rows="2" placeholder="Algo puntual que debamos saber"></textarea>' +
           camposDocumentos +
+          '<div class="consentimiento-wrap">' +
+            '<input type="checkbox" id="sol-consentimiento">' +
+            '<label for="sol-consentimiento">Leí y acepto la <a href="#" id="link-privacidad-form">Política de Privacidad</a> — entiendo qué datos recopila CotaCero y para qué los usa.</label>' +
+          '</div>' +
           '<div class="solicitud-botones">' +
-            '<button type="button" id="btn-sol-correo" class="btn btn-ghost">✉️ Enviar por correo</button>' +
-            '<button type="button" id="btn-sol-whatsapp" class="btn">💬 Enviar por WhatsApp</button>' +
+            '<button type="button" id="btn-sol-correo" class="btn btn-ghost" disabled>✉️ Enviar por correo</button>' +
+            '<button type="button" id="btn-sol-whatsapp" class="btn" disabled>💬 Enviar por WhatsApp</button>' +
           '</div>' +
         '</div>';
       detalleCont.hidden = false;
+
+      // Consentimiento explícito obligatorio (LOPDP) antes de mandar cualquier dato — pedido
+      // explícito: blindar legalmente la recopilación. Los botones arrancan deshabilitados arriba y
+      // solo se habilitan cuando el checkbox queda marcado.
+      var chkConsentimiento = document.getElementById('sol-consentimiento');
+      var btnCorreoEl = document.getElementById('btn-sol-correo');
+      var btnWhatsappEl = document.getElementById('btn-sol-whatsapp');
+      chkConsentimiento.addEventListener('change', function () {
+        btnCorreoEl.disabled = !chkConsentimiento.checked;
+        btnWhatsappEl.disabled = !chkConsentimiento.checked;
+      });
+      document.getElementById('link-privacidad-form').addEventListener('click', function (ev) {
+        ev.preventDefault();
+        if (window.__abrirModalPrivacidad) window.__abrirModalPrivacidad();
+      });
 
       function construirMensajeSolicitud(archivosSubidos) {
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
@@ -4702,19 +4828,34 @@
         if (detalle) lineas.push('Detalle: ' + detalle);
         if (esIprus) {
           lineas.push('');
-          if (archivosSubidos && archivosSubidos.length) {
-            // Ya quedaron guardados en Drive (subirDocumentosIprus) — se manda el link directo,
-            // no hace falta que la persona adjunte nada a mano.
+          // archivosSubidos puede venir parcial (ej. la escritura subió bien pero la cédula se
+          // rechazó por tipo/tamaño en subirDocumentosIprus) — cada campo se resuelve por separado:
+          // si está en archivosSubidos va con su link de Drive, si no, cae al recordatorio manual.
+          var camposDoc = [
+            { campo: 'Escritura del predio', inputId: 'sol-escritura' },
+            { campo: 'Copia de cédula', inputId: 'sol-cedula' }
+          ];
+          var subidosPorCampo = {};
+          (archivosSubidos || []).forEach(function (a) { subidosPorCampo[a.campo] = a; });
+          var lineasSubidos = [];
+          var lineasManual = [];
+          camposDoc.forEach(function (c) {
+            var el = document.getElementById(c.inputId);
+            var archivo = el && el.files[0] ? el.files[0] : null;
+            if (subidosPorCampo[c.campo]) {
+              lineasSubidos.push('- ' + c.campo + ': ' + subidosPorCampo[c.campo].url);
+            } else if (archivo) {
+              lineasManual.push('- ' + c.campo + ' (' + archivo.name + ')');
+            }
+          });
+          if (lineasSubidos.length) {
             lineas.push('Documentos ya subidos a Drive:');
-            archivosSubidos.forEach(function (a) { lineas.push('- ' + a.campo + ': ' + a.url); });
-          } else {
-            var elEscritura = document.getElementById('sol-escritura');
-            var elCedula = document.getElementById('sol-cedula');
-            var archEscritura = elEscritura && elEscritura.files[0] ? elEscritura.files[0].name : null;
-            var archCedula = elCedula && elCedula.files[0] ? elCedula.files[0].name : null;
+            lineas = lineas.concat(lineasSubidos);
+          }
+          if (lineasManual.length) {
+            if (lineasSubidos.length) lineas.push('');
             lineas.push('Adjuntar en este mensaje:');
-            lineas.push('- Escritura del predio' + (archEscritura ? ' (' + archEscritura + ')' : ''));
-            lineas.push('- Copia de cédula' + (archCedula ? ' (' + archCedula + ')' : ''));
+            lineas = lineas.concat(lineasManual);
           }
         }
         return lineas.join('\n');
@@ -4734,12 +4875,35 @@
       // desplegado, o falla la subida (sin conexión, etc.), resuelve null — el mensaje cae de nuevo
       // al recordatorio de adjuntar a mano, nunca bloquea el envío del pedido.
       function subirDocumentosIprus() {
+        var avisoEl = document.getElementById('sol-doc-aviso');
+        if (avisoEl) { avisoEl.style.display = 'none'; avisoEl.textContent = ''; }
         if (!esIprus || !APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve(null);
         var elEscritura = document.getElementById('sol-escritura');
         var elCedula = document.getElementById('sol-cedula');
-        var pendientes = [];
-        if (elEscritura && elEscritura.files[0]) pendientes.push({ campo: 'Escritura del predio', file: elEscritura.files[0] });
-        if (elCedula && elCedula.files[0]) pendientes.push({ campo: 'Copia de cédula', file: elCedula.files[0] });
+        var candidatos = [];
+        if (elEscritura && elEscritura.files[0]) candidatos.push({ campo: 'Escritura del predio', file: elEscritura.files[0] });
+        if (elCedula && elCedula.files[0]) candidatos.push({ campo: 'Copia de cédula', file: elCedula.files[0] });
+        if (!candidatos.length) return Promise.resolve(null);
+
+        // Mismo límite de tipo/tamaño que valida el Apps Script del lado del servidor (ver
+        // apps-script-documentos-iprus.gs) — repetirlo acá evita un viaje de red inútil, pero el
+        // servidor es la validación que realmente cuenta (esto se puede saltear fácil).
+        var rechazados = [];
+        var pendientes = candidatos.filter(function (c) {
+          if (TIPOS_DOCUMENTO_PERMITIDOS.indexOf(c.file.type) === -1) {
+            rechazados.push(c.campo + ': formato no admitido (solo PDF, JPG o PNG)');
+            return false;
+          }
+          if (c.file.size > TAMANO_MAX_DOCUMENTO_BYTES) {
+            rechazados.push(c.campo + ': supera los 15 MB');
+            return false;
+          }
+          return true;
+        });
+        if (rechazados.length && avisoEl) {
+          avisoEl.textContent = rechazados.join(' — ') + '. Ese archivo no se subió; el mensaje te va a recordar adjuntarlo a mano.';
+          avisoEl.style.display = '';
+        }
         if (!pendientes.length) return Promise.resolve(null);
 
         var predio = (document.getElementById('sol-predio').value || 'sin-predio').trim();
@@ -4753,7 +4917,7 @@
             // text/plain evita el preflight CORS que Apps Script no responde bien (sigue siendo JSON
             // adentro — doPost lo parsea igual con JSON.parse(e.postData.contents)).
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ predio: predio, archivos: archivos })
+            body: JSON.stringify({ predio: predio, token: APPS_SCRIPT_TOKEN_DOCUMENTOS, archivos: archivos })
           }).then(function (r) { return r.json(); }).then(function (resp) {
             return (resp && resp.ok && resp.archivos) ? resp.archivos : null;
           });
