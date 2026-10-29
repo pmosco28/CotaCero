@@ -475,7 +475,9 @@
 
   /* ---------- privacidad (LOPDP) ---------- */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(28,26,22,0.45); z-index: 200;
+    /* z-index alto a propósito: Leaflet usa panes internos hasta z-index 700 (markerPane, popupPane,
+       etc.) — con 200 el modal quedaba atrás del mapa en vez de taparlo. */
+    position: fixed; inset: 0; background: rgba(28,26,22,0.45); z-index: 9999;
     display: flex; align-items: center; justify-content: center; padding: 24px;
   }
   .modal-privacidad {
@@ -597,6 +599,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 (function () {
+  // Responsable del tratamiento según la LOPDP (Ley Orgánica de Protección de Datos Personales de
+  // Ecuador) — pedido explícito: "puede ser a mi nombre, pero yo puedo sacar RUC en un día, así que
+  // recuerda eso, porque sí o sí haremos el cambio". Queda en una sola constante a propósito, para
+  // que cambiar de persona natural a razón social con RUC sea editar esta línea nomás. Declarada acá
+  // arriba de todo (no más abajo junto a las otras constantes de privacidad) porque textoPrivacidadHTML
+  // / textoTerminosHTML la usan al armar el modal, y ese armado corre apenas carga la página — si esta
+  // línea estuviera más abajo en el archivo, a esa altura todavía no se habría ejecutado (quedaba
+  // "undefined" en el texto, bug real encontrado en vivo).
+  var RESPONSABLE_TRATAMIENTO = 'Patricio Moscoso Corral';
+
   // ---------- normativa de referencia (PIT E-22, verificado contra un trámite IPRUS real) ----------
   // `densidad_viv_ha`: Densidad Neta de Vivienda (DV), confirmada contra 6 fichas IPRUS reales de
   // distintos PIT (O-6, E-23, El Tejar, EJIDO-2) — el patrón de 250/320 se repite igual en todas,
@@ -4566,11 +4578,6 @@
   var APPS_SCRIPT_TOKEN_DOCUMENTOS = '0837ef72eb35791287ae38f1d12674e0ecf5a186';
   var TIPOS_DOCUMENTO_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png'];
   var TAMANO_MAX_DOCUMENTO_BYTES = 15 * 1024 * 1024;
-  // Responsable del tratamiento según la LOPDP (Ley Orgánica de Protección de Datos Personales de
-  // Ecuador) — pedido explícito: "puede ser a mi nombre, pero yo puedo sacar RUC en un día, así que
-  // recuerda eso, porque sí o sí haremos el cambio". Queda en una sola constante a propósito, para
-  // que cambiar de persona natural a razón social con RUC sea editar esta línea nomás.
-  var RESPONSABLE_TRATAMIENTO = 'Patricio Moscoso Corral';
   // Reemplaza `boton` por un campo de código + confirmar, en el lugar — mismo patrón en los tres
   // puntos de descarga de la herramienta (croquis, informe PDF, modelo OBJ) para que escriban el
   // candado una sola vez en vez de reinventarlo en cada botón. Al acertar, llama `alDesbloquear` y no
