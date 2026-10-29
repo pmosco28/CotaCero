@@ -149,6 +149,17 @@
   }
   .producto-detalle p.pd-desc { color: var(--ink-soft); max-width: 62ch; margin: 0 0 14px; }
   .producto-detalle .pd-nota { font-size: 0.72rem; color: var(--ink-soft); }
+  /* Formulario de solicitud (productos que llevan horas/días, no instantáneos — ver
+     mostrarFormularioSolicitud) — mismo look que el resto de la herramienta, sin tarjeta propia. */
+  .form-solicitud { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-width: 52ch; }
+  .form-solicitud label { font-size: 0.78rem; color: var(--ink-soft); margin: 8px 0 2px; }
+  .form-solicitud input, .form-solicitud textarea {
+    width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.85rem; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
+    color: var(--ink); resize: vertical;
+  }
+  .solicitud-botones { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .solicitud-botones button { flex: 1; min-width: 170px; }
 
   /* Modo 3D: una vez elegido el predio, el protagonista pasa a ser el modelo — el mapa se achica a
      una tarjetita de ubicación (dibujo vectorial en líneas, misma función que ya arma ese plano para
@@ -4632,6 +4643,78 @@
       }).join('');
     }
 
+    // Los otros 4 productos (plano planimétrico, levantamiento, planimétrico+IPRUS, análisis de sitio)
+    // NO son instantáneos como croquis/volumetría — llevan horas o días de trabajo real (levantamiento
+    // en sitio, trámite municipal) — pedido explícito: separar "descarga directa" (lo instantáneo) de
+    // "formulario de solicitud" (lo que lleva tiempo). Sin backend todavía, así que el pedido se manda
+    // directo al correo/WhatsApp del arquitecto desde el propio cliente de correo/WhatsApp de quien
+    // pide — nada que nosotros tengamos que guardar ni entregar nosotros mismos.
+    function mostrarFormularioSolicitud(producto) {
+      var claveSugerida = estadoSeleccionado ? estadoSeleccionado.clave : '';
+      // El trámite IPRUS necesita escritura + cédula del cliente para iniciarse — pedido explícito.
+      // No hay backend que reciba archivos todavía, así que el <input type="file"> es solo para que
+      // la persona confirme qué va a adjuntar: el mensaje de correo/WhatsApp le recuerda adjuntarlos
+      // ahí mismo (mailto:/wa.me no pueden llevar archivos programáticamente).
+      var esIprus = producto.id === 'planimetrico-iprus';
+      var camposDocumentos = esIprus ?
+        '<label>Escritura del predio</label>' +
+        '<input type="file" id="sol-escritura" accept=".pdf,.jpg,.jpeg,.png">' +
+        '<label>Copia de cédula</label>' +
+        '<input type="file" id="sol-cedula" accept=".pdf,.jpg,.jpeg,.png">' +
+        '<p class="pd-nota" style="margin-top:4px">Estos dos archivos no se suben aquí todavía — el botón de abajo te recuerda cuáles adjuntar directamente en tu correo o WhatsApp.</p>'
+        : '';
+      detalleCont.innerHTML =
+        '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
+          '<span class="badge badge-demo">Por encargo</span></div>' +
+        '<p class="pd-desc">' + producto.descripcion + '</p>' +
+        '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
+          ' — este no es instantáneo: completá el pedido y te lo mandamos por correo o WhatsApp cuando esté listo.</p>' +
+        '<div class="form-solicitud">' +
+          '<label>Tu nombre</label>' +
+          '<input type="text" id="sol-nombre" placeholder="Nombre completo">' +
+          '<label>Predio de referencia</label>' +
+          '<input type="text" id="sol-predio" value="' + (claveSugerida ? 'Clave catastral ' + claveSugerida : '') + '" placeholder="Clave catastral o dirección del predio">' +
+          '<label>Detalle (opcional)</label>' +
+          '<textarea id="sol-detalle" rows="2" placeholder="Algo puntual que debamos saber"></textarea>' +
+          camposDocumentos +
+          '<div class="solicitud-botones">' +
+            '<button type="button" id="btn-sol-correo" class="btn btn-ghost">✉️ Enviar por correo</button>' +
+            '<button type="button" id="btn-sol-whatsapp" class="btn">💬 Enviar por WhatsApp</button>' +
+          '</div>' +
+        '</div>';
+      detalleCont.hidden = false;
+
+      function construirMensajeSolicitud() {
+        var nombre = (document.getElementById('sol-nombre').value || '').trim();
+        var predio = (document.getElementById('sol-predio').value || '').trim();
+        var detalle = (document.getElementById('sol-detalle').value || '').trim();
+        var lineas = ['Quiero: ' + producto.nombre];
+        if (nombre) lineas.push('Nombre: ' + nombre);
+        if (predio) lineas.push('Predio: ' + predio);
+        if (detalle) lineas.push('Detalle: ' + detalle);
+        if (esIprus) {
+          var elEscritura = document.getElementById('sol-escritura');
+          var elCedula = document.getElementById('sol-cedula');
+          var archEscritura = elEscritura && elEscritura.files[0] ? elEscritura.files[0].name : null;
+          var archCedula = elCedula && elCedula.files[0] ? elCedula.files[0].name : null;
+          lineas.push('');
+          lineas.push('Adjuntar en este mensaje:');
+          lineas.push('- Escritura del predio' + (archEscritura ? ' (' + archEscritura + ')' : ''));
+          lineas.push('- Copia de cédula' + (archCedula ? ' (' + archCedula + ')' : ''));
+        }
+        return lineas.join('\n');
+      }
+      document.getElementById('btn-sol-correo').addEventListener('click', function () {
+        window.location.href = 'mailto:pmoscosocorral28@gmail.com?subject=' +
+          encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(construirMensajeSolicitud());
+      });
+      document.getElementById('btn-sol-whatsapp').addEventListener('click', function () {
+        // Número ya provisto por el arquitecto para la firma del croquis (CELULAR/TELÉFONO:
+        // 0999163505) — formato internacional para wa.me: 593 (Ecuador) + el número sin el 0 inicial.
+        window.open('https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + construirMensajeSolicitud()), '_blank');
+      });
+    }
+
     // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito). Volumetría
     // usa el panel de siempre (#panel/#vista-volumetria). Croquis YA NO tiene un formulario propio —
     // "la vista previa aparece apenas hago clic en croquis" — así que acá mismo se genera y muestra
@@ -4673,14 +4756,7 @@
         if (vVol) vVol.hidden = false;
       } else {
         if (toolEl) toolEl.style.display = 'none';
-        detalleCont.innerHTML =
-          '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
-            '<span class="badge badge-demo">Próximamente</span></div>' +
-          '<p class="pd-desc">' + producto.descripcion + '</p>' +
-          '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
-            ' — todavía no se puede comprar en línea. <a href="mailto:pmoscosocorral28@gmail.com?subject=' +
-            encodeURIComponent('Quiero ' + producto.nombre) + '">Escribinos</a> y te avisamos apenas esté disponible.</p>';
-        detalleCont.hidden = false;
+        mostrarFormularioSolicitud(producto);
       }
     }
 
