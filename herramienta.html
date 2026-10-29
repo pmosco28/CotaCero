@@ -4780,10 +4780,15 @@
   }
 
   // ---------- catálogo de productos (barra horizontal) ----------
-  // Precios REFERENCIALES, editables con doble clic directo sobre el precio de cada chip (mismo
-  // patrón que ya usan las celdas del croquis) y persistidos en localStorage de este navegador. Sin
-  // panel de administración todavía (a futuro, ya pedido) — esto es la base para construirlo encima.
-  var CATALOGO_PRODUCTOS = [
+  // El catálogo real ahora vive en una Google Sheet (pestaña "Catalogo") que el arquitecto edita
+  // directo — nombre/precio/descripción/activo — sin tocar código ni redesplegar nada; ver
+  // manejarLeerCatalogo en apps-script-documentos-iprus.gs. Este array es el FALLBACK: la página
+  // renderiza con esto primero (nunca bloquea ni queda vacía por un fallo de red) y lo reemplaza en
+  // segundo plano apenas llega la respuesta real (ver el fetch justo después de renderBarra()/
+  // aplicarProductoActivo() más abajo). El precio editable con doble clic (precioGuardado/
+  // guardarPrecio, debajo) sigue siendo un override local de ESTE navegador nada más — no es lo
+  // mismo que el catálogo real, que ahora es compartido para todos los visitantes.
+  var CATALOGO_PRODUCTOS_FALLBACK = [
     { id: 'planimetrico', nombre: 'Plano planimétrico', precioBase: '25', nota: 'por predio',
       descripcion: 'Plano del predio en el formato que exige el municipio, con curvas de nivel públicas e inmediatas — sin necesidad de un levantamiento en sitio.' },
     { id: 'levantamiento', nombre: 'Levantamiento topográfico', precioBase: '80', nota: 'por predio',
@@ -4797,6 +4802,7 @@
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
+  var CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS_FALLBACK;
   // Íconos monocromos de trazo simple (currentColor — heredan el color del botón, así ".activa" los
   // recolorea solo cambiando `color`, sin tocar el SVG) — pedido explícito en vez de los emoji de
   // antes. El de "análisis de sitio" son 3 anillos concéntricos a propósito: son las 3 escalas reales
@@ -5116,6 +5122,22 @@
 
     renderBarra();
     aplicarProductoActivo();
+
+    // Actualiza el catálogo con el real (Google Sheet, vía Apps Script) apenas esté disponible — la
+    // primera renderización de arriba ya usó el fallback local, así que esto nunca bloquea ni deja
+    // la página en blanco si el backend está lento o caído, solo mejora en cuanto llega.
+    if (APPS_SCRIPT_URL_DOCUMENTOS) {
+      fetch(APPS_SCRIPT_URL_DOCUMENTOS + '?action=catalogo')
+        .then(function (r) { return r.json(); })
+        .then(function (resp) {
+          if (resp && resp.ok && Array.isArray(resp.productos) && resp.productos.length) {
+            CATALOGO_PRODUCTOS = resp.productos;
+            renderBarra();
+            aplicarProductoActivo();
+          }
+        })
+        .catch(function (e) { console.warn('No se pudo refrescar el catálogo, se mantiene el local', e); });
+    }
 
     barraCont.addEventListener('click', function (ev) {
       var btn = ev.target.closest('.chip-producto');
