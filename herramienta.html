@@ -4405,6 +4405,11 @@
   // vez que arreglaron el pago — no hay backend conectado todavía, así que esto sigue siendo un
   // candado simple del lado del navegador, no una entrega real a otro dispositivo.
   var CODIGO_ACCESO = '12345S';
+  // Web App de Google Apps Script (deploy bajo la cuenta de Google del arquitecto) que recibe
+  // escritura + cédula del formulario de IPRUS y las guarda directo en su Drive, organizadas por
+  // predio. Hasta que Patricio despliegue el script y pase la URL real, queda vacío y el formulario
+  // cae de nuevo al recordatorio de "adjuntalos vos mismo" (ver mostrarFormularioSolicitud).
+  var APPS_SCRIPT_URL_DOCUMENTOS = '';
   // Reemplaza `boton` por un campo de código + confirmar, en el lugar — mismo patrón en los tres
   // puntos de descarga de la herramienta (croquis, informe PDF, modelo OBJ) para que escriban el
   // candado una sola vez en vez de reinventarlo en cada botón. Al acertar, llama `alDesbloquear` y no
@@ -4661,7 +4666,10 @@
         '<input type="file" id="sol-escritura" accept=".pdf,.jpg,.jpeg,.png">' +
         '<label>Copia de cédula</label>' +
         '<input type="file" id="sol-cedula" accept=".pdf,.jpg,.jpeg,.png">' +
-        '<p class="pd-nota" style="margin-top:4px">Estos dos archivos no se suben aquí todavía — el botón de abajo te recuerda cuáles adjuntar directamente en tu correo o WhatsApp.</p>'
+        '<p class="pd-nota" style="margin-top:4px">' + (APPS_SCRIPT_URL_DOCUMENTOS ?
+          'Al enviar, estos archivos se guardan directo en nuestro Drive — no hace falta que los adjuntes a mano.' :
+          'Estos dos archivos no se suben aquí todavía — el botón de abajo te recuerda cuáles adjuntar directamente en tu correo o WhatsApp.') +
+        '</p>'
         : '';
       detalleCont.innerHTML =
         '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
@@ -4684,7 +4692,7 @@
         '</div>';
       detalleCont.hidden = false;
 
-      function construirMensajeSolicitud() {
+      function construirMensajeSolicitud(archivosSubidos) {
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
         var predio = (document.getElementById('sol-predio').value || '').trim();
         var detalle = (document.getElementById('sol-detalle').value || '').trim();
@@ -4693,26 +4701,94 @@
         if (predio) lineas.push('Predio: ' + predio);
         if (detalle) lineas.push('Detalle: ' + detalle);
         if (esIprus) {
-          var elEscritura = document.getElementById('sol-escritura');
-          var elCedula = document.getElementById('sol-cedula');
-          var archEscritura = elEscritura && elEscritura.files[0] ? elEscritura.files[0].name : null;
-          var archCedula = elCedula && elCedula.files[0] ? elCedula.files[0].name : null;
           lineas.push('');
-          lineas.push('Adjuntar en este mensaje:');
-          lineas.push('- Escritura del predio' + (archEscritura ? ' (' + archEscritura + ')' : ''));
-          lineas.push('- Copia de cédula' + (archCedula ? ' (' + archCedula + ')' : ''));
+          if (archivosSubidos && archivosSubidos.length) {
+            // Ya quedaron guardados en Drive (subirDocumentosIprus) — se manda el link directo,
+            // no hace falta que la persona adjunte nada a mano.
+            lineas.push('Documentos ya subidos a Drive:');
+            archivosSubidos.forEach(function (a) { lineas.push('- ' + a.campo + ': ' + a.url); });
+          } else {
+            var elEscritura = document.getElementById('sol-escritura');
+            var elCedula = document.getElementById('sol-cedula');
+            var archEscritura = elEscritura && elEscritura.files[0] ? elEscritura.files[0].name : null;
+            var archCedula = elCedula && elCedula.files[0] ? elCedula.files[0].name : null;
+            lineas.push('Adjuntar en este mensaje:');
+            lineas.push('- Escritura del predio' + (archEscritura ? ' (' + archEscritura + ')' : ''));
+            lineas.push('- Copia de cédula' + (archCedula ? ' (' + archCedula + ')' : ''));
+          }
         }
         return lineas.join('\n');
       }
-      document.getElementById('btn-sol-correo').addEventListener('click', function () {
+
+      function archivoABase64(file) {
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () { resolve(String(reader.result).split(',')[1]); };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // Sube escritura + cédula directo al Drive del arquitecto vía el Web App de Apps Script
+      // (APPS_SCRIPT_URL_DOCUMENTOS). Si no hay archivos elegidos, o el script todavía no está
+      // desplegado, o falla la subida (sin conexión, etc.), resuelve null — el mensaje cae de nuevo
+      // al recordatorio de adjuntar a mano, nunca bloquea el envío del pedido.
+      function subirDocumentosIprus() {
+        if (!esIprus || !APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve(null);
+        var elEscritura = document.getElementById('sol-escritura');
+        var elCedula = document.getElementById('sol-cedula');
+        var pendientes = [];
+        if (elEscritura && elEscritura.files[0]) pendientes.push({ campo: 'Escritura del predio', file: elEscritura.files[0] });
+        if (elCedula && elCedula.files[0]) pendientes.push({ campo: 'Copia de cédula', file: elCedula.files[0] });
+        if (!pendientes.length) return Promise.resolve(null);
+
+        var predio = (document.getElementById('sol-predio').value || 'sin-predio').trim();
+        return Promise.all(pendientes.map(function (p) {
+          return archivoABase64(p.file).then(function (base64) {
+            return { campo: p.campo, nombre: p.file.name, tipo: p.file.type || 'application/octet-stream', contenidoBase64: base64 };
+          });
+        })).then(function (archivos) {
+          return fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
+            method: 'POST',
+            // text/plain evita el preflight CORS que Apps Script no responde bien (sigue siendo JSON
+            // adentro — doPost lo parsea igual con JSON.parse(e.postData.contents)).
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ predio: predio, archivos: archivos })
+          }).then(function (r) { return r.json(); }).then(function (resp) {
+            return (resp && resp.ok && resp.archivos) ? resp.archivos : null;
+          });
+        }).catch(function (err) {
+          console.warn('No se pudo subir a Drive, se usa el recordatorio manual', err);
+          return null;
+        });
+      }
+
+      function enviarSolicitud(construirDestino) {
+        return function () {
+          var botonesWrap = document.querySelector('.solicitud-botones');
+          var botones = botonesWrap ? botonesWrap.querySelectorAll('button') : [];
+          botones.forEach(function (b) { b.disabled = true; });
+          var botonClicado = this;
+          var textoOriginal = botonClicado.textContent;
+          if (esIprus) botonClicado.textContent = 'Subiendo documentos…';
+          subirDocumentosIprus().then(function (archivosSubidos) {
+            construirDestino(construirMensajeSolicitud(archivosSubidos));
+          }).finally(function () {
+            botones.forEach(function (b) { b.disabled = false; });
+            botonClicado.textContent = textoOriginal;
+          });
+        };
+      }
+
+      document.getElementById('btn-sol-correo').addEventListener('click', enviarSolicitud(function (mensaje) {
         window.location.href = 'mailto:pmoscosocorral28@gmail.com?subject=' +
-          encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(construirMensajeSolicitud());
-      });
-      document.getElementById('btn-sol-whatsapp').addEventListener('click', function () {
+          encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(mensaje);
+      }));
+      document.getElementById('btn-sol-whatsapp').addEventListener('click', enviarSolicitud(function (mensaje) {
         // Número ya provisto por el arquitecto para la firma del croquis (CELULAR/TELÉFONO:
         // 0999163505) — formato internacional para wa.me: 593 (Ecuador) + el número sin el 0 inicial.
-        window.open('https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + construirMensajeSolicitud()), '_blank');
-      });
+        window.open('https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje), '_blank');
+      }));
     }
 
     // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito). Volumetría
