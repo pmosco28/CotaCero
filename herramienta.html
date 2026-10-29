@@ -5047,6 +5047,31 @@
         });
       }
 
+      // Guarda el pedido en la pestaña "Pedidos" de la Sheet (vía el mismo Apps Script) ADEMÁS del
+      // mailto:/WhatsApp de siempre, nunca en vez de — es la cola de trabajo que TramaUrbana va a
+      // consultar. Si falla (backend caído, sin conexión, Apps Script todavía sin actualizar), no
+      // bloquea nada: el pedido igual sale por correo/WhatsApp como hasta ahora (mismo criterio de
+      // "degradar en silencio" que ya usa subirDocumentosIprus).
+      function enviarPedidoEstructurado(archivosSubidos) {
+        if (!APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve(null);
+        var nombre = (document.getElementById('sol-nombre').value || '').trim();
+        var predio = (document.getElementById('sol-predio').value || '').trim();
+        var detalle = (document.getElementById('sol-detalle').value || '').trim();
+        return fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS,
+            productoId: producto.id, productoNombre: producto.nombre,
+            predio: predio, nombreSolicitante: nombre, detalle: detalle,
+            documentos: archivosSubidos || []
+          })
+        }).then(function (r) { return r.json(); }).catch(function (err) {
+          console.warn('No se pudo guardar el pedido estructurado (se mantiene el envío por correo/WhatsApp)', err);
+          return null;
+        });
+      }
+
       function enviarSolicitud(construirDestino) {
         return function () {
           var botonesWrap = document.querySelector('.solicitud-botones');
@@ -5056,6 +5081,7 @@
           var textoOriginal = botonClicado.textContent;
           if (esIprus) botonClicado.textContent = 'Subiendo documentos…';
           subirDocumentosIprus().then(function (archivosSubidos) {
+            enviarPedidoEstructurado(archivosSubidos);
             construirDestino(construirMensajeSolicitud(archivosSubidos));
           }).finally(function () {
             botones.forEach(function (b) { b.disabled = false; });
