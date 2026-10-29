@@ -518,7 +518,12 @@
   .consentimiento-wrap {
     display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; max-width: 52ch;
   }
-  .consentimiento-wrap input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
+  .consentimiento-wrap input[type="checkbox"] {
+    /* Bug real: ".form-solicitud input { width:100% }" (pensada para los campos de texto) también le
+       pegaba a este checkbox, estirándolo a todo el ancho de la fila y empujando la etiqueta afuera
+       de la vista. width:auto acá gana por especificidad (clase + atributo + tipo > clase + tipo). */
+    width: auto; margin-top: 3px; flex-shrink: 0;
+  }
   .consentimiento-wrap label { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.4; }
   .consentimiento-wrap a { color: var(--ink); }
 </style>
