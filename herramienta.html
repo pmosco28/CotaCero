@@ -4907,25 +4907,22 @@
             '<label for="sol-terminos">Leí y acepto los <a href="#" id="link-terminos-form">Términos y Condiciones</a> del servicio.</label>' +
           '</div>' +
           '<div class="solicitud-botones">' +
-            '<button type="button" id="btn-sol-correo" class="btn btn-ghost" disabled>✉️ Enviar por correo</button>' +
-            '<button type="button" id="btn-sol-whatsapp" class="btn" disabled>💬 Enviar por WhatsApp</button>' +
+            '<button type="button" id="btn-sol-enviar" class="btn" disabled>📨 Solicitar pedido</button>' +
           '</div>' +
+          '<p class="pd-nota" id="sol-resultado" style="margin-top:10px; display:none;"></p>' +
         '</div>';
       detalleCont.hidden = false;
 
       // Consentimiento explícito obligatorio antes de mandar cualquier dato — Política de Privacidad
       // (LOPDP) y Términos y Condiciones son documentos distintos, cada uno con su propio checkbox:
       // pedido explícito de blindar tanto el tratamiento de datos como las condiciones del servicio
-      // (pago, cancelaciones, responsabilidad). Los botones arrancan deshabilitados arriba y solo se
-      // habilitan cuando AMBOS checkboxes quedan marcados.
+      // (pago, cancelaciones, responsabilidad). El botón arranca deshabilitado arriba y solo se
+      // habilita cuando AMBOS checkboxes quedan marcados.
       var chkConsentimiento = document.getElementById('sol-consentimiento');
       var chkTerminos = document.getElementById('sol-terminos');
-      var btnCorreoEl = document.getElementById('btn-sol-correo');
-      var btnWhatsappEl = document.getElementById('btn-sol-whatsapp');
+      var btnEnviarEl = document.getElementById('btn-sol-enviar');
       function actualizarHabilitacionBotones() {
-        var habilitado = chkConsentimiento.checked && chkTerminos.checked;
-        btnCorreoEl.disabled = !habilitado;
-        btnWhatsappEl.disabled = !habilitado;
+        btnEnviarEl.disabled = !(chkConsentimiento.checked && chkTerminos.checked);
       }
       chkConsentimiento.addEventListener('change', actualizarHabilitacionBotones);
       chkTerminos.addEventListener('change', actualizarHabilitacionBotones);
@@ -5047,13 +5044,12 @@
         });
       }
 
-      // Guarda el pedido en la pestaña "Pedidos" de la Sheet (vía el mismo Apps Script) ADEMÁS del
-      // mailto:/WhatsApp de siempre, nunca en vez de — es la cola de trabajo que TramaUrbana va a
-      // consultar. Si falla (backend caído, sin conexión, Apps Script todavía sin actualizar), no
-      // bloquea nada: el pedido igual sale por correo/WhatsApp como hasta ahora (mismo criterio de
-      // "degradar en silencio" que ya usa subirDocumentosIprus).
+      // Guarda el pedido en la pestaña "Pedidos" de la Sheet (vía el mismo Apps Script) — es la
+      // cola de trabajo real que TramaUrbana consulta. Pedido explícito: un solo botón "Solicitar
+      // pedido", sin abrir correo/WhatsApp del cliente — el resultado (éxito o error) se muestra en
+      // la propia página.
       function enviarPedidoEstructurado(archivosSubidos) {
-        if (!APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve(null);
+        if (!APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve({ ok: false, error: 'Backend no configurado' });
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
         var predio = (document.getElementById('sol-predio').value || '').trim();
         var detalle = (document.getElementById('sol-detalle').value || '').trim();
@@ -5067,38 +5063,52 @@
             documentos: archivosSubidos || []
           })
         }).then(function (r) { return r.json(); }).catch(function (err) {
-          console.warn('No se pudo guardar el pedido estructurado (se mantiene el envío por correo/WhatsApp)', err);
-          return null;
+          console.warn('No se pudo guardar el pedido estructurado', err);
+          return { ok: false, error: String(err) };
         });
       }
 
-      function enviarSolicitud(construirDestino) {
-        return function () {
-          var botonesWrap = document.querySelector('.solicitud-botones');
-          var botones = botonesWrap ? botonesWrap.querySelectorAll('button') : [];
-          botones.forEach(function (b) { b.disabled = true; });
-          var botonClicado = this;
-          var textoOriginal = botonClicado.textContent;
-          if (esIprus) botonClicado.textContent = 'Subiendo documentos…';
-          subirDocumentosIprus().then(function (archivosSubidos) {
-            enviarPedidoEstructurado(archivosSubidos);
-            construirDestino(construirMensajeSolicitud(archivosSubidos));
-          }).finally(function () {
-            botones.forEach(function (b) { b.disabled = false; });
-            botonClicado.textContent = textoOriginal;
-          });
-        };
+      function mostrarResultadoSolicitud(exito, html) {
+        var el = document.getElementById('sol-resultado');
+        if (!el) return;
+        el.style.color = exito ? 'var(--ink)' : 'var(--terracotta)';
+        el.innerHTML = html;
+        el.style.display = '';
       }
 
-      document.getElementById('btn-sol-correo').addEventListener('click', enviarSolicitud(function (mensaje) {
-        window.location.href = 'mailto:pmoscosocorral28@gmail.com?subject=' +
-          encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(mensaje);
-      }));
-      document.getElementById('btn-sol-whatsapp').addEventListener('click', enviarSolicitud(function (mensaje) {
-        // Número ya provisto por el arquitecto para la firma del croquis (CELULAR/TELÉFONO:
-        // 0999163505) — formato internacional para wa.me: 593 (Ecuador) + el número sin el 0 inicial.
-        window.open('https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje), '_blank');
-      }));
+      document.getElementById('btn-sol-enviar').addEventListener('click', function () {
+        var boton = this;
+        var textoOriginal = boton.textContent;
+        boton.disabled = true;
+        boton.textContent = esIprus ? 'Subiendo documentos…' : 'Enviando…';
+        var resultadoEl = document.getElementById('sol-resultado');
+        if (resultadoEl) resultadoEl.style.display = 'none';
+
+        var archivosSubidosCapturados = [];
+        subirDocumentosIprus().then(function (archivosSubidos) {
+          archivosSubidosCapturados = archivosSubidos || [];
+          boton.textContent = 'Enviando…';
+          return enviarPedidoEstructurado(archivosSubidosCapturados);
+        }).then(function (resp) {
+          if (resp && resp.ok) {
+            mostrarResultadoSolicitud(true, '✅ ¡Pedido enviado! Te contactamos pronto' + (resp.idPedido ? ' — referencia ' + resp.idPedido : '') + '.');
+          } else {
+            // Respaldo manual solo si falla el guardado (backend caído, sin conexión) — nunca el
+            // camino principal, pero tampoco se deja a la persona sin ninguna salida.
+            var mensaje = construirMensajeSolicitud(archivosSubidosCapturados);
+            var mailtoHref = 'mailto:pmoscosocorral28@gmail.com?subject=' +
+              encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(mensaje);
+            var waHref = 'https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje);
+            mostrarResultadoSolicitud(false,
+              '⚠️ No pudimos registrar el pedido automáticamente. Escribinos directo: ' +
+              '<a href="' + mailtoHref + '">por correo</a> o ' +
+              '<a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>.');
+          }
+        }).finally(function () {
+          boton.disabled = !(chkConsentimiento.checked && chkTerminos.checked);
+          boton.textContent = textoOriginal;
+        });
+      });
     }
 
     // Qué se ve DEBAJO de la barra depende de cuál producto está activo (pedido explícito). Volumetría
