@@ -478,8 +478,14 @@
     /* z-index alto a propósito: Leaflet usa panes internos hasta z-index 700 (markerPane, popupPane,
        etc.) — con 200 el modal quedaba atrás del mapa en vez de taparlo. */
     position: fixed; inset: 0; background: rgba(28,26,22,0.45); z-index: 9999;
-    display: flex; align-items: center; justify-content: center; padding: 24px;
+    align-items: center; justify-content: center; padding: 24px;
   }
+  /* Bug real encontrado en vivo ("no me deja cerrar la ventana"): `display:flex` en la regla de
+     arriba es CSS de autor, que le gana al `display:none` que el navegador aplica por `[hidden]`
+     (ese es CSS de user-agent, pierde contra cualquier regla de autor sin importar especificidad) —
+     el atributo `hidden` cambiaba bien en JS pero el modal nunca desaparecía visualmente. El display
+     ahora solo se activa cuando NO está hidden, así nunca compite con la regla del navegador. */
+  .modal-overlay:not([hidden]) { display: flex; }
   .modal-privacidad {
     background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px;
     max-width: 640px; width: 100%; max-height: 85vh; padding: 0;
