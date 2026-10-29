@@ -566,7 +566,7 @@
   </div>
 </div>
 
-<footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: pmoscosocorral28@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a></footer>
+<footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: pmoscosocorral28@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
 
 <div class="modal-overlay" id="modalPrivacidadOverlay" hidden>
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
@@ -574,6 +574,15 @@
     <p class="modal-sub">Última actualización: octubre 2026 — conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP).</p>
     <div id="privacidadContenido"></div>
     <button type="button" class="modal-cerrar" id="btnCerrarPrivacidad">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalTerminosOverlay" hidden>
+  <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="terminos-titulo">
+    <h2 id="terminos-titulo">Términos y Condiciones</h2>
+    <p class="modal-sub">Última actualización: octubre 2026.</p>
+    <div id="terminosContenido"></div>
+    <button type="button" class="modal-cerrar" id="btnCerrarTerminos">Cerrar</button>
   </div>
 </div>
 
@@ -818,25 +827,71 @@
       '<p>Este tratamiento se rige por la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP) y su Reglamento General.</p>'
     );
   }
-  (function inicializarModalPrivacidad() {
-    var overlay = document.getElementById('modalPrivacidadOverlay');
-    var contenido = document.getElementById('privacidadContenido');
-    var linkFooter = document.getElementById('link-privacidad');
-    var btnCerrar = document.getElementById('btnCerrarPrivacidad');
-    if (!overlay || !contenido || !linkFooter || !btnCerrar) return;
-    contenido.innerHTML = textoPrivacidadHTML();
+  function textoTerminosHTML() {
+    return (
+      '<h3>¿Qué es CotaCero?</h3>' +
+      '<p>Una herramienta de ' + RESPONSABLE_TRATAMIENTO + ' (CotaCero, Cuenca, Ecuador) que automatiza consultas al catastro urbano de Cuenca y genera documentos de referencia y gestiona trámites para arquitectos e ingenieros.</p>' +
+
+      '<h3>Productos instantáneos vs. por encargo</h3>' +
+      '<p>Croquis de sitio y Volumetría de referencia se generan al instante en tu navegador. El resto (plano planimétrico, levantamiento topográfico, planimétrico + gestión IPRUS, análisis de sitio) son "por encargo": llevan horas o días de trabajo real — el plazo concreto se te confirma al coordinar el pedido, no es instantáneo ni fijo.</p>' +
+
+      '<h3>Naturaleza de la información</h3>' +
+      '<p>La volumetría, el croquis y los datos de normativa que muestra la herramienta son de referencia, calculados a partir del catastro público del GAD Municipal de Cuenca. No sustituyen un levantamiento planimétrico oficial cuando el trámite lo exige, y no garantizan la aprobación de ningún trámite ante el Municipio — esa decisión depende exclusivamente de la autoridad competente. CotaCero se compromete a gestionar y presentar la información correctamente, no a un resultado de aprobación.</p>' +
+
+      '<h3>Pago</h3>' +
+      '<p>Los productos por encargo se pagan 100% por adelantado, salvo que se acuerde expresamente otra modalidad al coordinar el pedido.</p>' +
+
+      '<h3>Cancelaciones y reembolsos</h3>' +
+      '<p>Si pedís cancelar antes de que el trabajo haya arrancado (trámite iniciado, visita a terreno realizada, etc.), se reembolsa el 100%. Si ya arrancó, se evalúa un reembolso parcial según el trabajo ya realizado.</p>' +
+
+      '<h3>Propiedad de lo entregado</h3>' +
+      '<p>Una vez pagado el servicio, el documento entregado (plano, croquis, informe) es tuyo, para el uso y trámite para el que lo pediste.</p>' +
+
+      '<h3>Tus datos</h3>' +
+      '<p>El tratamiento de los datos que nos compartís se rige por la <a href="#" id="link-privacidad-desde-terminos">Política de Privacidad</a>.</p>' +
+
+      '<h3>Cambios a estos términos</h3>' +
+      '<p>Podemos actualizar este documento — la versión vigente es siempre la publicada en esta misma herramienta al momento de tu pedido.</p>' +
+
+      '<h3>Ley aplicable</h3>' +
+      '<p>Estos términos se rigen por las leyes de la República del Ecuador.</p>'
+    );
+  }
+
+  function inicializarModal(overlayId, contenidoId, linkIds, btnCerrarId, textoHTML, exponerComo) {
+    var overlay = document.getElementById(overlayId);
+    var contenido = document.getElementById(contenidoId);
+    var btnCerrar = document.getElementById(btnCerrarId);
+    if (!overlay || !contenido || !btnCerrar) return;
+    contenido.innerHTML = textoHTML();
 
     function abrir(ev) { if (ev) ev.preventDefault(); overlay.hidden = false; }
     function cerrar() { overlay.hidden = true; }
 
-    linkFooter.addEventListener('click', abrir);
+    linkIds.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('click', abrir);
+    });
     btnCerrar.addEventListener('click', cerrar);
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) cerrar(); });
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !overlay.hidden) cerrar(); });
 
-    // Expuesto para que mostrarFormularioSolicitud pueda abrir el mismo modal desde el link de
-    // consentimiento del formulario, sin duplicar el contenido ni la lógica.
-    window.__abrirModalPrivacidad = abrir;
+    if (exponerComo) window[exponerComo] = abrir;
+  }
+
+  // Expuestos en window para que mostrarFormularioSolicitud (y el link cruzado dentro de Términos)
+  // puedan abrir el mismo modal sin duplicar contenido ni lógica.
+  inicializarModal('modalPrivacidadOverlay', 'privacidadContenido', ['link-privacidad'], 'btnCerrarPrivacidad', textoPrivacidadHTML, '__abrirModalPrivacidad');
+  inicializarModal('modalTerminosOverlay', 'terminosContenido', ['link-terminos'], 'btnCerrarTerminos', textoTerminosHTML, '__abrirModalTerminos');
+  // El link "Política de Privacidad" dentro del texto de Términos abre el otro modal — se conecta
+  // acá porque recién existe en el DOM después de que inicializarModal() llenó terminosContenido.
+  (function () {
+    var linkCruzado = document.getElementById('link-privacidad-desde-terminos');
+    if (linkCruzado) linkCruzado.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      document.getElementById('modalTerminosOverlay').hidden = true;
+      if (window.__abrirModalPrivacidad) window.__abrirModalPrivacidad();
+    });
   })();
 
   // ===================================================================================
@@ -4796,6 +4851,10 @@
             '<input type="checkbox" id="sol-consentimiento">' +
             '<label for="sol-consentimiento">Leí y acepto la <a href="#" id="link-privacidad-form">Política de Privacidad</a> — entiendo qué datos recopila CotaCero y para qué los usa.</label>' +
           '</div>' +
+          '<div class="consentimiento-wrap">' +
+            '<input type="checkbox" id="sol-terminos">' +
+            '<label for="sol-terminos">Leí y acepto los <a href="#" id="link-terminos-form">Términos y Condiciones</a> del servicio.</label>' +
+          '</div>' +
           '<div class="solicitud-botones">' +
             '<button type="button" id="btn-sol-correo" class="btn btn-ghost" disabled>✉️ Enviar por correo</button>' +
             '<button type="button" id="btn-sol-whatsapp" class="btn" disabled>💬 Enviar por WhatsApp</button>' +
@@ -4803,19 +4862,29 @@
         '</div>';
       detalleCont.hidden = false;
 
-      // Consentimiento explícito obligatorio (LOPDP) antes de mandar cualquier dato — pedido
-      // explícito: blindar legalmente la recopilación. Los botones arrancan deshabilitados arriba y
-      // solo se habilitan cuando el checkbox queda marcado.
+      // Consentimiento explícito obligatorio antes de mandar cualquier dato — Política de Privacidad
+      // (LOPDP) y Términos y Condiciones son documentos distintos, cada uno con su propio checkbox:
+      // pedido explícito de blindar tanto el tratamiento de datos como las condiciones del servicio
+      // (pago, cancelaciones, responsabilidad). Los botones arrancan deshabilitados arriba y solo se
+      // habilitan cuando AMBOS checkboxes quedan marcados.
       var chkConsentimiento = document.getElementById('sol-consentimiento');
+      var chkTerminos = document.getElementById('sol-terminos');
       var btnCorreoEl = document.getElementById('btn-sol-correo');
       var btnWhatsappEl = document.getElementById('btn-sol-whatsapp');
-      chkConsentimiento.addEventListener('change', function () {
-        btnCorreoEl.disabled = !chkConsentimiento.checked;
-        btnWhatsappEl.disabled = !chkConsentimiento.checked;
-      });
+      function actualizarHabilitacionBotones() {
+        var habilitado = chkConsentimiento.checked && chkTerminos.checked;
+        btnCorreoEl.disabled = !habilitado;
+        btnWhatsappEl.disabled = !habilitado;
+      }
+      chkConsentimiento.addEventListener('change', actualizarHabilitacionBotones);
+      chkTerminos.addEventListener('change', actualizarHabilitacionBotones);
       document.getElementById('link-privacidad-form').addEventListener('click', function (ev) {
         ev.preventDefault();
         if (window.__abrirModalPrivacidad) window.__abrirModalPrivacidad();
+      });
+      document.getElementById('link-terminos-form').addEventListener('click', function (ev) {
+        ev.preventDefault();
+        if (window.__abrirModalTerminos) window.__abrirModalTerminos();
       });
 
       function construirMensajeSolicitud(archivosSubidos) {
