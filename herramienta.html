@@ -849,7 +849,7 @@
 
       '<h3>¿Qué datos recopilamos?</h3>' +
       '<ul>' +
-        '<li>Al pedir un producto "por encargo": tu nombre, el predio de referencia (clave catastral o dirección) y el detalle que escribas.</li>' +
+        '<li>Al pedir un producto "por encargo": tu nombre, correo electrónico, teléfono, el predio de referencia (clave catastral o dirección) y el detalle que escribas — necesarios para poder contactarte y coordinar el pedido.</li>' +
         '<li>Para "Planimétrico + gestión IPRUS", además: una copia de tu cédula y la escritura del predio — estrictamente porque el trámite municipal las exige.</li>' +
       '</ul>' +
       '<p>Lo que escribís en el Croquis de sitio (propietario, cédula, dirección) queda solo en el documento que generás vos mismo en tu navegador — no se nos envía automáticamente.</p>' +
@@ -4893,6 +4893,10 @@
         '<div class="form-solicitud">' +
           '<label>Tu nombre</label>' +
           '<input type="text" id="sol-nombre" placeholder="Nombre completo">' +
+          '<label>Correo electrónico</label>' +
+          '<input type="email" id="sol-correo" placeholder="tu@correo.com">' +
+          '<label>Teléfono / WhatsApp</label>' +
+          '<input type="tel" id="sol-telefono" placeholder="09XXXXXXXX">' +
           '<label>Predio de referencia</label>' +
           '<input type="text" id="sol-predio" value="' + (claveSugerida ? 'Clave catastral ' + claveSugerida : '') + '" placeholder="Clave catastral o dirección del predio">' +
           '<label>Detalle (opcional)</label>' +
@@ -4921,11 +4925,26 @@
       var chkConsentimiento = document.getElementById('sol-consentimiento');
       var chkTerminos = document.getElementById('sol-terminos');
       var btnEnviarEl = document.getElementById('btn-sol-enviar');
+      var inputNombre = document.getElementById('sol-nombre');
+      var inputCorreo = document.getElementById('sol-correo');
+      var inputTelefono = document.getElementById('sol-telefono');
+      // Nombre, correo y teléfono son obligatorios además de los dos checkboxes — pedido explícito:
+      // sin esto, un pedido en la Sheet no tiene forma de contactar a quien lo hizo. El formato de
+      // correo se valida con el propio `type="email"` del input (checkValidity()); teléfono solo
+      // pide que no esté vacío, sin forzar un formato — los números llegan de formas distintas.
+      function datosContactoCompletos() {
+        return !!inputNombre.value.trim() &&
+          !!inputCorreo.value.trim() && inputCorreo.checkValidity() &&
+          !!inputTelefono.value.trim();
+      }
       function actualizarHabilitacionBotones() {
-        btnEnviarEl.disabled = !(chkConsentimiento.checked && chkTerminos.checked);
+        btnEnviarEl.disabled = !(chkConsentimiento.checked && chkTerminos.checked && datosContactoCompletos());
       }
       chkConsentimiento.addEventListener('change', actualizarHabilitacionBotones);
       chkTerminos.addEventListener('change', actualizarHabilitacionBotones);
+      [inputNombre, inputCorreo, inputTelefono].forEach(function (el) {
+        el.addEventListener('input', actualizarHabilitacionBotones);
+      });
       document.getElementById('link-privacidad-form').addEventListener('click', function (ev) {
         ev.preventDefault();
         if (window.__abrirModalPrivacidad) window.__abrirModalPrivacidad();
@@ -4937,10 +4956,14 @@
 
       function construirMensajeSolicitud(archivosSubidos) {
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
+        var correo = (document.getElementById('sol-correo').value || '').trim();
+        var telefono = (document.getElementById('sol-telefono').value || '').trim();
         var predio = (document.getElementById('sol-predio').value || '').trim();
         var detalle = (document.getElementById('sol-detalle').value || '').trim();
         var lineas = ['Quiero: ' + producto.nombre];
         if (nombre) lineas.push('Nombre: ' + nombre);
+        if (correo) lineas.push('Correo: ' + correo);
+        if (telefono) lineas.push('Teléfono: ' + telefono);
         if (predio) lineas.push('Predio: ' + predio);
         if (detalle) lineas.push('Detalle: ' + detalle);
         if (esIprus) {
@@ -5051,6 +5074,8 @@
       function enviarPedidoEstructurado(archivosSubidos) {
         if (!APPS_SCRIPT_URL_DOCUMENTOS) return Promise.resolve({ ok: false, error: 'Backend no configurado' });
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
+        var correo = (document.getElementById('sol-correo').value || '').trim();
+        var telefono = (document.getElementById('sol-telefono').value || '').trim();
         var predio = (document.getElementById('sol-predio').value || '').trim();
         var detalle = (document.getElementById('sol-detalle').value || '').trim();
         return fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
@@ -5059,7 +5084,7 @@
           body: JSON.stringify({
             tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS,
             productoId: producto.id, productoNombre: producto.nombre,
-            predio: predio, nombreSolicitante: nombre, detalle: detalle,
+            predio: predio, nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle,
             documentos: archivosSubidos || []
           })
         }).then(function (r) { return r.json(); }).catch(function (err) {
