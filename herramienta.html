@@ -1340,6 +1340,28 @@
     var nLados = pts.length;
     var clave = (featureReg.properties && (featureReg.properties.clave || featureReg.properties.CLAVE)) || 'sin clave';
 
+    // Parroquia urbana real — point-in-polygon contra la capa OFICIAL de límites de parroquias del GAD
+    // Municipal (ide:limites_parroquias_urbanas), no una fórmula de posiciones de dígitos en la clave
+    // catastral. Había una versión anterior portada de TramaUrbana que decodificaba dígitos 5-6 de la
+    // clave contra un diccionario fijo de códigos — comprobado INCORRECTO con un predio real (clave
+    // 0701027147000: la fórmula daba "San Blas", la parroquia real verificada contra esta capa oficial
+    // es "San Sebastián") — los códigos de esa capa ni siquiera coinciden con los que traía el
+    // diccionario viejo (02/03 están invertidos, 07-13 corridos). BBOX chico alrededor del centro real
+    // del predio (puede traer 1-2 parroquias si el predio está cerca de un límite) + turf.
+    // booleanPointInPolygon para quedarse con la que de verdad lo contiene, no la primera que aparezca.
+    var margenParroquiaLng = 5 / mPerDegLng, margenParroquiaLat = 5 / mPerDegLat;
+    var bboxParroquia = [centro[0] - margenParroquiaLng, centro[1] - margenParroquiaLat, centro[0] + margenParroquiaLng, centro[1] + margenParroquiaLat];
+    var urlParroquia = 'https://ide.cuenca.gob.ec/geoserver/ide/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:limites_parroquias_urbanas&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + bboxParroquia.join(',') + ",'EPSG:4326')");
+    var parroquiaReal = null;
+    try {
+      var dataParroquia = await (await fetch(urlParroquia)).json();
+      var puntoCentro = turf.point(centro);
+      var matchParroquia = (dataParroquia.features || []).filter(function (f) {
+        try { return turf.booleanPointInPolygon(puntoCentro, f); } catch (e) { return false; }
+      })[0];
+      if (matchParroquia) parroquiaReal = { nombre: matchParroquia.properties.parroquia, codigo: matchParroquia.properties.codigo };
+    } catch (e) { console.warn('No se pudo determinar la parroquia real (capa oficial)', e); }
+
     var bboxPredio = turf.bbox(featureReg);
     var MARGEN_CONSULTA_M = 60;
     var margenLng = MARGEN_CONSULTA_M / mPerDegLng, margenLat = MARGEN_CONSULTA_M / mPerDegLat;
@@ -1740,7 +1762,7 @@
     return {
       clave: clave, featureReg: featureReg, featureManzana: featureManzana,
       pts: pts, nLados: nLados, tipoLado: tipoLado, numeroFrente: numeroFrente, ladosInfo: ladosInfo,
-      centroideLote: centroideLote, anguloRef: Math.atan2(dirRef[1], dirRef[0]),
+      centroideLote: centroideLote, anguloRef: Math.atan2(dirRef[1], dirRef[0]), parroquiaReal: parroquiaReal,
       aMetros: aMetros, metrosALatLng: metrosALatLng, poligonoMetrosAFeature: poligonoMetrosAFeature,
       viasFlat: viasFlat, viasFeatures: dataVia.features || [],
       vecinosFeatures: dataVecinos.features || [],
@@ -4135,10 +4157,17 @@
     }
   }
 
-  // Parroquia/sector a partir de la clave catastral de Cuenca — mismo diccionario y misma lógica de
-  // disección que ya usa TramaUrbana/motor-lamina.js para el membrete de láminas IPRUS (dígitos 5-6 de
-  // la clave = código de parroquia urbana). Portado acá tal cual para que el croquis de sitio no
-  // dependa de que el usuario escriba la parroquia a mano — es un dato público, se puede sacar solo.
+  // ADVERTENCIA (dejado a propósito, no borrado): este diccionario venía portado tal cual de
+  // TramaUrbana/motor-lamina.js (dígitos 5-6 de la clave = código de parroquia) y se usó para la
+  // "Parroquia" del croquis hasta que un caso real lo desmintió — clave 0701027147000 daba "San Blas"
+  // acá, pero la parroquia real (verificada contra ide:limites_parroquias_urbanas, la capa OFICIAL del
+  // GAD Municipal, con point-in-polygon real — ver construirEstadoPredio/parroquiaReal) es "San
+  // Sebastián". Los códigos de esa capa oficial ni siquiera coinciden con los de acá abajo (02/03
+  // invertidos, 07-13 corridos) — o la posición de dígitos asumida está mal, o el diccionario lo está,
+  // no hace falta saber cuál para darse cuenta de que no es confiable. La "Parroquia" del croquis YA NO
+  // usa esto (ver textoParroquia en generarCroquisSitio) — queda solo para `sector`/zona, que nadie
+  // reportó como incorrecto todavía pero viene de la MISMA técnica de decodificar dígitos de la clave,
+  // así que tampoco hay que confiar en ella a ciegas.
   var DICC_PARROQUIAS_CUENCA = {
     '01': 'EL SAGRARIO', '02': 'SAN BLAS', '03': 'GIL RAMÍREZ DÁVALOS',
     '04': 'HUAYNA CÁPAC', '05': 'BELLAVISTA', '06': 'EL VECINO',
@@ -4411,6 +4440,11 @@
     try { svgUbicacion = construirPlanoUbicacionSVG(estado, areaM2, false, anchoImpresionMM); } catch (e) { console.warn('generarCroquisSitio: falló construirPlanoUbicacionSVG', e); }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var pys = parroquiaYSectorDeClave(estado.clave);
+    // Parroquia real (point-in-polygon contra la capa oficial, ver construirEstadoPredio) en vez del
+    // diccionario viejo por posición de dígitos — comprobado incorrecto con un caso real. Si la
+    // consulta espacial falló (sin red, servidor caído), se avisa en vez de mostrar un valor que ya
+    // sabemos que puede estar mal.
+    var textoParroquia = estado.parroquiaReal ? estado.parroquiaReal.nombre : 'No disponible';
     function escaparCroquis(t) { return (t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
     function escaparAtributo(t) { return escaparCroquis(t).replace(/"/g, '&quot;'); }
     // Propietario/cédula/dirección: <input> real (no contentEditable) — pedido explícito: "cuando
@@ -4461,7 +4495,7 @@
         filaInput('Propietario', 'propietario', datos.propietario) +
         filaInput('Cédula / RUC', 'cedula', datos.cedula) +
         filaInput('Dirección / sector', 'direccion', datos.direccion) +
-        '<tr><td class="etiqueta">Parroquia</td><td>' + pys.parroquia + ' — ' + pys.sector + '</td></tr>' +
+        '<tr><td class="etiqueta">Parroquia</td><td>' + textoParroquia + ' — ' + pys.sector + '</td></tr>' +
         '<tr><td class="etiqueta">Cantón / provincia</td><td>Cuenca — Azuay</td></tr>' +
         '<tr><td class="etiqueta">Área del terreno</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
         filaEditable('Observaciones', 'observaciones', datos.observaciones, 'Doble clic para agregar (opcional)') +
