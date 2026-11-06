@@ -723,7 +723,17 @@
   // scroll de la página mientras el cursor esté sobre el mapa. Sin botones de zoom (a pedido
   // explícito) — el pellizco (pinch) en trackpad SÍ debe funcionar, así que más abajo se arma un
   // listener de 'wheel' a mano que distingue uno de otro.
-  var mapa = L.map('mapa', { zoomControl: false, scrollWheelZoom: false }).setView([-2.8980, -79.0045], 15);
+  // Límite de zoom/paneo de la ciudad actual (solo Cuenca por ahora) — mismo rectángulo con margen
+  // alrededor del área urbana con catastro real que se usa en TramaUrbana (js/motor-mapa.js,
+  // configCiudad.limites). Evita que un visitante se vaya a un zoom o un paneo donde ya no hay nada
+  // que mostrar.
+  var mapa = L.map('mapa', {
+    zoomControl: false,
+    scrollWheelZoom: false,
+    minZoom: 11,
+    maxBounds: [[-3.00, -79.15], [-2.80, -78.90]],
+    maxBoundsViscosity: 1.0
+  }).setView([-2.8980, -79.0045], 15);
   var capaBase = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     attribution: '&copy; Google Maps', maxZoom: 20
   }).addTo(mapa);
