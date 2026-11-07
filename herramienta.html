@@ -474,6 +474,21 @@
   /* ---------- sections ---------- */
   footer { text-align: center; padding: 30px; font-size: 0.78rem; color: var(--ink-soft); border-top: 1px solid var(--line); }
   footer a { color: var(--ink-soft); text-decoration: underline; }
+  /* ===== Botón de WhatsApp: flotante en escritorio, barra fija abajo en celular ===== */
+  .btn-whatsapp {
+    position: fixed; right: 20px; bottom: 20px; z-index: 1500;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #1E7E4A; color: #FFFFFF; text-decoration: none;
+    font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; font-size: 0.92rem;
+    padding: 12px 18px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  }
+  .btn-whatsapp:hover { background: #17663B; }
+  .btn-whatsapp svg { width: 20px; height: 20px; flex: none; }
+  @media (max-width: 640px) {
+    .btn-whatsapp { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); justify-content: center; padding: 14px 18px; }
+    body { padding-bottom: 76px; }
+  }
+  @media print { .btn-whatsapp { display: none !important; } }
 
   /* ---------- privacidad (LOPDP) ---------- */
   .modal-overlay {
@@ -596,6 +611,8 @@
 </div>
 
 <footer>CotaCero — automatización de trámites IPRUS y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
+
+<a class="btn-whatsapp" id="btn-whatsapp" href="https://wa.me/593999163505?text=Hola%20Cota%20Cero%2C%20quiero%20informaci%C3%B3n%20sobre%20sus%20productos." target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.2.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg><span>Escríbenos por WhatsApp</span></a>
 
 <div class="modal-overlay" id="modalPrivacidadOverlay" hidden>
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
@@ -2671,6 +2688,7 @@
     // archivo) son el predio "actual" para cualquier producto que lo necesite — hoy solo croquis, que
     // genera su vista previa directo desde aplicarProductoActivo() sin pasar por un botón de formulario.
     estadoSeleccionado = estado; areaM2Seleccionado = areaM2;
+    actualizarWhatsApp(estado.clave);
 
     // El panel recién se reconstruyó completo (#vista-volumetria) — aplicar de nuevo cuál es el
     // producto activo en la barra de arriba, si no esta función deja siempre la volumetría visible
@@ -4879,6 +4897,16 @@
   // Asignada dentro del bloque del catálogo (más abajo); la usan los botones "Pedir … de este
   // predio" de la ficha del resultado.
   var pedirProductoParaPredio = function () {};
+  // Botón fijo de WhatsApp: el mensaje lleva la clave catastral del predio elegido (si hay uno).
+  var WHATSAPP_NUMERO = '593999163505';
+  function actualizarWhatsApp(clave) {
+    var btn = document.getElementById('btn-whatsapp');
+    if (!btn) return;
+    var texto = clave
+      ? 'Hola Cota Cero, quiero información sobre el predio con clave catastral ' + clave + ' (Cuenca).'
+      : 'Hola Cota Cero, quiero información sobre sus productos.';
+    btn.href = 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(texto);
+  }
 
   if (barraCont && detalleCont) {
     function renderBarra() {
