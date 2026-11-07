@@ -734,11 +734,16 @@
     maxBounds: [[-3.00, -79.15], [-2.80, -78.90]],
     maxBoundsViscosity: 1.0
   }).setView([-2.8980, -79.0045], 15);
-  var capaBase = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    attribution: '&copy; Google Maps', maxZoom: 20
+  // Fondo: ortofoto oficial del IGM servida por el IDE Cuenca (WMS), en vez de pedir mosaicos
+  // directo a los servidores de Google (uso no permitido por sus términos).
+  var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
+  var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
+  var capaBase = L.tileLayer.wms(IDE_CUENCA_WMS, {
+    layers: CAPA_ORTOFOTO, format: 'image/jpeg', transparent: false, version: '1.1.1',
+    attribution: 'Ortofoto IGM · IDE Cuenca', maxZoom: 20
   }).addTo(mapa);
   // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
-  // en sí no se puede acelerar (depende de la red de Google), pero sí dar una señal de que algo está
+  // en sí no se puede acelerar (depende del servidor del IDE Cuenca), pero sí dar una señal de que algo está
   // pasando en vez de un círculo vacío/a medias que se siente roto. 'loading'/'load' son eventos
   // reales de Leaflet sobre la carga de teselas, no un timer inventado.
   var mapaCargando = document.getElementById('mapaCargando');
@@ -1389,22 +1394,23 @@
     var W = (tx1 - tx0 + 1) * TILE, H = (ty1 - ty0 + 1) * TILE;
     var canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     var ctx = canvas.getContext('2d', { willReadFrequently: true });
-    var cargas = [];
-    for (var tx = tx0; tx <= tx1; tx++) {
-      for (var ty = ty0; ty <= ty1; ty++) {
-        (function (tx, ty) {
-          cargas.push(new Promise(function (res) {
-            var px = (tx - tx0) * TILE, py = (ty - ty0) * TILE;
-            var img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function () { try { ctx.drawImage(img, px, py); } catch (e) { } res(1); };
-            img.onerror = function () { res(0); };
-            img.src = 'https://mt1.google.com/vt/lyrs=s&x=' + tx + '&y=' + ty + '&z=' + z;
-          }));
-        })(tx, ty);
-      }
-    }
-    await Promise.all(cargas);
+    // Una sola imagen GetMap (ortofoto IGM del IDE Cuenca) en EPSG:3857 cubriendo EXACTAMENTE el
+    // mismo rectángulo de teselas tx0..tx1 / ty0..ty1 — así todo el cálculo de píxel → lat/lng de
+    // abajo (invLat/invLng sobre tx0/ty0) sigue valiendo sin cambios.
+    var ORIGEN = 20037508.342789244, resM = 2 * ORIGEN / (Math.pow(2, z) * TILE);
+    var bboxMerc = [
+      tx0 * TILE * resM - ORIGEN, ORIGEN - (ty1 + 1) * TILE * resM,
+      (tx1 + 1) * TILE * resM - ORIGEN, ORIGEN - ty0 * TILE * resM
+    ];
+    await new Promise(function (res) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () { try { ctx.drawImage(img, 0, 0, W, H); } catch (e) { } res(1); };
+      img.onerror = function () { res(0); };
+      img.src = IDE_CUENCA_WMS + '?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent(CAPA_ORTOFOTO) +
+        '&styles=&format=image/jpeg&transparent=false&srs=EPSG:3857&bbox=' + bboxMerc.join(',') +
+        '&width=' + W + '&height=' + H;
+    });
 
     var src = ctx.getImageData(0, 0, W, H).data;
     var arbolMask = new Uint8Array(W * H);
