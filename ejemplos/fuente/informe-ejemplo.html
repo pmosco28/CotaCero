@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe de entorno y conectividad — ejemplo</title>
+<!-- Fuente del PDF de ejemplo (ejemplos/informe-ejemplo.pdf). Datos GENÉRICOS, no de un predio real.
+     Para regenerar el PDF: abrir en Chrome → Imprimir → Guardar como PDF (A4, sin márgenes, con gráficos de fondo). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --paper: #F7F4EC; --ink: #1C1A16; --ink-soft: #5B5546; --line: #D8D0BC; --line-soft: #E8E2D1;
+    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #C9A227; --surveyor: #2D5A6B; --good: #3F7D52;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); }
+  body { font-family: 'Hanken Grotesk', sans-serif; font-size: 10pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  h1, h2, h3 { font-family: 'Bricolage Grotesque', sans-serif; margin: 0; letter-spacing: -0.01em; }
+  .pagina { width: 210mm; height: 297mm; padding: 13mm 15mm 10mm; position: relative; overflow: hidden; page-break-after: always; display: flex; flex-direction: column; }
+  .pagina > * { flex-shrink: 0; }
+  .pagina:last-child { page-break-after: auto; }
+
+  .membrete { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid var(--ink); padding-bottom: 6px; }
+  .marca { font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 15pt; }
+  .marca em { font-style: normal; color: var(--terracotta); }
+  .membrete .meta { font-size: 8pt; color: var(--ink-soft); text-align: right; }
+  .sello-ejemplo { position: absolute; top: 12mm; right: 50%; transform: translateX(50%); background: var(--ochre); color: var(--ink); font-weight: 700; font-size: 7.5pt; letter-spacing: 0.14em; padding: 2px 10px; border-radius: 2px; }
+  .marca-agua { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .marca-agua span { transform: rotate(-30deg); font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 110pt; color: rgba(178,80,46,0.05); letter-spacing: 0.08em; }
+
+  .parte { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.14em; color: var(--terracotta); font-weight: 700; margin: 14px 0 4px; }
+  h1 { font-size: 21pt; line-height: 1.05; }
+  .predio { display: flex; gap: 0; margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .predio > div { flex: 1; padding: 6px 10px; border-left: 1px solid var(--line); }
+  .predio > div:first-child { border-left: none; }
+  .predio .k { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+  .predio .v { font-weight: 600; font-size: 10pt; }
+
+  .veredicto { margin-top: 10px; background: var(--paper); border-left: 4px solid var(--good); padding: 10px 14px; border-radius: 0 6px 6px 0; }
+  .veredicto .t { font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 12.5pt; }
+  .veredicto p { margin: 3px 0 0; color: var(--ink-soft); }
+
+  .dos-col { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: 10px; }
+  h2 { font-size: 12pt; margin-bottom: 6px; }
+  ul.claves { list-style: none; padding: 0; margin: 0; }
+  ul.claves li { display: flex; gap: 9px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+  ul.claves li:last-child { border-bottom: none; }
+  ul.claves .ico { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--paper); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 9pt; }
+
+  .notas { width: 100%; border-collapse: collapse; }
+  .notas td { padding: 4px 0; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  .notas td:first-child { font-weight: 600; }
+  .barra { display: flex; gap: 3px; justify-content: flex-end; }
+  .barra i { width: 16px; height: 7px; border-radius: 2px; background: var(--line-soft); display: block; }
+  .barra.n3 i:nth-child(-n+3), .barra.n2 i:nth-child(-n+2), .barra.n1 i:nth-child(-n+1) { background: var(--good); }
+  .barra.n2 i:nth-child(-n+2) { background: var(--ochre); }
+  .barra.n1 i:nth-child(1) { background: var(--terracotta); }
+  .nivel { font-size: 7.5pt; color: var(--ink-soft); text-align: right; white-space: nowrap; padding-left: 8px !important; }
+
+  .mapa-esq { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .mapa-esq svg { display: block; width: 100%; height: auto; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 7.5pt; color: var(--ink-soft); padding: 5px 8px 7px; }
+  .leyenda span::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; background: var(--c); vertical-align: 0; }
+
+  .significa { margin-top: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 6px; }
+  .significa p { margin: 0; color: var(--ink-soft); }
+  .pasos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+  .paso { background: var(--paper); border-radius: 6px; padding: 7px 11px; }
+  .paso .n { font-family: 'Bricolage Grotesque'; font-weight: 800; color: var(--terracotta); font-size: 13pt; }
+  .paso .t { font-weight: 700; margin: 1px 0 2px; }
+  .paso .d { font-size: 8.5pt; color: var(--ink-soft); }
+
+  .pie { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--ink-soft); }
+
+  /* ---- Parte técnica ---- */
+  h3 { font-size: 10.5pt; margin: 12px 0 5px; display: flex; align-items: baseline; gap: 8px; }
+  h3 .src { font-family: 'IBM Plex Mono'; font-weight: 400; font-size: 7pt; color: var(--ink-soft); letter-spacing: 0; }
+  table.tec { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  table.tec th { text-align: left; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-soft); font-weight: 600; border-bottom: 1.2px solid var(--ink); padding: 3px 6px 3px 0; }
+  table.tec td { padding: 3.5px 6px 3.5px 0; border-bottom: 1px solid var(--line-soft); }
+  table.tec td.num, table.tec th.num { padding-right: 14px; }
+  table.tec td.num, table.tec th.num { text-align: right; font-family: 'IBM Plex Mono'; }
+  .ok { color: var(--good); font-weight: 600; }
+  .med { color: #8A6D0F; font-weight: 600; }
+  .grid-tec { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .metodo { margin-top: 12px; background: var(--paper); border-radius: 6px; padding: 9px 12px; font-size: 8pt; color: var(--ink-soft); }
+  .metodo b { color: var(--ink); }
+  .aviso { margin-top: 10px; font-size: 7.8pt; color: var(--ink-soft); border-left: 3px solid var(--terracotta); padding: 4px 10px; }
+</style>
+</head>
+<body>
+
+<!-- ======================= PÁGINA 1 — RESUMEN PARA EL CLIENTE ======================= -->
+<section class="pagina">
+  <div class="marca-agua"><span>EJEMPLO</span></div>
+  <div class="sello-ejemplo">DOCUMENTO DE EJEMPLO · DATOS GENÉRICOS</div>
+  <div class="membrete">
+    <div class="marca">Cota<em>Cero</em><span class="mono">.</span></div>
+    <div class="meta">Informe de entorno y conectividad<br><span class="mono">N.º CC-EJEMPLO-0001</span></div>
+  </div>
+
+  <div class="parte">Parte 1 · Resumen</div>
+  <h1>¿Qué tan bien ubicado está tu predio?</h1>
+
+  <div class="predio">
+    <div><div class="k">Clave catastral</div><div class="v mono">0000000000000</div></div>
+    <div><div class="k">Parroquia</div><div class="v">Parroquia de ejemplo</div></div>
+    <div><div class="k">Área del lote</div><div class="v">312 m²</div></div>
+    <div><div class="k">Fecha de consulta</div><div class="v">7 nov 2026</div></div>
+  </div>
+
+  <div class="veredicto">
+    <div class="t">Bien servido para vivienda</div>
+    <p>Tiene a pie lo básico del día a día: escuela, centro de salud, parque y bus. Todos los servicios básicos llegan por la calle de frente.</p>
+  </div>
+
+  <div class="dos-col">
+    <div>
+      <h2>Lo más importante</h2>
+      <ul class="claves">
+        <li><span class="ico">🏫</span><span><b>Escuela a 6 min a pie</b> (450 m) y colegio a 11 min (850 m).</span></li>
+        <li><span class="ico">🏥</span><span><b>Centro de salud a 9 min</b> (700 m). El hospital más cercano está a 2,8 km.</span></li>
+        <li><span class="ico">🚌</span><span><b>2 líneas de bus</b> con parada a 3 min (220 m).</span></li>
+        <li><span class="ico">🌳</span><span><b>Parque barrial a 4 min</b> (300 m).</span></li>
+        <li><span class="ico">💧</span><span><b>Agua, alcantarillado y luz</b> disponibles en la vía de frente.</span></li>
+        <li><span class="ico">🛣️</span><span><b>Calle local de poco tráfico</b>, a una cuadra de una vía colectora.</span></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Tu predio y lo que tiene cerca</h2>
+      <div class="mapa-esq">
+        <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" font-family="Hanken Grotesk, sans-serif">
+          <rect width="300" height="200" fill="#FBF9F3"/>
+          <!-- calles -->
+          <g stroke="#E3DCCB" stroke-width="9" fill="none" stroke-linecap="round">
+            <path d="M-5 120 H305"/><path d="M150 -5 V235"/><path d="M-5 40 L305 70"/><path d="M60 -5 L40 235"/><path d="M250 -5 L265 235"/>
+          </g>
+          <path d="M-5 190 C80 170 200 205 305 180" stroke="#E3DCCB" stroke-width="14" fill="none"/>
+          <!-- anillos -->
+          <circle cx="150" cy="120" r="55" fill="none" stroke="#2D5A6B" stroke-width="0.9" stroke-dasharray="3 3"/>
+          <circle cx="150" cy="120" r="105" fill="none" stroke="#2D5A6B" stroke-width="0.9" stroke-dasharray="3 3"/>
+          <text x="150" y="61" font-size="7" fill="#2D5A6B" text-anchor="middle">5 min a pie</text>
+          <text x="150" y="11" font-size="7" fill="#2D5A6B" text-anchor="middle">10 min a pie</text>
+          <!-- predio -->
+          <rect x="143" y="112" width="14" height="16" fill="#B2502E" stroke="#8F3F23"/>
+          <text x="163" y="133" font-size="7.5" font-weight="700" fill="#8F3F23">Tu predio</text>
+          <!-- puntos -->
+          <g font-size="6.5" fill="#5B5546">
+            <circle cx="190" cy="85" r="5" fill="#2D5A6B"/><text x="198" y="88">Escuela</text>
+            <circle cx="95" cy="160" r="5" fill="#B2502E"/><text x="60" y="175">Centro de salud</text>
+            <circle cx="122" cy="98" r="5" fill="#3F7D52"/><text x="88" y="92">Parque</text>
+            <circle cx="168" cy="140" r="4" fill="#C9A227"/><text x="175" y="150">Parada de bus</text>
+            <circle cx="240" cy="60" r="5" fill="#2D5A6B"/><text x="226" y="50">Colegio</text>
+          </g>
+          <g transform="translate(278 180)"><path d="M0 -14 L5 0 L0 -4 L-5 0 Z" fill="#1C1A16"/><text y="9" font-size="7" text-anchor="middle">N</text></g>
+        </svg>
+        <div class="leyenda"><span style="--c:#2D5A6B">Educación</span><span style="--c:#B2502E">Salud</span><span style="--c:#3F7D52">Espacio público</span><span style="--c:#C9A227">Transporte</span></div>
+      </div>
+
+      <table class="notas" style="margin-top:8px">
+        <tr><td>Educación</td><td><div class="barra n3"><i></i><i></i><i></i></div></td><td class="nivel">Muy bien</td></tr>
+        <tr><td>Salud</td><td><div class="barra n2"><i></i><i></i><i></i></div></td><td class="nivel">Bien</td></tr>
+        <tr><td>Transporte</td><td><div class="barra n3"><i></i><i></i><i></i></div></td><td class="nivel">Muy bien</td></tr>
+        <tr><td>Espacio público</td><td><div class="barra n2"><i></i><i></i><i></i></div></td><td class="nivel">Bien</td></tr>
+        <tr><td>Servicios básicos</td><td><div class="barra n3"><i></i><i></i><i></i></div></td><td class="nivel">Completos</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="significa">
+    <h2>¿Qué significa para tu proyecto?</h2>
+    <p>Para vivienda familiar o un pequeño edificio de departamentos, la ubicación juega a favor: los futuros ocupantes resuelven la rutina diaria a pie y no hace falta gestionar extensiones de redes. Lo que conviene revisar antes de diseñar es la <b>normativa del lote</b> (cuánto y qué se puede construir) y la <b>topografía real</b> del terreno.</p>
+  </div>
+
+  <h2 style="margin-top:12px">Próximos pasos sugeridos</h2>
+  <div class="pasos">
+    <div class="paso"><div class="n">1</div><div class="t">Ver qué puedes construir</div><div class="d">Gratis en la herramienta de CotaCero: normativa y volumetría de referencia del lote.</div></div>
+    <div class="paso"><div class="n">2</div><div class="t">Pedir el plano planimétrico</div><div class="d">El plano que exige el municipio para el trámite, desde $25.</div></div>
+    <div class="paso"><div class="n">3</div><div class="t">Iniciar el IPRUS</div><div class="d">El informe oficial del GAD Municipal de Cuenca, que es el único con validez legal.</div></div>
+  </div>
+
+  <div class="pie">
+    <span>CotaCero · Cuenca, Ecuador · cotacero.pm@gmail.com · WhatsApp 099 916 3505</span>
+    <span>Página 1 de 2 · El detalle técnico está en la página siguiente</span>
+  </div>
+</section>
+
+<!-- ======================= PÁGINA 2 — PARTE TÉCNICA ======================= -->
+<section class="pagina">
+  <div class="marca-agua"><span>EJEMPLO</span></div>
+  <div class="sello-ejemplo">DOCUMENTO DE EJEMPLO · DATOS GENÉRICOS</div>
+  <div class="membrete">
+    <div class="marca">Cota<em>Cero</em><span class="mono">.</span></div>
+    <div class="meta">Clave catastral <span class="mono">0000000000000</span><br><span class="mono">N.º CC-EJEMPLO-0001</span></div>
+  </div>
+
+  <div class="parte">Parte 2 · Detalle técnico</div>
+  <h1 style="font-size:17pt">Datos, distancias y fuentes</h1>
+
+  <h3>Equipamientos en un radio de 1 km <span class="src">fuente: capas de equipamientos · IDE Cuenca</span></h3>
+  <table class="tec">
+    <tr><th>Categoría</th><th>Equipamiento</th><th class="num">Distancia (m)</th><th class="num">A pie (min)</th><th>Escala</th></tr>
+    <tr><td>Educación</td><td>Escuela fiscal (ejemplo)</td><td class="num">450</td><td class="num">6</td><td>Barrial</td></tr>
+    <tr><td>Educación</td><td>Unidad educativa (ejemplo)</td><td class="num">850</td><td class="num">11</td><td>Sectorial</td></tr>
+    <tr><td>Educación</td><td>Centro de desarrollo infantil (ejemplo)</td><td class="num">380</td><td class="num">5</td><td>Barrial</td></tr>
+    <tr><td>Salud</td><td>Centro de salud tipo A (ejemplo)</td><td class="num">700</td><td class="num">9</td><td>Sectorial</td></tr>
+    <tr><td>Salud</td><td>Hospital general (ejemplo)</td><td class="num">2 800</td><td class="num">—</td><td>Ciudad</td></tr>
+    <tr><td>Seguridad</td><td>Unidad de policía comunitaria (ejemplo)</td><td class="num">620</td><td class="num">8</td><td>Barrial</td></tr>
+    <tr><td>Espacio público</td><td>Parque barrial (ejemplo)</td><td class="num">300</td><td class="num">4</td><td>Barrial</td></tr>
+    <tr><td>Espacio público</td><td>Margen de río (ejemplo)</td><td class="num">520</td><td class="num">7</td><td>Ciudad</td></tr>
+  </table>
+
+  <div class="grid-tec">
+    <div>
+      <h3>Transporte público <span class="src">fuente: rutas y paradas</span></h3>
+      <table class="tec">
+        <tr><th>Línea</th><th class="num">Parada (m)</th><th>Frecuencia</th></tr>
+        <tr><td>Línea A (ejemplo)</td><td class="num">220</td><td>8–12 min</td></tr>
+        <tr><td>Línea B (ejemplo)</td><td class="num">220</td><td>12–15 min</td></tr>
+        <tr><td>Tranvía (ejemplo)</td><td class="num">1 400</td><td>—</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Jerarquía vial <span class="src">fuente: ide:catastros_vias</span></h3>
+      <table class="tec">
+        <tr><th>Vía</th><th>Tipo</th><th class="num">Calzada / vereda</th></tr>
+        <tr><td>Calle A (frente)</td><td>Local</td><td class="num">7,0 / 1,5 m</td></tr>
+        <tr><td>Calle B (esquina)</td><td>Local</td><td class="num">6,5 / 1,2 m</td></tr>
+        <tr><td>Avenida C</td><td>Colectora</td><td class="num">12,0 / 2,5 m</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>Servicios básicos frente al predio <span class="src">fuente: redes municipales y de la empresa eléctrica</span></h3>
+  <table class="tec">
+    <tr><th>Servicio</th><th>Estado</th><th class="num">Distancia a la red (m)</th><th>Observación</th></tr>
+    <tr><td>Agua potable</td><td class="ok">Disponible</td><td class="num">0</td><td>Red en la calle de frente</td></tr>
+    <tr><td>Alcantarillado</td><td class="ok">Disponible</td><td class="num">0</td><td>Red combinada en la calle de frente</td></tr>
+    <tr><td>Energía eléctrica</td><td class="ok">Disponible</td><td class="num">12</td><td>Poste más cercano en la vereda</td></tr>
+    <tr><td>Telecomunicaciones</td><td class="med">Por confirmar</td><td class="num">—</td><td>Sin capa pública; consultar con el proveedor</td></tr>
+  </table>
+
+  <div class="metodo">
+    <b>Cómo se calculó.</b> Los predios, las vías y las redes se consultan en vivo al GAD Municipal de Cuenca (IDE Cuenca, servicios WFS) en la fecha indicada. Las distancias son en línea recta desde el centro del predio. El tiempo a pie se estima a 4,8 km/h con un factor de recorrido de 1,3. La frecuencia del transporte es referencial. Los puntajes de la página 1: <b>Muy bien</b> = a 10 min a pie o menos; <b>Bien</b> = entre 10 y 20 min; <b>Limitado</b> = más de 20 min o sin dato.
+  </div>
+
+  <div class="aviso">Este informe es una referencia elaborada con datos públicos. No tiene validez legal ni reemplaza el IPRUS ni ningún otro trámite ante el GAD Municipal de Cuenca. La información puede cambiar si las fuentes oficiales se actualizan.</div>
+
+  <div class="pie">
+    <span>CotaCero · Cuenca, Ecuador · cotacero.pm@gmail.com · WhatsApp 099 916 3505</span>
+    <span>Página 2 de 2</span>
+  </div>
+</section>
+
+</body>
+</html>

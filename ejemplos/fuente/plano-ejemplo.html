@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Plano planimétrico — ejemplo</title>
+<!-- Fuente del PDF de ejemplo (ejemplos/plano-ejemplo.pdf). Lote y datos GENÉRICOS, no de un predio real.
+     Para regenerar el PDF: abrir en Chrome → Imprimir → Guardar como PDF (A4 horizontal, sin márgenes, con gráficos de fondo). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root {
+    --paper: #F7F4EC; --ink: #1C1A16; --ink-soft: #5B5546; --line: #D8D0BC; --line-soft: #E8E2D1;
+    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #C9A227; --surveyor: #2D5A6B; --good: #3F7D52;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); }
+  body { font-family: 'Hanken Grotesk', sans-serif; font-size: 10pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  h1, h2, h3 { font-family: 'Bricolage Grotesque', sans-serif; margin: 0; letter-spacing: -0.01em; }
+  .pagina { width: 297mm; height: 210mm; padding: 12mm 14mm 9mm; position: relative; overflow: hidden; page-break-after: always; display: flex; flex-direction: column; }
+  .pagina > * { flex-shrink: 0; }
+  .pagina:last-child { page-break-after: auto; }
+  .membrete { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid var(--ink); padding-bottom: 6px; }
+  .marca { font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 15pt; }
+  .marca em { font-style: normal; color: var(--terracotta); }
+  .membrete .meta { font-size: 8pt; color: var(--ink-soft); text-align: right; }
+  .sello-ejemplo { position: absolute; top: 10mm; left: 50%; transform: translateX(-50%); background: var(--ochre); font-weight: 700; font-size: 7.5pt; letter-spacing: 0.14em; padding: 2px 10px; border-radius: 2px; z-index: 3; }
+  .marca-agua { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
+  .marca-agua span { transform: rotate(-20deg); font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 130pt; color: rgba(178,80,46,0.06); letter-spacing: 0.08em; }
+  .parte { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.14em; color: var(--terracotta); font-weight: 700; margin: 12px 0 4px; }
+  h1 { font-size: 22pt; line-height: 1.05; }
+  .bajada { color: var(--ink-soft); margin: 6px 0 0; max-width: 150mm; font-size: 10.5pt; }
+  .pie { margin-top: auto; padding-top: 7px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--ink-soft); }
+
+  /* ---- Página 1 ---- */
+  .resumen { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .tarjeta { background: var(--paper); border-radius: 6px; padding: 11px 13px; }
+  .tarjeta h2 { font-size: 11.5pt; margin-bottom: 6px; }
+  .tarjeta ul { margin: 0; padding-left: 15px; }
+  .tarjeta li { margin: 3px 0; }
+  .tarjeta p { margin: 0; }
+  .entregables { display: flex; gap: 8px; margin-top: 4px; }
+  .archivo { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; }
+  .archivo .ext { font-family: 'IBM Plex Mono'; font-weight: 500; font-size: 8pt; color: #fff; background: var(--surveyor); border-radius: 3px; padding: 1px 6px; }
+  .archivo .ext.pdf { background: var(--terracotta); }
+  .archivo .d { font-size: 8.5pt; color: var(--ink-soft); margin-top: 4px; }
+  .fila2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-top: 14px; }
+  .proceso { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .etapa { border-top: 3px solid var(--terracotta); padding-top: 6px; }
+  .etapa .n { font-family: 'Bricolage Grotesque'; font-weight: 800; color: var(--terracotta); }
+  .etapa .t { font-weight: 700; }
+  .etapa .d { font-size: 8.5pt; color: var(--ink-soft); }
+  .alcance { border-left: 4px solid var(--ochre); background: #FCF8EA; padding: 10px 13px; border-radius: 0 6px 6px 0; }
+  .alcance h2 { font-size: 11pt; margin-bottom: 4px; }
+  .alcance p { margin: 0; font-size: 9pt; color: var(--ink-soft); }
+  .precio { margin-top: 12px; display: flex; align-items: baseline; gap: 10px; }
+  .precio .v { font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 20pt; }
+  .precio .n { color: var(--ink-soft); font-size: 9pt; }
+
+  /* ---- Página 2: lámina ---- */
+  .lamina { flex: 1; display: grid; grid-template-columns: 1fr 62mm; border: 1.4px solid var(--ink); margin-top: 6px; min-height: 0; }
+  .dibujo { position: relative; border-right: 1.4px solid var(--ink); }
+  .dibujo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cajetin { display: flex; flex-direction: column; font-size: 7.5pt; }
+  .cajetin > div { border-bottom: 1px solid var(--ink); padding: 5px 7px; }
+  .cajetin .k { font-size: 6.3pt; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+  .cajetin .v { font-weight: 600; font-size: 8.5pt; }
+  .cajetin .titulo { font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 12pt; line-height: 1.1; }
+  .cajetin table { width: 100%; border-collapse: collapse; font-size: 7.3pt; }
+  .cajetin td { padding: 1.5px 0; }
+  .cajetin td:last-child { text-align: right; font-family: 'IBM Plex Mono'; }
+  .cajetin .ley { display: flex; align-items: center; gap: 6px; margin: 2.5px 0; }
+  .cajetin .ley svg { width: 22px; height: 9px; flex: none; }
+  .cajetin .grow { flex: 1; border-bottom: none !important; }
+  .cajetin .nota { font-size: 6.6pt; color: var(--ink-soft); line-height: 1.35; }
+</style>
+</head>
+<body>
+
+<!-- ======================= PÁGINA 1 — RESUMEN ======================= -->
+<section class="pagina">
+  <div class="marca-agua"><span>EJEMPLO</span></div>
+  <div class="sello-ejemplo">DOCUMENTO DE EJEMPLO · DATOS GENÉRICOS</div>
+  <div class="membrete">
+    <div class="marca">Cota<em>Cero</em><span class="mono">.</span></div>
+    <div class="meta">Plano planimétrico para trámite municipal<br><span class="mono">N.º CC-EJEMPLO-0002</span></div>
+  </div>
+
+  <div class="parte">Parte 1 · Resumen</div>
+  <h1>El plano de tu predio, listo para el trámite</h1>
+  <p class="bajada">Dibujamos tu lote sobre el catastro oficial de Cuenca con todo lo que el municipio pide ver: linderos, construcciones, vías, árboles, postes y cotas. Lo recibes en el formato de lámina del trámite.</p>
+
+  <div class="resumen">
+    <div class="tarjeta">
+      <h2>Qué recibes</h2>
+      <div class="entregables">
+        <div class="archivo"><span class="ext pdf">PDF</span><div class="d">Lámina lista para imprimir o adjuntar, con membrete.</div></div>
+        <div class="archivo"><span class="ext">DXF</span><div class="d">Archivo georreferenciado para AutoCAD, ArchiCAD o Revit.</div></div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <h2>Qué contiene</h2>
+      <ul>
+        <li>Linderos del lote con medidas y área</li>
+        <li>Construcciones existentes</li>
+        <li>Vías con calzada y vereda</li>
+        <li>Árboles y postes cercanos</li>
+        <li>Curvas de nivel, norte y escala</li>
+      </ul>
+    </div>
+    <div class="tarjeta">
+      <h2>Para qué sirve</h2>
+      <ul>
+        <li>Iniciar el IPRUS ante el GAD Municipal de Cuenca</li>
+        <li>Empezar el anteproyecto sin redibujar el catastro</li>
+        <li>Mostrarle el terreno a un comprador o al banco</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="fila2">
+    <div>
+      <h2 style="font-size:11.5pt;margin-bottom:8px">Cómo funciona</h2>
+      <div class="proceso">
+        <div class="etapa"><div class="n">1</div><div class="t">Eliges tu predio</div><div class="d">En el mapa de CotaCero, o nos envías la clave catastral.</div></div>
+        <div class="etapa"><div class="n">2</div><div class="t">Confirmamos y pagas</div><div class="d">Te escribimos con el precio final. Pago por transferencia.</div></div>
+        <div class="etapa"><div class="n">3</div><div class="t">Elaboramos el plano</div><div class="d">Con catastro, modelo digital del terreno e imagen oficiales.</div></div>
+        <div class="etapa"><div class="n">4</div><div class="t">Lo recibes</div><div class="d">PDF y DXF por correo o WhatsApp.</div></div>
+      </div>
+      <div class="precio"><span class="v">Desde $25</span><span class="n">por predio · el precio final depende del área del lote</span></div>
+    </div>
+    <div class="alcance">
+      <h2>Alcance</h2>
+      <p>Elaborado con catastro, modelo digital del terreno e imagen oficiales. No reemplaza un levantamiento topográfico cuando el trámite lo exija.</p>
+    </div>
+  </div>
+
+  <div class="pie">
+    <span>CotaCero · Cuenca, Ecuador · cotacero.pm@gmail.com · WhatsApp 099 916 3505</span>
+    <span>Página 1 de 2 · La lámina de ejemplo está en la página siguiente</span>
+  </div>
+</section>
+
+<!-- ======================= PÁGINA 2 — LÁMINA ======================= -->
+<section class="pagina">
+  <div class="marca-agua"><span>EJEMPLO</span></div>
+  <div class="sello-ejemplo">DOCUMENTO DE EJEMPLO · DATOS GENÉRICOS</div>
+  <div class="parte" style="margin-top:0">Parte 2 · Lámina técnica</div>
+  <div class="lamina">
+    <div class="dibujo">
+      <svg viewBox="0 -70 800 690" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" font-family="Hanken Grotesk, sans-serif">
+        <defs>
+          <pattern id="rayado" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#8F3F23" stroke-width="0.8"/></pattern>
+        </defs>
+        <rect y="-70" width="800" height="690" fill="#fff"/>
+        <!-- curvas de nivel -->
+        <g fill="none" stroke="#C9B98F" stroke-width="0.8">
+          <path d="M-10 -25 C200 -55 420 15 810 -35"/><path d="M-10 70 C200 40 420 110 810 60"/><path d="M-10 150 C220 120 430 190 810 140"/>
+          <path d="M-10 250 C230 215 450 290 810 235"/><path d="M-10 360 C240 320 460 400 810 345"/>
+          <path d="M-10 470 C250 430 470 510 810 455"/>
+        </g>
+        <g font-size="9" fill="#A08A55" font-family="IBM Plex Mono, monospace">
+          <text x="20" y="-31">2 549</text><text x="20" y="64">2 548</text><text x="20" y="144">2 547</text><text x="20" y="242">2 546</text><text x="20" y="350">2 545</text><text x="20" y="460">2 544</text>
+        </g>
+        <!-- vías -->
+        <rect x="0" y="470" width="800" height="150" fill="#F1EDE3"/>
+        <rect x="0" y="470" width="800" height="16" fill="#E2DACA"/>
+        <line x1="0" y1="470" x2="800" y2="470" stroke="#1C1A16" stroke-width="1.2"/>
+        <line x1="0" y1="486" x2="800" y2="486" stroke="#1C1A16" stroke-width="0.7"/>
+        <line x1="0" y1="523" x2="800" y2="523" stroke="#9C9381" stroke-width="0.8" stroke-dasharray="14 10"/>
+        <text x="400" y="545" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="2" fill="#5B5546">CALLE A</text>
+        <rect x="640" y="-70" width="160" height="540" fill="#F1EDE3"/>
+        <rect x="640" y="-70" width="14" height="540" fill="#E2DACA"/>
+        <line x1="640" y1="-70" x2="640" y2="470" stroke="#1C1A16" stroke-width="1.2"/>
+        <line x1="654" y1="-70" x2="654" y2="486" stroke="#1C1A16" stroke-width="0.7"/>
+        <line x1="727" y1="-70" x2="727" y2="620" stroke="#9C9381" stroke-width="0.8" stroke-dasharray="14 10"/>
+        <text x="745" y="240" font-size="12" font-weight="700" letter-spacing="2" fill="#5B5546" transform="rotate(-90 745 240)" text-anchor="middle">CALLE B</text>
+        <!-- predios vecinos -->
+        <g fill="none" stroke="#9C9381" stroke-width="0.9">
+          <path d="M120 470 V250 H40"/><path d="M120 250 V-70"/><path d="M380 88 V-70"/><path d="M640 220 H600"/>
+        </g>
+        <g font-size="9" fill="#9C9381"><text x="45" y="380">PREDIO VECINO</text><text x="190" y="44">PREDIO VECINO</text></g>
+        <!-- lote -->
+        <polygon points="160,470 600,470 600,80 175,95" fill="#FBF6EE" stroke="#B2502E" stroke-width="2.6"/>
+        <!-- construcción existente -->
+        <polygon points="240,470 460,470 460,320 240,320" fill="url(#rayado)" stroke="#8F3F23" stroke-width="1.2"/>
+        <rect x="320" y="378" width="70" height="20" fill="#fff"/>
+        <text x="355" y="392" text-anchor="middle" font-size="9" font-weight="600" fill="#8F3F23">CONSTR. 1 P.</text>
+        <polygon points="480,200 570,200 570,140 480,140" fill="url(#rayado)" stroke="#8F3F23" stroke-width="1.2"/>
+        <!-- árboles -->
+        <g fill="#E3EEDF" stroke="#3F7D52" stroke-width="1.1">
+          <circle cx="230" cy="190" r="26"/><circle cx="300" cy="150" r="18"/><circle cx="690" cy="120" r="14"/>
+        </g>
+        <g fill="#3F7D52"><circle cx="230" cy="190" r="2.5"/><circle cx="300" cy="150" r="2.5"/><circle cx="690" cy="120" r="2.5"/></g>
+        <!-- postes -->
+        <g fill="#1C1A16"><circle cx="210" cy="478" r="4"/><circle cx="520" cy="478" r="4"/><circle cx="647" cy="300" r="4"/></g>
+        <g font-size="8" fill="#1C1A16"><text x="216" y="500">P-01</text><text x="526" y="500">P-02</text><text x="660" y="304">P-03</text></g>
+        <!-- cotas -->
+        <g stroke="#2D5A6B" stroke-width="0.8" fill="none">
+          <line x1="160" y1="455" x2="600" y2="455"/><line x1="160" y1="449" x2="160" y2="461"/><line x1="600" y1="449" x2="600" y2="461"/>
+          <line x1="585" y1="80" x2="585" y2="470"/><line x1="579" y1="80" x2="591" y2="80"/><line x1="579" y1="470" x2="591" y2="470"/>
+          <line x1="160" y1="470" x2="175" y2="95" stroke-dasharray="0"/>
+        </g>
+        <g font-size="10" fill="#2D5A6B" font-family="IBM Plex Mono, monospace" font-weight="500">
+          <rect x="350" y="446" width="60" height="16" fill="#FBF6EE"/><text x="380" y="458" text-anchor="middle">22,00</text>
+          <rect x="560" y="268" width="50" height="16" fill="#FBF6EE"/><text x="585" y="280" text-anchor="middle">19,50</text>
+          <text x="148" y="290" text-anchor="middle" transform="rotate(-88 148 290)">18,76</text>
+          <text x="388" y="80" text-anchor="middle" transform="rotate(2 388 80)">21,26</text>
+        </g>
+        <!-- vértices -->
+        <g fill="#B2502E" font-size="9" font-weight="700">
+          <circle cx="160" cy="470" r="3.5"/><circle cx="600" cy="470" r="3.5"/><circle cx="600" cy="80" r="3.5"/><circle cx="175" cy="95" r="3.5"/>
+          <text x="148" y="466" text-anchor="end">V1</text><text x="608" y="466">V2</text><text x="608" y="78">V3</text><text x="168" y="88" text-anchor="end">V4</text>
+        </g>
+        <text x="390" y="270" text-anchor="middle" font-size="13" font-weight="800" fill="#B2502E" font-family="Bricolage Grotesque, sans-serif">LOTE · 413 m²</text>
+        <text x="390" y="286" text-anchor="middle" font-size="9" fill="#5B5546" font-family="IBM Plex Mono, monospace">CLAVE 0000000000000</text>
+        <!-- norte y escala -->
+        <g transform="translate(70 120)">
+          <circle r="22" fill="#fff" stroke="#1C1A16" stroke-width="0.8"/>
+          <path d="M0 -18 L7 8 L0 3 L-7 8 Z" fill="#1C1A16"/><text y="-26" text-anchor="middle" font-size="10" font-weight="700">N</text>
+        </g>
+        <g transform="translate(40 30)" font-size="8" font-family="IBM Plex Mono, monospace">
+          <rect x="0" y="0" width="25" height="5" fill="#1C1A16"/><rect x="25" y="0" width="25" height="5" fill="#fff" stroke="#1C1A16" stroke-width="0.6"/>
+          <rect x="50" y="0" width="25" height="5" fill="#1C1A16"/><rect x="75" y="0" width="25" height="5" fill="#fff" stroke="#1C1A16" stroke-width="0.6"/>
+          <text x="0" y="15">0</text><text x="45" y="15">2,5</text><text x="96" y="15">5 m</text>
+        </g>
+      </svg>
+    </div>
+    <div class="cajetin">
+      <div><div class="titulo">Plano planimétrico</div><div class="k" style="margin-top:2px">Levantamiento planimétrico sobre catastro</div></div>
+      <div><div class="k">Predio</div><div class="v">Predio de ejemplo · Calle A y Calle B</div><div class="k" style="margin-top:3px">Clave catastral</div><div class="v mono">0000000000000</div></div>
+      <div>
+        <table>
+          <tr><td>Área del lote</td><td>413,4 m²</td></tr>
+          <tr><td>Área construida existente</td><td>96,0 m²</td></tr>
+          <tr><td>Frente a Calle A</td><td>22,00 m</td></tr>
+          <tr><td>Desnivel aprox. del lote</td><td>4,0 m</td></tr>
+          <tr><td>Sistema de coordenadas</td><td>WGS84 / UTM 17S</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="k" style="margin-bottom:2px">Simbología</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><rect x="1" y="1" width="20" height="7" fill="#FBF6EE" stroke="#B2502E" stroke-width="1.6"/></svg>Lindero del lote</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><rect x="1" y="1" width="20" height="7" fill="url(#none)" stroke="#8F3F23"/><path d="M3 8 L9 1 M9 8 L15 1 M15 8 L21 1" stroke="#8F3F23" stroke-width="0.7"/></svg>Construcción existente</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><circle cx="11" cy="4.5" r="4" fill="#E3EEDF" stroke="#3F7D52"/></svg>Árbol (copa)</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><circle cx="11" cy="4.5" r="3" fill="#1C1A16"/></svg>Poste</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><path d="M0 5 C7 1 15 8 22 4" stroke="#C9B98F" fill="none"/></svg>Curva de nivel (1 m)</div>
+        <div class="ley"><svg viewBox="0 0 22 9"><line x1="0" y1="4.5" x2="22" y2="4.5" stroke="#9C9381" stroke-dasharray="4 3"/></svg>Eje de vía</div>
+      </div>
+      <div class="grow"><div class="k">Fuentes</div><div class="nota">Catastro predial y vial del GAD Municipal de Cuenca (IDE Cuenca). Elaborado con catastro, modelo digital del terreno e imagen oficiales. No reemplaza un levantamiento topográfico cuando el trámite lo exija.</div></div>
+      <div style="border-top:1px solid var(--ink)">
+        <table>
+          <tr><td>Escala</td><td>Gráfica</td></tr>
+          <tr><td>Fecha</td><td>07/11/2026</td></tr>
+          <tr><td>Lámina</td><td>1 / 1</td></tr>
+        </table>
+      </div>
+      <div style="border-bottom:none"><div class="marca" style="font-size:12pt">Cota<em>Cero</em><span class="mono">.</span></div><div class="nota">cotacero.pm@gmail.com · Cuenca, Ecuador</div></div>
+    </div>
+  </div>
+  <div class="pie">
+    <span>Lámina de ejemplo con un lote genérico. La lámina real usa el formato y la escala que pida el trámite.</span>
+    <span>Página 2 de 2</span>
+  </div>
+</section>
+
+</body>
+</html>

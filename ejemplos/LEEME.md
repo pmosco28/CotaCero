@@ -3,17 +3,26 @@
 Los enlaces «Ver ejemplo» del catálogo (`index.html`) apuntan a estos archivos.
 El producto gratuito (01 Volumetría) no lleva ejemplo en PDF.
 
-| Archivo | Producto(s) que lo enlazan |
+| Archivo | Producto que lo enlaza |
 |---|---|
 | `informe-ejemplo.pdf` | 02 Informe de entorno y conectividad |
 | `plano-ejemplo.pdf` | 03 Plano planimétrico para trámite municipal |
 
-**Pendiente:** subir aquí los dos PDF con esos nombres exactos. Mientras no estén,
-los enlaces dan error 404, así que no conviene publicar sin ellos.
+Los dos son **genéricos**: el lote, la clave (`0000000000000`), las calles y los
+equipamientos son inventados. Llevan el sello «DOCUMENTO DE EJEMPLO» y una marca de agua.
 
-Recomendaciones:
+## Estructura de cada PDF
 
-- Usar un predio real, pero sin datos personales del propietario (nombre, cédula,
-  dirección exacta del cliente).
-- Marcar cada página con «EJEMPLO» para que no se use como documento válido.
-- Mantener cada PDF por debajo de ~3 MB para que abra rápido en el celular.
+1. **Parte 1 · Resumen** para el cliente, en lenguaje simple: qué significa, qué
+   recibe y cuáles son los próximos pasos.
+2. **Parte 2 · Detalle técnico**: tablas con datos y fuentes (informe) o la lámina
+   con su cajetín (plano).
+
+## Cómo editarlos
+
+Las fuentes están en `fuente/` (HTML). Para regenerar un PDF: abrir el HTML en
+Chrome → Imprimir → Guardar como PDF, con márgenes «Ninguno» y «Gráficos de fondo»
+activado. El informe es A4 vertical y el plano, A4 horizontal.
+
+Si más adelante se cambia un ejemplo por uno de un predio real, quitar los datos
+personales del propietario y mantener el sello de ejemplo.
