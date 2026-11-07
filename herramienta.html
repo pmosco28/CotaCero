@@ -468,6 +468,8 @@
   .btn:hover { background: var(--terracotta-dark); }
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
   .btn-ghost:hover { background: var(--line-soft); }
+  .pedir-predio { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pedir-predio .btn { flex: 1 1 200px; }
 
   /* ---------- sections ---------- */
   footer { text-align: center; padding: 30px; font-size: 0.78rem; color: var(--ink-soft); border-top: 1px solid var(--line); }
@@ -2575,6 +2577,10 @@
           '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
           '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : 'Normativa de referencia') + '</span>' +
         '</div>' +
+        '<div class="pedir-predio">' +
+          '<button type="button" class="btn" id="btn-pedir-informe">📄 Pedir informe de este predio</button>' +
+          '<button type="button" class="btn btn-ghost" id="btn-pedir-plano">📐 Pedir plano de este predio</button>' +
+        '</div>' +
         '<div class="stat-row">' +
           '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
           '<div class="stat"><div class="label">Patio interno</div><div class="value" id="info-patio" style="font-size:0.8rem;">—</div></div>' +
@@ -2648,6 +2654,13 @@
         generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasEl ? notasEl.value.trim() : '');
       });
     });
+
+    // Atajos de venta en la ficha: abren el formulario de pedido del producto con la clave
+    // catastral de ESTE predio ya cargada (mostrarFormularioSolicitud la toma de estadoSeleccionado).
+    var btnPedirInforme = document.getElementById('btn-pedir-informe');
+    if (btnPedirInforme) btnPedirInforme.addEventListener('click', function () { pedirProductoParaPredio('analisis-sitio'); });
+    var btnPedirPlano = document.getElementById('btn-pedir-plano');
+    if (btnPedirPlano) btnPedirPlano.addEventListener('click', function () { pedirProductoParaPredio('planimetrico'); });
 
     var btnObj = document.getElementById('btn-descargar-obj');
     if (btnObj) btnObj.addEventListener('click', function (ev) {
@@ -4863,6 +4876,9 @@
   // function-declaration anidada en un bloque solo sube de scope por Annex B (comportamiento "sloppy
   // mode", no garantizado igual en todos los motores) — mejor no depender de eso.
   var aplicarProductoActivo = function () {};
+  // Asignada dentro del bloque del catálogo (más abajo); la usan los botones "Pedir … de este
+  // predio" de la ficha del resultado.
+  var pedirProductoParaPredio = function () {};
 
   if (barraCont && detalleCont) {
     function renderBarra() {
@@ -5199,6 +5215,23 @@
 
     renderBarra();
     aplicarProductoActivo();
+
+    // Activa el producto `id` (formulario de pedido) para el predio ya elegido. Si el catálogo real
+    // de la Sheet no trae ese id, se suma la entrada del catálogo local para no dejar el botón muerto.
+    pedirProductoParaPredio = function (id) {
+      var existe = CATALOGO_PRODUCTOS.some(function (p) { return p.id === id; });
+      if (!existe) {
+        var local = CATALOGO_PRODUCTOS_FALLBACK.filter(function (p) { return p.id === id; })[0];
+        if (!local) return;
+        CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS.concat([local]);
+        renderBarra();
+      }
+      productoActivo = id;
+      aplicarProductoActivo();
+      detalleCont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      var nombre = document.getElementById('sol-nombre');
+      if (nombre) nombre.focus({ preventScroll: true });
+    };
 
     // Actualiza el catálogo con el real (Google Sheet, vía Apps Script) apenas esté disponible — la
     // primera renderización de arriba ya usó el fallback local, así que esto nunca bloquea ni deja
