@@ -3170,7 +3170,7 @@
     texLamina.encoding = THREE.sRGBEncoding;
     texLamina.anisotropy = 8;
     // toneMapped:false — la pintura (verdes, río, nombres) conserva su color; con ACES se lavaba.
-    var matCarton = new THREE.MeshStandardMaterial({ map: texLamina, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0, toneMapped: false });
+    var matCarton = new THREE.MeshStandardMaterial({ map: texLamina, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0, toneMapped: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     var matCanto = new THREE.MeshStandardMaterial({ color: cLin(colorMaqueta('cSide')), roughness: 0.95, metalness: 0 });
     var geoTapa = new THREE.PlaneGeometry(2 * R, 2 * R);
     geoTapa.rotateX(-Math.PI / 2);
@@ -3179,7 +3179,10 @@
     meshContexto.receiveShadow = true;
     scene.add(meshContexto);
     var cuerpoZocalo = new THREE.Mesh(new THREE.BoxGeometry(2 * R, ESPESOR_ZOCALO_M, 2 * R), matCanto);
-    cuerpoZocalo.position.y = -0.03 - ESPESOR_ZOCALO_M / 2;
+    // 30 cm debajo de la lámina (antes 1 cm): con 1 cm la cara superior de la caja peleaba con la
+    // lámina en el búfer de profundidad y la tapaba a franjas — la 'llaga' que se veía.
+    cuerpoZocalo.position.y = -0.3 - (ESPESOR_ZOCALO_M - 0.27) / 2;
+    cuerpoZocalo.scale.y = (ESPESOR_ZOCALO_M - 0.27) / ESPESOR_ZOCALO_M;
     cuerpoZocalo.receiveShadow = true;
     scene.add(cuerpoZocalo);
     var tablero = new THREE.Mesh(new THREE.BoxGeometry(2 * R + 6, 1.2, 2 * R + 6), new THREE.MeshStandardMaterial({ color: cLin(0x3A3835), roughness: 0.7 }));
@@ -3199,7 +3202,7 @@
     // por eso es Phong (shininess 0, igual de mate que antes en apariencia sin sombras activas).
     var matLoteSuperficie = new THREE.MeshStandardMaterial({ color: cLin(0xF2B48C), roughness: 0.9, transparent: true, opacity: 0.45 });
     var meshLoteSuperficie = new THREE.Mesh(geoLoteSuperficie, matLoteSuperficie);
-    meshLoteSuperficie.position.y = 0.01;
+    meshLoteSuperficie.position.y = 0.12;
     meshLoteSuperficie.receiveShadow = true;
     scene.add(meshLoteSuperficie);
     // Borde del predio — a pedido del usuario, corregido: lo que diferencia el predio elegido del
@@ -3674,7 +3677,7 @@
     var box = new THREE.Box3().setFromObject(grupoVolumen);
     var size = box.getSize(new THREE.Vector3());
     var maxDim = Math.max(size.x, size.y, size.z, 5);
-    var camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 1000);
+    var camera = new THREE.PerspectiveCamera(42, w / h, 1, 3000); // near 1 m: mejor precisión de profundidad
     // preserveDrawingBuffer: el informe PDF (ver generarInformePDF) toma `canvas.toDataURL()` desde un
     // clic de botón, es decir DESPUÉS del render() que lo dibujó — sin esto, el navegador puede limpiar
     // el buffer entre ese render() y el clic, y la imagen capturada sale en blanco/negro.
