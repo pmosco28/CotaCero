@@ -2,12 +2,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>¿Qué puedo construir?</title>
-<!-- Expresión gráfica CotaCero (ver memoria cotacero-expresion-grafica): SIN serifa en ningún lado —
+<!-- Expresión gráfica CotaCero: una sola familia, Inter Tight (linaje Helvetica), con su juego de
+     grosores 100/300/400/700 para la jerarquía; Archivo Narrow solo para los nombres de calle de la
+     lámina. Paleta: tinta y grises; un único color (terracota) para el predio, la acción y las alertas.
+     Nota histórica: SIN serifa en ningún lado —
      la Fraunces que se usaba acá antes se saca entera. La jerarquía la da el GROSOR, no una serif de
      acento: Bricolage Grotesque para títulos/marca (bold/black, tracking apretado, estilo lámina de
      concurso de arquitectura), IBM Plex Sans para cuerpo, IBM Plex Mono para datos — mismas tres, ya
      cargadas, ninguna fuente nueva de más. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100;200;300;400;500;600;700;800&family=Archivo+Narrow:wght@500;600&display=swap">
 <style>
 /* Leaflet 1.9.4 core CSS, inlined — la CSP del artifact solo admite hojas de estilo externas de
    Google Fonts, así que el <link> a cdnjs quedaba bloqueado y el mapa se veía roto. */
@@ -21,8 +24,8 @@
     --ink-soft: #5B5546;
     --terracotta: #B2502E;
     --terracotta-dark: #8F3F23;
-    --ochre: #C9A227;
-    --surveyor: #2D5A6B;
+    --ochre: #1C1A16;     /* antes dorado: ahora tinta (deslizadores y acentos) */
+    --surveyor: #6E6A62;  /* antes azul: ahora gris */
     --line: #D8D0BC;
     --line-soft: #E8E2D1;
     --good: #3F7D52;
@@ -32,20 +35,22 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: 'Inter Tight', sans-serif;
     line-height: 1.5;
   }
-  h1, h2, h3, .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
-  .mono { font-family: 'IBM Plex Mono', monospace; }
+  h1, h2, h3, .display { font-family: 'Inter Tight', sans-serif; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+  /* juego de grosores: 100 extra fino · 300 fino · 400 normal · 700 grueso */
+  .w100 { font-weight: 100; } .w300 { font-weight: 300; } .w700 { font-weight: 700; }
+  .mono { font-family: 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; }
 
   /* ---------- top bar ---------- */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 32px; border-bottom: 1px solid var(--line);
   }
-  .brand { display: flex; align-items: baseline; gap: 8px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
+  .brand { display: flex; align-items: baseline; gap: 8px; font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
   .brand .dot { color: inherit; }
-  .brand .ligero { font-weight: 200; }
+  .brand .ligero { font-weight: 100; }
   .topbar nav a {
     color: var(--ink-soft); text-decoration: none; font-size: 0.88rem; font-weight: 500; margin-left: 22px;
   }
@@ -68,7 +73,7 @@
   .mapa-hero { max-width: 1180px; margin: 36px auto 0; padding: 0 32px; }
 
   .map-card-header { margin-bottom: 10px; }
-  .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Hanken Grotesk'; }
+  .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Inter Tight'; }
   .map-card-header .hint { font-size: 0.78rem; color: var(--ink-soft); }
   /* El escenario se parte en dos tercios: el mapa (2/3, interactivo) y una columna del icono 3D
      (1/3, SIN el div de Leaflet encima) — esa columna de la derecha es a propósito territorio no
@@ -130,6 +135,15 @@
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
   .maq-terreno { display: flex; margin: 8px 0 4px; }
   .maq-barra { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .maq-overlay { position: absolute; left: 18px; bottom: 18px; z-index: 4; display: flex; align-items: flex-end; gap: 16px; pointer-events: none; color: #1C1A16; }
+  .maq-norte { position: relative; width: 34px; height: 44px; display: grid; justify-items: center; pointer-events: auto; }
+  .maq-norte svg { width: 22px; height: 22px; fill: #1C1A16; stroke: none; transition: transform .08s linear; }
+  .maq-norte b { font-weight: 300; font-size: 0.72rem; letter-spacing: .1em; }
+  .maq-escala { display: grid; gap: 3px; font-size: 0.68rem; font-weight: 300; letter-spacing: .04em; }
+  .maq-escala i { display: block; height: 5px; border: 1px solid #1C1A16; border-top: 0; min-width: 20px; }
+  .maq-tip-ed { position: absolute; z-index: 6; pointer-events: none; background: rgba(28,26,22,.92); color: #f3f1ec; font-size: 0.72rem; font-weight: 300; line-height: 1.35; padding: 6px 9px; border-radius: 6px; }
+  .maq-tip-ed b { font-weight: 600; } .maq-tip-ed span { opacity: .7; font-size: 0.66rem; }
+  .maq-tip-ed[hidden] { display: none; }
   .maq-sep { width: 1px; height: 22px; background: #d6d2ca; margin: 0 3px; }
   .maq-panel .ico, .maq-vistas-flot button { position: relative; width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #d6d2ca; border-radius: 7px; background: rgba(255,255,255,.75); color: #5f5c55; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
   .maq-panel .ico svg, .maq-vistas-flot button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -218,7 +232,7 @@
     flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
     width: 92px; padding: 12px 8px 10px; border-radius: 12px; border: 1px solid var(--line-soft);
     background: var(--paper-raised); color: var(--ink-soft); cursor: pointer;
-    font-family: 'Hanken Grotesk'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
+    font-family: 'Inter Tight'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
   }
   .chip-producto:hover { border-color: var(--line); }
   .chip-producto.activa { border-color: var(--terracotta); color: var(--terracotta-dark); background: color-mix(in srgb, var(--terracotta) 6%, var(--paper-raised)); }
@@ -226,18 +240,18 @@
   .chip-producto .chip-icono svg { width: 100%; height: 100%; display: block; }
   .chip-producto .chip-nombre { font-size: 0.68rem; font-weight: 600; line-height: 1.2; color: var(--ink); }
   .chip-producto.activa .chip-nombre { color: var(--terracotta-dark); }
-  .chip-producto .chip-precio { font-size: 0.66rem; font-weight: 700; font-family: 'IBM Plex Mono'; }
+  .chip-producto .chip-precio { font-size: 0.66rem; font-weight: 700; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; }
   @media (max-width: 720px) { .chip-producto { width: 78px; } }
 
   .producto-detalle { max-width: 1180px; margin: 0 auto; padding: 18px 32px 28px; border-top: 1px solid var(--line); }
   .producto-detalle[hidden] { display: none; }
   .producto-detalle .pd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   .producto-detalle .pd-head .chip-icono { width: 22px; height: 22px; color: var(--terracotta-dark); }
-  .producto-detalle h3 { margin: 0; font-size: 1.15rem; font-family: 'Bricolage Grotesque'; display: flex; align-items: center; gap: 8px; }
+  .producto-detalle h3 { margin: 0; font-size: 1.15rem; font-family: 'Inter Tight'; display: flex; align-items: center; gap: 8px; }
   .pd-precio-wrap { display: flex; align-items: baseline; gap: 6px; margin-left: auto; }
   .pd-precio-wrap label { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
   .pd-precio-wrap input {
-    width: 90px; font-family: 'IBM Plex Mono'; font-size: 1rem; font-weight: 600; padding: 6px 10px;
+    width: 90px; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1rem; font-weight: 600; padding: 6px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--terracotta-dark);
   }
   .producto-detalle p.pd-desc { color: var(--ink-soft); max-width: 62ch; margin: 0 0 14px; }
@@ -247,7 +261,7 @@
   .form-solicitud { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-width: 52ch; }
   .form-solicitud label { font-size: 0.78rem; color: var(--ink-soft); margin: 8px 0 2px; }
   .form-solicitud input, .form-solicitud textarea {
-    width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.85rem; padding: 8px 10px;
+    width: 100%; font-family: 'Inter Tight'; font-size: 0.85rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
@@ -294,12 +308,12 @@
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
   .buscar-maps input {
     flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--line-soft); color: var(--ink); font-family: 'Hanken Grotesk'; font-size: 0.85rem;
+    background: var(--line-soft); color: var(--ink); font-family: 'Inter Tight'; font-size: 0.85rem;
   }
   .buscar-maps input:focus { outline: 2px solid var(--terracotta); outline-offset: -1px; }
   .buscar-maps button {
     background: var(--terracotta); color: #fff; border: none; border-radius: 8px; padding: 0 16px;
-    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Hanken Grotesk'; transition: background 0.15s;
+    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Inter Tight'; transition: background 0.15s;
   }
   .buscar-maps button:hover { background: var(--terracotta-dark); }
   .buscar-maps-msg { font-size: 0.78rem; margin: -6px 0 14px; line-height: 1.4; }
@@ -317,7 +331,7 @@
 
   .stat-row { display: flex; gap: 32px; }
   .stat .label { font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-  .stat .value { font-family: 'IBM Plex Mono'; font-size: 1.05rem; font-weight: 500; margin-top: 2px; }
+  .stat .value { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 500; margin-top: 2px; }
 
   table.determ { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   table.determ th, table.determ td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
@@ -336,7 +350,7 @@
     padding: 10px 12px; line-height: 1.45;
   }
   #notas-profesional {
-    width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.82rem; padding: 8px 10px;
+    width: 100%; font-family: 'Inter Tight'; font-size: 0.82rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
@@ -354,7 +368,7 @@
        que ya usa var(--ink)/var(--ink-soft)/etc. (incluye filasLados/filasTablaHtml, inyectados tal
        cual desde el panel) herede automáticamente la versión clara, sin tocar esas cadenas HTML. */
     --paper: #FFFFFF; --paper-raised: #FFFFFF; --ink: #1C1A16; --ink-soft: #5B5546;
-    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #C9A227; --line: #D8D0BC; --line-soft: #E8E2D1;
+    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #1C1A16; --line: #D8D0BC; --line-soft: #E8E2D1;
     background: var(--paper); color: var(--ink);
   }
   @media print {
@@ -401,9 +415,9 @@
      aparece (ver imprimirCroquisActivo) con el código correcto. */
   .codigo-acceso-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .codigo-valor { font-size: 0.82rem; color: var(--ink-soft); }
-  .codigo-valor strong { font-family: 'IBM Plex Mono'; color: var(--terracotta-dark); letter-spacing: 0.04em; }
+  .codigo-valor strong { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; color: var(--terracotta-dark); letter-spacing: 0.04em; }
   .codigo-input {
-    width: 108px; font-family: 'IBM Plex Mono'; font-size: 0.85rem; padding: 7px 9px;
+    width: 108px; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 0.85rem; padding: 7px 9px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--ink);
     text-transform: uppercase;
   }
@@ -452,14 +466,14 @@
     .zoom-plano-interior svg { max-height: none; }
   }
   .reporte-pdf .membrete { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 22px; }
-  .reporte-pdf .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
+  .reporte-pdf .brand { font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
   .reporte-pdf .brand em { font-style: normal; font-weight: 200; color: inherit; }
-  .reporte-pdf h1 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.5rem; margin: 0 0 4px; }
+  .reporte-pdf h1 { font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.5rem; margin: 0 0 4px; }
   .reporte-pdf .clave { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
   .reporte-pdf .stat-row { display: flex; gap: 14px; margin-bottom: 18px; }
   .reporte-pdf .stat { background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 16px; flex: 1; }
   .reporte-pdf .stat .label { font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-  .reporte-pdf .stat .value { font-family: 'IBM Plex Mono'; font-size: 1.05rem; margin-top: 2px; }
+  .reporte-pdf .stat .value { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1.05rem; margin-top: 2px; }
   .reporte-pdf .seccion-titulo { font-size: 0.76rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 8px; }
   /* Volumetría + ubicación comparten un mismo espacio — la ubicación como recuadro flotante ("locator
      map inset") en la esquina superior derecha del render 3D, convención real de lámina de
@@ -556,7 +570,7 @@
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     background: var(--terracotta); color: #fff; border: none; border-radius: 9px;
     padding: 12px 18px; font-weight: 600; font-size: 0.92rem; cursor: pointer;
-    font-family: 'Hanken Grotesk'; transition: background 0.15s;
+    font-family: 'Inter Tight'; transition: background 0.15s;
   }
   .btn:hover { background: var(--terracotta-dark); }
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
@@ -576,7 +590,7 @@
     position: fixed; right: 20px; bottom: 20px; z-index: 1500;
     display: inline-flex; align-items: center; gap: 8px;
     background: #1E7E4A; color: #FFFFFF; text-decoration: none;
-    font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; font-size: 0.92rem;
+    font-family: 'Inter Tight', sans-serif; font-weight: 600; font-size: 0.92rem;
     padding: 12px 18px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.22);
   }
   .btn-whatsapp:hover { background: #17663B; }
@@ -625,7 +639,7 @@
   .modal-privacidad ul { margin: 4px 0; padding-left: 20px; }
   .modal-privacidad .modal-cerrar {
     display: block; margin: 22px 0 0 auto; background: none; border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 16px; font-family: 'Hanken Grotesk'; font-size: 0.85rem; cursor: pointer;
+    border-radius: 8px; padding: 8px 16px; font-family: 'Inter Tight'; font-size: 0.85rem; cursor: pointer;
   }
   .modal-privacidad .modal-cerrar:hover { background: var(--line-soft); }
 
@@ -901,9 +915,9 @@
   // (Leaflet apila por orden de inserción) — son contexto, el predio sujeto sigue siendo lo prominente.
   var capaVias = L.geoJSON(null, { style: { color: '#6B6B63', weight: 5, opacity: 0.45 } }).addTo(mapa);
   var capaVecinos = L.geoJSON(null, { style: { color: '#8C8C84', weight: 1, fillColor: '#8C8C84', fillOpacity: 0.12 } }).addTo(mapa);
-  var capaPredio = L.geoJSON(null, { style: { color: '#C9A227', weight: 3, fillColor: '#C9A227', fillOpacity: 0.18 } }).addTo(mapa);
+  var capaPredio = L.geoJSON(null, { style: { color: '#B2502E', weight: 3, fillColor: '#B2502E', fillOpacity: 0.16 } }).addTo(mapa);
   var capaVolumetria = L.geoJSON(null, { style: { color: '#B2502E', weight: 2, dashArray: '4,3', fillOpacity: 0 } }).addTo(mapa);
-  var capaManzana = L.geoJSON(null, { style: { color: '#2D6A4F', weight: 2, dashArray: '6,4', fillOpacity: 0 } }).addTo(mapa);
+  var capaManzana = L.geoJSON(null, { style: { color: '#6E6A62', weight: 1.5, dashArray: '6,4', fillOpacity: 0 } }).addTo(mapa);
   var capaVertices = L.layerGroup().addTo(mapa);
 
   var panel = document.getElementById('panel');
@@ -2945,7 +2959,7 @@
 
   async function consultarPredio(latlng) {
     if (marcadorClic) mapa.removeLayer(marcadorClic);
-    marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#2D5A6B', fillColor: '#2D5A6B', fillOpacity: 1 }).addTo(mapa);
+    marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#1C1A16', fillColor: '#1C1A16', fillOpacity: 1 }).addTo(mapa);
 
     panelEmpty.style.display = 'none';
     panel.innerHTML = '<div class="panel-empty">⏳ Consultando catastro municipal…</div>';
@@ -2997,6 +3011,7 @@
 
   // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
   // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
+  var introHechaPara = null;
   var ICONOS_MAQ = {arboles: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>', rio: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c3-2 5 2 9 0s6 2 9 0M3 15c3-2 5 2 9 0s6 2 9 0"/></svg>', lineas: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/></svg>', edificios: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-3v14M10 20V4l8 3v13M3 20h18"/></svg>', curvas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4-5 14-5 18 0M5 13c4-5 10-5 14 0M8 8c2-3 6-3 8 0"/></svg>', foto: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>', tin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l6-9 4 5 3-4 5 8z"/></svg>', terrazas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15h12M8 11h8M10 7h4"/></svg>', unir: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10"/><rect x="13" y="7" width="8" height="10"/><path d="M10 12h4"/></svg>', avisar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v3.5M12 13.5v.3"/></svg>', conjunto: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>', lote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M9 11l3-1.5 3 1.5v3l-3 1.5-3-1.5z"/></svg>', planta: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 11h7v9M11 4v4"/></svg>', info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.4"/></svg>'};
   async function ejeIPRUSDelPredio(estado) {
     var bb = turf.bbox(turf.buffer(estado.featureReg, 0.03, { units: 'kilometers' }));
@@ -3122,7 +3137,7 @@
       var grupos = estado.numeroFrente.filter(function (n) { return n != null; });
       var maxGrupo = grupos.length ? Math.max.apply(null, grupos) : 0;
       var etiqueta = tipo === 'frente' && estado.numeroFrente[idx] != null && maxGrupo > 1 ? 'frente ' + estado.numeroFrente[idx] : tipo;
-      var colorChip = tipo === 'frente' ? '#B2502E' : tipo === 'posterior' ? '#6A3FA0' : '#2D5A6B';
+      var colorChip = tipo === 'frente' ? '#B2502E' : tipo === 'posterior' ? '#1C1A16' : '#8C877C';
       var nombreVia = lado.via && lado.via.nombre ? lado.via.nombre.trim() : null;
       var medianero = lado.esColindante ? ', medianero (' + lado.distManzana.toFixed(1) + 'm enterrado en la manzana)' : '';
       return '<div style="display:flex;align-items:center;gap:8px;font-size:0.8rem;padding:3px 0;">' +
@@ -3982,7 +3997,7 @@
       for (var i = 1; i < P.length; i++) acum.push(acum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
       var largo = acum[acum.length - 1];
       var fpx = alturaM * pxPorM * 1.4;
-      laminaCtx.font = '600 ' + fpx + 'px "Archivo Narrow", "Arial Narrow", "Hanken Grotesk", Arial, sans-serif';
+      laminaCtx.font = '600 ' + fpx + 'px "Archivo Narrow", "Arial Narrow", "Inter Tight", Arial, sans-serif';
       var esp = fpx * 0.16;
       var letras = texto.split('');
       var anchos = letras.map(function (ch) { return laminaCtx.measureText(ch).width + esp; });
@@ -4731,6 +4746,7 @@
           meshVecino.receiveShadow = true; meshVecino.castShadow = true;
           var cEd = ptsR.reduce(function (a, q) { return [a[0] + q[0] / ptsR.length, a[1] + q[1] / ptsR.length]; }, [0, 0]);
           meshVecino.userData.c = cEd; meshVecino.userData.pts = ptsR; meshVecino.userData.h = ed.altura; grupoEdificios.add(meshVecino);
+          meshVecino.userData.info = { pisos: ed.pisos || null, altura: ed.altura, real: !!ed.alturaReal };
           var aristaV = new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino); aristaV.userData.c = cEd; aristaV.userData.pts = ptsR; aristaV.userData.h = ed.altura;
           grupoEdificios.add(aristaV);
         });
@@ -4843,7 +4859,7 @@
       var lineaPB = lineaDePlanta(metrosArrAVec2(ptsPBBloqueM), 0xB2502E);
       if (lineaPB) scene.add(lineaPB);
       if (pisos > 1) {
-        var lineaAltas = lineaDePlanta(metrosArrAVec2(bloquesAltasFinal[bi]), 0xC9A227);
+        var lineaAltas = lineaDePlanta(metrosArrAVec2(bloquesAltasFinal[bi]), 0x8A857C);
         if (lineaAltas) scene.add(lineaAltas);
       }
     });
@@ -4970,7 +4986,36 @@
       volAnimId = requestAnimationFrame(function () {
         volAnimId = null;
         renderer.render(scene, camera);
+        actualizarOverlay();
       });
+    }
+    // Norte y escala gráfica: el norte del modelo es −z (y de los metros locales); la escala se mide
+    // en el plano perpendicular a la vista, a la distancia del punto que se mira.
+    var overlayNorte = null, overlayEscala = null;
+    function actualizarOverlay() {
+      if (!overlayNorte) return;
+      var w0 = canvas.clientWidth, h0 = canvas.clientHeight;
+      function aPant(v) { var q = v.clone().project(camera); return [(q.x + 1) / 2 * w0, (1 - q.y) / 2 * h0]; }
+      var a = aPant(target), b = aPant(target.clone().add(new THREE.Vector3(0, 0, -20)));
+      overlayNorte.style.transform = 'rotate(' + (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI) + 'deg)';
+      var der = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(10);
+      var c = aPant(target.clone().add(der)), px10 = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (!px10) return;
+      var m = 5; [5, 10, 20, 50, 100].forEach(function (o) { if (o * px10 / 10 <= 110) m = o; });
+      overlayEscala.querySelector('i').style.width = Math.round(m * px10 / 10) + 'px';
+      overlayEscala.querySelector('span').textContent = m + ' m';
+    }
+    // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
+    function animarCrecimiento() {
+      var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
+      if (!objs.length) objs = [grupoVolumen];
+      var t0 = performance.now(), D = 950;
+      (function paso() {
+        var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
+        objs.forEach(function (o) { o.scale.y = Math.max(0.001, e); });
+        renderer.render(scene, camera); actualizarOverlay();
+        if (t < 1) requestAnimationFrame(paso);
+      })();
     }
 
     var chkSombras = document.getElementById('chk-sombras');
@@ -5105,6 +5150,7 @@
         grupoExistente.visible = !mostrarVolumenNormativa;
         btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
         btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa';
+        if (mostrarVolumenNormativa) animarCrecimiento();
         detalleNorm.hidden = !mostrarVolumenNormativa;
         if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
         solicitarRender();
@@ -5180,6 +5226,61 @@
       marcarVista('lote');
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
       VISTAS.lote(); actualizarCamara(); solicitarRender();
+      // norte y escala (abajo a la izquierda)
+      var ovViejo = wrap.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
+      var ov = document.createElement('div'); ov.className = 'maq-overlay';
+      ov.innerHTML = '<div class="maq-norte" data-tip="Norte"><svg viewBox="0 0 24 24"><path d="M12 3l5 16-5-4-5 4z"/></svg><b>N</b></div><div class="maq-escala"><i></i><span></span></div>';
+      canvas.insertAdjacentElement('afterend', ov);
+      overlayNorte = ov.querySelector('.maq-norte svg'); overlayEscala = ov.querySelector('.maq-escala');
+      actualizarOverlay();
+      // entrada: medio giro lento hasta la vista del lote, una sola vez por predio
+      if (introHechaPara !== estado.clave) {
+        introHechaPara = estado.clave;
+        (function () {
+          var th1 = theta, r1 = radius, th0 = th1 - 0.9, r0 = r1 * 1.35, t0 = performance.now(), D = 2400, cancelada = false;
+          canvas.addEventListener('pointerdown', function () { cancelada = true; }, { once: true });
+          (function paso() {
+            if (cancelada) return;
+            var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
+            theta = th0 + (th1 - th0) * e; radius = r0 + (r1 - r0) * e;
+            actualizarCamara(); renderer.render(scene, camera); actualizarOverlay();
+            if (t < 1) requestAnimationFrame(paso);
+          })();
+        })();
+      }
+      // resaltado de edificios al pasar el mouse: pisos y de dónde sale el dato
+      var tipEd = wrap.querySelector('.maq-tip-ed') || (function () { var d = document.createElement('div'); d.className = 'maq-tip-ed'; d.hidden = true; wrap.appendChild(d); return d; })();
+      var rayo = new THREE.Raycaster(), ratonV = new THREE.Vector2(), resaltado = null, matResalte = mat.clone(), pendienteHover = false, ultimoEv = null;
+      matResalte.color = cLin('#d9d3c6');
+      function quitarResalte() { if (resaltado) { resaltado.material = resaltado.userData.matOriginal; resaltado = null; tipEd.hidden = true; solicitarRender(); } }
+      if (canvas.__hoverFn) canvas.removeEventListener('pointermove', canvas.__hoverFn);
+      if (canvas.__hoverFuera) canvas.removeEventListener('pointerleave', canvas.__hoverFuera);
+      canvas.__hoverFuera = quitarResalte;
+      canvas.addEventListener('pointerleave', quitarResalte);
+      canvas.addEventListener('pointermove', canvas.__hoverFn = function (ev) {
+        ultimoEv = ev; if (pendienteHover) return; pendienteHover = true;
+        requestAnimationFrame(function () {
+          pendienteHover = false; var e2 = ultimoEv;
+          if (arrastrando || e2.pointerType === 'touch') { quitarResalte(); return; }
+          var r = canvas.getBoundingClientRect();
+          ratonV.set(((e2.clientX - r.left) / r.width) * 2 - 1, -((e2.clientY - r.top) / r.height) * 2 + 1);
+          rayo.setFromCamera(ratonV, camera);
+          var cand = grupoEdificios.visible ? grupoEdificios.children.filter(function (o) { return o.isMesh; }) : [];
+          var hit = rayo.intersectObjects(cand, false)[0];
+          var obj = hit ? hit.object : null;
+          if (obj !== resaltado) {
+            if (resaltado) resaltado.material = resaltado.userData.matOriginal;
+            resaltado = obj;
+            if (obj) { obj.userData.matOriginal = obj.userData.matOriginal || obj.material; obj.material = matResalte; }
+            solicitarRender();
+          }
+          if (obj) {
+            var inf = obj.userData.info || {}, h = inf.altura || obj.userData.h || 0, ps = inf.pisos || Math.max(1, Math.round(h / 3));
+            tipEd.innerHTML = '<b>' + ps + (ps === 1 ? ' piso' : ' pisos') + '</b> · ' + Math.round(h) + ' m<br><span>' + (inf.real ? 'dato municipal' : 'altura estimada') + '</span>';
+            tipEd.style.left = (e2.clientX - r.left + 14) + 'px'; tipEd.style.top = (e2.clientY - r.top + 14) + 'px'; tipEd.hidden = false;
+          } else tipEd.hidden = true;
+        });
+      });
       var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
       var cont = p.querySelector('.maq-colores');
       function aplicar(id, v) {
