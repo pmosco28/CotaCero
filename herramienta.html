@@ -3372,6 +3372,7 @@
     }
     estadoEdicion = estado;
     estado.featureCrudo = feature;
+    estado.sinVia = (estado.tipoLado || []).indexOf('frente') < 0;
     // Linderos que se cruzan: área del predio (tal como está en el catastro) que también pertenece a
     // predios vecinos. Se ignoran roces de menos de 0,5 m² (digitalización).
     try {
@@ -5440,6 +5441,7 @@
       p.innerHTML =
 
         (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
+        (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         (function () {
           var tr = tramitesRecomendados(estado);
@@ -6339,6 +6341,12 @@
       return L;
     }
     if (/parque o área verde/.test(r)) return L;
+    if (estado.sinVia) {
+      t('levantamiento', 'Levantamiento topográfico georreferenciado', 'DXF y PDF firmados: requisito de todos los trámites de catastro', true);
+      t('regularizacion', 'Regularización del predio y su acceso', 'Excedentes o diferencias de superficie, actualización catastral y servidumbre de paso', true);
+      t('analisis-sitio', 'Análisis de sitio', 'Accesos posibles y entorno del terreno');
+      return L;
+    }
     if (estado.solapes && estado.solapes.area >= 2) t('regularizacion', 'Regularización de linderos', 'Corrige los cruces con tus vecinos en el catastro', true);
     if (/patrimonial/i.test(r)) {
       t('planimetrico-iprus', 'IPRUS de áreas históricas', 'Planimétrico + informe predial ante Áreas Históricas', true);
@@ -7000,7 +7008,7 @@
     { id: 'certificacion-patrimonial', soloRecomendado: true, nombre: 'Certificación patrimonial', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
     { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
-      descripcion: 'Levantamiento y gestión para oficializar el predio en el catastro: linderos que se cruzan con vecinos, diferencias de área o predios mal registrados. Frecuente en zonas periurbanas y rurales.' },
+      descripcion: 'Levantamiento georreferenciado y gestión ante Avalúos y Catastros para oficializar el predio: regularización de excedentes o diferencias de superficie (error de cabida), actualización catastral de superficie o rectificación de datos del terreno; y, si no tiene acceso, la servidumbre de paso. Frecuente en zonas periurbanas y rurales.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
