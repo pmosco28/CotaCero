@@ -40,7 +40,7 @@
   <h2>Maqueta: reconstrucción vs. verdad</h2>
   <div class="botones" id="botones3d"></div>
   <div class="maq3d">
-    <figure><canvas id="c3dA" width="900" height="675"></canvas><figcaption>Reconstruido: Copernicus 30 m + edificios, vegetación, vías y ríos (terrazas de 1 m)</figcaption></figure>
+    <figure><canvas id="c3dA" width="900" height="675"></canvas><figcaption>Reconstruido: Copernicus 30 m + filtro de suelo + vías + ríos (terrazas de 1 m)</figcaption></figure>
     <figure><canvas id="c3dB" width="900" height="675"></canvas><figcaption>Verdad: MDT municipal de Cuenca (~3 m), mismas terrazas</figcaption></figure>
   </div>
   <p class="soft">Arrastra para girar (las dos maquetas giran juntas). Edificios de OSM con altura por pisos o 6 m.</p>
@@ -52,6 +52,7 @@
     <li><b>A · Modelos globales de 30 m:</b> <b>Copernicus GLO-30</b> (ESA), <b>ALOS AW3D30</b> (JAXA) y <b>NASADEM</b> (NASA), leídos del catálogo abierto Microsoft Planetary Computer; y <b>AWS Terrain Tiles</b> (SRTM). Interpolación bilineal a 3 m.</li>
     <li><b>B · + edificios y vegetación:</b> los modelos satelitales miden techos y copas. Se resta un sesgo proporcional a la fracción construida, a la vegetación de OSM (parques, bosques, hileras de árboles) y a la franja de ribera (35 m a cada lado del río). Los tres coeficientes se calibran SOLO en El Ejido y se aplican igual a las otras zonas: Barranco y Cristo Rey son validación fuera de muestra.</li>
     <li><b>C · + vías:</b> red de calles de OSM como líneas de rasante: cada nodo se ajusta a B con continuidad a lo largo de la vía y misma cota en los cruces (mínimos cuadrados por relajación); las escalinatas pueden quebrar. La diferencia con B se reparte a las manzanas por difusión.</li>
+    <li><b>E · filtro de suelo:</b> sin usar la verdad. Se busca la envolvente baja del terreno (apertura morfológica en ventanas de 21, 39 y 63 m); lo que sobresale más de lo que permite la pendiente se marca como objeto (techo, copa) y se rellena desde el suelo vecino; luego vías y ríos como en D. No necesita calibración, así que sirve en cualquier ciudad.</li>
     <li><b>D · + ríos:</b> el cauce baja siempre en el sentido del agua (mínimo acumulado aguas abajo) y talla el cauce con taludes 1:1 hasta 20 m de la orilla, sin subir nunca el terreno.</li>
     <li><b>Métricas:</b> se descuenta el sesgo medio (los modelos usan distinto origen vertical) y se mide el error cuadrático medio (RMSE), el error al 95 % y la pendiente.</li>
   </ul>
@@ -64,7 +65,12 @@
   var ZONAS = [
     { id: 'ejido', nombre: 'El Ejido (plano)', lat: -2.901824, lng: -79.007460 },
     { id: 'barranco', nombre: 'El Barranco (talud al río)', lat: -2.901560, lng: -79.003840 },
-    { id: 'cristorey', nombre: 'Cristo Rey (ladera)', lat: -2.886800, lng: -79.003500 }
+    { id: 'cristorey', nombre: 'Cristo Rey (ladera)', lat: -2.886800, lng: -79.003500 },
+    { id: 'totoracocha', nombre: 'Totoracocha (residencial plano)', lat: -2.887591, lng: -78.990765 },
+    { id: 'tejar', nombre: 'El Tejar (ladera oeste)', lat: -2.889804, lng: -79.040196 },
+    { id: 'yanuncay', nombre: 'Yanuncay (río sur)', lat: -2.911328, lng: -79.015225 },
+    { id: 'monay', nombre: 'Monay (este)', lat: -2.904500, lng: -78.978000 },
+    { id: 'turi', nombre: 'Turi (ladera fuerte)', lat: -2.925500, lng: -79.003000 }
   ];
   var LADO = 420, PASO = 3; // m
   function proy(lat0, lng0) {
@@ -257,6 +263,37 @@
     for (var q = 0; q < N * N; q++) C[q] = B[q] + D[q];
     return { C: C, ejes: ids.map(function (id) { return pos[id]; }) };
   }
+  // ---------- E: filtro de suelo "desde abajo" (sin calibrar con la verdad) ----------
+  // 1) apertura morfológica (mínimo y luego máximo en una ventana) → envolvente de suelo;
+  // 2) lo que sobresale de esa envolvente más que lo permitido por la pendiente es "objeto"
+  //    (techo, copa, arboleda); 3) esas zonas se rellenan desde el suelo vecino (Laplace) y se suaviza.
+  function ventana(N, Z, r, op) {
+    var t = new Float32Array(N * N), o = new Float32Array(N * N), i, j, k, v;
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) { v = op === 'min' ? Infinity : -Infinity; for (k = Math.max(0, i - r); k <= Math.min(N - 1, i + r); k++) { var z = Z[j * N + k]; if (isNaN(z)) continue; v = op === 'min' ? Math.min(v, z) : Math.max(v, z); } t[j * N + i] = v; }
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) { v = op === 'min' ? Infinity : -Infinity; for (k = Math.max(0, j - r); k <= Math.min(N - 1, j + r); k++) { var z2 = t[k * N + i]; v = op === 'min' ? Math.min(v, z2) : Math.max(v, z2); } o[j * N + i] = v; }
+    return o;
+  }
+  function filtroSuelo(N, Z) {
+    var suelo = Z.slice(), objeto = new Uint8Array(N * N);
+    [3, 6, 10].forEach(function (r) { // ventanas de ~21, 39 y 63 m
+      var ab = ventana(N, ventana(N, suelo, r, 'min'), r, 'max');
+      for (var j = 1; j < N - 1; j++) for (var i = 1; i < N - 1; i++) {
+        var k = j * N + i, pend = Math.hypot((ab[k + 1] - ab[k - 1]) / (2 * PASO), (ab[k - N] - ab[k + N]) / (2 * PASO));
+        var tol = Math.min(4, 0.6 + pend * r * PASO * 0.5);
+        if (suelo[k] - ab[k] > tol) { objeto[k] = 1; suelo[k] = ab[k]; }
+      }
+    });
+    // relleno desde el suelo vecino
+    var v = suelo.slice();
+    for (var it = 0; it < 200; it++) for (var j2 = 1; j2 < N - 1; j2++) for (var i2 = 1; i2 < N - 1; i2++) {
+      var q = j2 * N + i2; if (!objeto[q]) continue;
+      v[q] = (v[q - 1] + v[q + 1] + v[q - N] + v[q + N]) / 4;
+    }
+    // suavizado leve (3×3, dos pasadas)
+    for (var pas = 0; pas < 2; pas++) { var w = v.slice(); for (var j3 = 1; j3 < N - 1; j3++) for (var i3 = 1; i3 < N - 1; i3++) { var q2 = j3 * N + i3, sm = 0; for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) sm += w[q2 + dj * N + di]; v[q2] = sm / 9; } }
+    var n = 0; for (var q3 = 0; q3 < N * N; q3++) if (objeto[q3]) n++;
+    return { Z: v, fraccionObjeto: n / (N * N) };
+  }
   function metodoRios(N, C, red) {
     var D = C.slice();
     red.rios.forEach(function (r) {
@@ -313,8 +350,6 @@
   var BASES = [
     { id: 'cop', nombre: 'Copernicus GLO-30', leer: function (P, N) { return globalPC('cop-dem-glo-30', P, N); } },
     { id: 'alos', nombre: 'ALOS AW3D30', leer: function (P, N) { return globalPC('alos-dem', P, N); } },
-    { id: 'nasa', nombre: 'NASADEM', leer: function (P, N) { return globalPC('nasadem', P, N); } },
-    { id: 'srtm', nombre: 'Terrain Tiles (SRTM)', leer: function (P, N) { return global30(P, N); } }
   ];
   for (var zi = 0; zi < ZONAS.length; zi++) {
     var Z = ZONAS[zi], P = proy(Z.lat, Z.lng);
@@ -340,24 +375,36 @@
           var kc = calib[BS.id], B = new Float32Array(N * N);
           for (var q = 0; q < N * N; q++) B[q] = A[q] - kc.b * fb[q] - kc.v * fv[q] - kc.r * fr[q];
           var MV = metodoVias(N, B, red), C = MV.C, D = metodoRios(N, C, red);
+          var FS = filtroSuelo(N, A), E = metodoRios(N, metodoVias(N, FS.Z, red).C, red);
           var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
-          var mA = metricas(N, A, T), mD = metricas(N, D, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles);
-          filasZona.push({ base: BS.nombre, A: mA, D: mD, cA: cA, cD: cD, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T) });
-          if (BS.id === 'cop') { copD = D; sesgoCop = mD.sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'Copernicus + edificios, vegetación, vías y ríos']); }
+          var mA = metricas(N, A, T), mD = metricas(N, D, T), mE = metricas(N, E, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles), cE = metricas(N, E, T, calles);
+          filasZona.push({ base: BS.nombre, A: mA, D: mD, E: mE, cA: cA, cD: cD, cE: cE, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T), pE: pendienteRMSE(N, E, T), obj: FS.fraccionObjeto });
+          if (BS.id === 'cop') { copD = E; sesgoCop = mE.sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
         } catch (e) { log('    ✗ ' + BS.nombre + ': ' + e); }
       }
-      var mejor = Math.min.apply(null, filasZona.map(function (f) { return f.D.rmse; }));
-      var html = '<h2>' + Z.nombre + '</h2><table><tr><th>Modelo global</th><th>RMSE solo</th><th>RMSE con método</th><th>Mejora</th><th>RMSE en calles (solo → método)</th><th>RMSE pendiente (solo → método)</th></tr>' +
-        filasZona.map(function (f) { return '<tr><td>' + f.base + '</td><td>' + f.A.rmse.toFixed(2) + ' m</td><td' + (f.D.rmse === mejor ? ' class="mej"' : '') + '>' + f.D.rmse.toFixed(2) + ' m</td><td>' + Math.round((f.D.rmse / f.A.rmse - 1) * 100) + ' %</td><td>' + f.cA.rmse.toFixed(2) + ' → ' + f.cD.rmse.toFixed(2) + ' m</td><td>' + f.pA.toFixed(1) + ' → ' + f.pD.toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
+      var todos = []; filasZona.forEach(function (f) { todos.push(f.A.rmse, f.D.rmse, f.E.rmse); });
+      var mejor = Math.min.apply(null, todos);
+      function celda(v) { return '<td' + (v === mejor ? ' class="mej"' : '') + '>' + v.toFixed(2) + ' m</td>'; }
+      var html = '<h2>' + Z.nombre + (zi === 0 ? ' <span class="soft">— zona de calibración de D</span>' : '') + '</h2><table><tr><th>Modelo global</th><th>A · solo</th><th>D · calibrado + vías + ríos</th><th>E · filtro de suelo + vías + ríos</th><th>En calles (A → D → E)</th><th>Pendiente (A → D → E)</th><th>Marcado como objeto</th></tr>' +
+        filasZona.map(function (f) { return '<tr><td>' + f.base + '</td>' + celda(f.A.rmse) + celda(f.D.rmse) + celda(f.E.rmse) + '<td>' + f.cA.rmse.toFixed(1) + ' → ' + f.cD.rmse.toFixed(1) + ' → ' + f.cE.rmse.toFixed(1) + ' m</td><td>' + f.pA.toFixed(0) + ' → ' + f.pD.toFixed(0) + ' → ' + f.pE.toFixed(0) + ' %</td><td>' + Math.round(f.obj * 100) + ' %</td></tr>'; }).join('') + '</table>';
       var cont = document.createElement('section'); cont.innerHTML = html;
       var g = document.createElement('div'); g.className = 'grid';
       mapas.forEach(function (m) { g.appendChild(dibujarError(N, m[0], T, m[1], m[2] + ' — error (azul: bajo, rojo: alto; ±6 m)', red)); });
       cont.appendChild(g);
       var esc = document.createElement('div'); esc.className = 'escala'; esc.innerHTML = '−6 m <i></i> +6 m · líneas: vías de OSM · zona de ' + LADO + ' m'; cont.appendChild(esc);
       res.appendChild(cont);
-      filas.push({ zona: Z.nombre, t: filasZona.map(function (f) { return [f.base, +f.A.rmse.toFixed(2), +f.D.rmse.toFixed(2), +f.cD.rmse.toFixed(2), +f.pD.toFixed(1)]; }) });
+      filas.push({ zona: Z.nombre, t: filasZona.map(function (f) { return [f.base, +f.A.rmse.toFixed(2), +f.D.rmse.toFixed(2), +f.E.rmse.toFixed(2), +f.cA.rmse.toFixed(2), +f.cE.rmse.toFixed(2), +f.pA.toFixed(1), +f.pE.toFixed(1)]; }) });
+      pintarResumen();
       if (copD) { var Dd = new Float32Array(N * N); for (var q2 = 0; q2 < N * N; q2++) Dd[q2] = copD[q2] - sesgoCop; zonas3d.push({ nombre: Z.nombre, N: N, rec: Dd, ver: T, red: red }); }
     } catch (e) { log('  ✗ ' + Z.nombre + ': ' + e); }
+  }
+  function pintarResumen() {
+    var cont = document.getElementById('resumen') || (function () { var d = document.createElement('section'); d.id = 'resumen'; res.parentNode.insertBefore(d, res); return d; })();
+    var val = filas.slice(1); if (!val.length) return;
+    function prom(base, col) { var v = []; val.forEach(function (f) { f.t.forEach(function (r) { if (r[0] === base) v.push(r[col]); }); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : NaN; }
+    var bases = ['Copernicus GLO-30', 'ALOS AW3D30'];
+    cont.innerHTML = '<h2>Resumen — promedio en ' + val.length + ' zonas de validación (sin El Ejido)</h2><table><tr><th>Modelo</th><th>A · solo</th><th>D · calibrado</th><th>E · filtro de suelo</th><th>En calles A → E</th><th>Pendiente A → E</th></tr>' +
+      bases.map(function (b) { return '<tr><td>' + b + '</td><td>' + prom(b, 1).toFixed(2) + ' m</td><td>' + prom(b, 2).toFixed(2) + ' m</td><td>' + prom(b, 3).toFixed(2) + ' m</td><td>' + prom(b, 4).toFixed(2) + ' → ' + prom(b, 5).toFixed(2) + ' m</td><td>' + prom(b, 6).toFixed(1) + ' → ' + prom(b, 7).toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
   }
   var bt = document.getElementById('botones3d');
   zonas3d.forEach(function (z, i) { var b = document.createElement('button'); b.textContent = z.nombre; b.onclick = function () { mostrar3D(i); }; bt.appendChild(b); });
