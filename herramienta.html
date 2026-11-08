@@ -1399,6 +1399,12 @@
     Object.keys(grupos).forEach(function (k) { var L = grupos[k].reduce(function (s, sg) { return s + Math.hypot(sg[1][0] - sg[0][0], sg[1][1] - sg[0][1]); }, 0); if (L > Lmejor) { Lmejor = L; mejor = grupos[k]; } });
     var A = areaPoligonoM(estado.pts);
     var res = { n: 0, area: A, loteMin: loteMin, frenteMin: frenteMin, frente: Lmejor, lotes: [], cortes: [] };
+    // Centro Histórico, áreas históricas y bienes patrimoniales: el fraccionamiento no sigue la tabla
+    // general; lo define la Dirección de Áreas Históricas caso por caso
+    if (estado.esCentroHistorico || estado.esAreaHistorica || /patrimonial/i.test(estado.restriccionVolumen || '')) {
+      res.bloqueo = 'En ' + (estado.esCentroHistorico ? 'el Centro Histórico' : estado.esAreaHistorica ? 'las áreas históricas' : 'un bien patrimonial') + ' la división de predios no sigue la tabla general: la define la Dirección de Áreas Históricas caso por caso.';
+      res.nConVia = 0; return res;
+    }
     if (!mejor) return res;
     var p0 = mejor[0][0], p1 = mejor[mejor.length - 1][1], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
     var u = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L];
@@ -5235,7 +5241,7 @@
                 '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div></div>'
             : '') +
           (estado.division
-            ? '<div class="maq-union">' + (estado.division.n >= 2
+            ? '<div class="maq-union">' + (estado.division.bloqueo ? estado.division.bloqueo : estado.division.n >= 2
                 ? '<b>' + estado.division.n + ' lotes</b> de ~' + Math.round(estado.division.area / estado.division.n) + ' m² hacia la calle' +
                   '<div class="maq-nota">Lote mínimo ' + estado.division.loteMin + ' m², frente mínimo ' + estado.division.frenteMin + ' m.' + (estado.division.nConVia > estado.division.n + 1 ? ' Con una vía interna podrían salir unos ' + estado.division.nConVia + ': eso pide un diseño de lotización.' : '') + ' Fraccionar requiere permiso municipal.</div>'
                 : 'Este lote no alcanza para dividirse: necesita al menos 2 × ' + estado.division.loteMin + ' m² y 2 × ' + estado.division.frenteMin + ' m de frente.' + (estado.division.nConVia >= 2 ? '<div class="maq-nota">Con una vía interna podrían salir unos ' + estado.division.nConVia + ' lotes: eso pide un diseño de lotización.</div>' : '')) + '</div>'
