@@ -4412,9 +4412,9 @@
         var g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
         g.setIndex(idxT);
-        // ExtrudeGeometry tiene la Y de la forma hacia el norte; acá z = −y, así que el orden de los
-        // triángulos se invierte para que las caras miren hacia arriba
-        if (ddy < 0) { var ix = g.getIndex().array; for (var c = 0; c < ix.length; c += 3) { var tmp = ix[c + 1]; ix[c + 1] = ix[c + 2]; ix[c + 2] = tmp; } }
+        // con la grilla de norte a sur (ddy < 0) el orden q→s2→t ya mira hacia arriba; si la grilla
+        // viniera de sur a norte se invierte
+        if (ddy > 0) { var ix = g.getIndex().array; for (var c = 0; c < ix.length; c += 3) { var tmp = ix[c + 1]; ix[c + 1] = ix[c + 2]; ix[c + 2] = tmp; } }
         g.computeVertexNormals();
         var mT = new THREE.Mesh(g, matTerraza); mT.receiveShadow = true; mT.castShadow = true; grupoTIN.add(mT);
         // faldón: del borde de la malla hasta la base del zócalo
