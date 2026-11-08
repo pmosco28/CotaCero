@@ -1092,7 +1092,7 @@
     var f = [], clave = estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '');
     var fila = function (k, v, extra) { if (v !== '' && v != null) f.push('<li><span>' + k + '</span><b>' + v + '</b>' + (extra || '') + '</li>'); };
     fila('Clave catastral', escaparSvg(clave), clave ? '<button type="button" class="ficha-copiar" data-copiar="' + escaparSvg(clave) + '" aria-label="Copiar clave">Copiar</button>' : '');
-    var area = Math.round(areaAnillo(estado.pts));
+    var area = Math.round(areaPoligonoM(estado.pts));
     fila('Área del lote', area.toLocaleString('es-EC') + ' m²' + (frenteLoteActual ? ' · frente ' + frenteLoteActual.toFixed(1) + ' m' : ''));
     fila('Zona', (estado.pitOficial || '—') + (estado.usos && estado.usos.ambito ? ' · ' + estado.usos.ambito : (estado.usoSuelo && estado.usoSuelo.ambitos ? ' · ' + estado.usoSuelo.ambitos : '')));
     if (!estado.restriccionVolumen) {
