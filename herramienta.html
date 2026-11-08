@@ -218,13 +218,16 @@
   .maq-terreno button + button { border-left-width: 0; }
   .maq-terreno button:first-child { border-radius: 4px 0 0 4px; } .maq-terreno button:last-child { border-radius: 0 4px 4px 0; }
   .maq-terreno button.activa { background: #2b2a27; color: #f3f1ec; }
-  .maq-vistas-flot { position: relative; z-index: 6; height: 52px; margin-top: -52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
+  .maq-vistas-flot { position: absolute; z-index: 6; height: 52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
   .maq-vistas-flot button { pointer-events: auto; width: 42px; height: 38px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #2b2a27; border: 1px solid rgba(43,42,39,.18); border-left-width: 0; border-radius: 0; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
   .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 10px 0 0 10px; }
   .maq-vistas-flot button:last-child { border-radius: 0 10px 10px 0; }
   .maq-vistas-flot button.activa, .maq-vistas-flot button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-vistas-flot { gap: 10px; }
   .maq-vistas-flot button { border-left-width: 1px; border-radius: 10px !important; }
+  .maq-toque { position: absolute; bottom: 58px; left: 50%; transform: translateX(-50%); background: #2b2a27; color: #f3f1ec; font-size: 0.72rem; padding: 5px 10px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+  .maq-toque.visible { opacity: 1; }
+  @media (hover: none) { [data-tip]:hover::after { display: none; } }
   .maq-vistas-flot .maq-switch { pointer-events: auto; height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); white-space: nowrap; }
   .maq-vistas-flot .maq-switch span { flex: none; }
   .maq-capas-flot { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); z-index: 6; display: flex; flex-direction: column; gap: 6px; }
@@ -5952,15 +5955,51 @@
       // Interruptores (fondo y terreno) a los lados del botón planta/3D; las capas, en una columna
       // flotante al costado izquierdo de la maqueta. Se mueven los mismos nodos: los listeners ya
       // quedaron puestos arriba.
-      var swFoto = p.querySelector('input[data-capa="foto"]'), swTer = p.querySelector('.sw-terreno');
-      if (swFoto) barraV.insertBefore(swFoto.closest('.maq-switch'), barraV.firstChild);
-      if (swTer) barraV.appendChild(swTer.closest('.maq-switch'));
+      // Los interruptores pasan a ser botones-ícono con el mismo lenguaje que planta/3D: el checkbox
+      // original queda oculto (conserva sus listeners) y el botón lo alterna.
+      var avisoToque = null;
+      function etiquetaToque(txt) {
+        // en pantallas táctiles no hay hover: el nombre aparece un momento sobre la barra al tocar
+        if (!window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
+        if (!avisoToque) { avisoToque = document.createElement('div'); avisoToque.className = 'maq-toque'; barraV.appendChild(avisoToque); }
+        avisoToque.textContent = txt; avisoToque.classList.add('visible');
+        clearTimeout(avisoToque._t); avisoToque._t = setTimeout(function () { avisoToque.classList.remove('visible'); }, 1400);
+      }
+      function botonInterruptor(inp, pintar) {
+        if (!inp) return null;
+        var lab = inp.closest('.maq-switch'); if (lab) { lab.style.display = 'none'; barraV.appendChild(lab); }
+        var b = document.createElement('button'); b.type = 'button';
+        pintar(b, inp.checked);
+        b.addEventListener('click', function () { inp.checked = !inp.checked; inp.dispatchEvent(new Event('change', { bubbles: true })); pintar(b, inp.checked); etiquetaToque(b.getAttribute('data-nombre')); });
+        return b;
+      }
+      var bFoto = botonInterruptor(p.querySelector('input[data-capa="foto"]'), function (b, on) {
+        b.innerHTML = ICONOS_MAQ.foto; b.classList.toggle('activa', on);
+        b.setAttribute('data-nombre', on ? 'Satelital' : 'Fondo blanco'); b.setAttribute('data-tip', on ? 'Satelital (toca para fondo blanco)' : 'Fondo blanco (toca para satelital)');
+      });
+      var bTer = botonInterruptor(p.querySelector('.sw-terreno'), function (b, on) {
+        b.innerHTML = on ? ICONOS_MAQ.terrazas : ICONOS_MAQ.tin;
+        b.setAttribute('data-nombre', on ? 'Maqueta' : 'Terreno'); b.setAttribute('data-tip', on ? 'Maqueta (toca para terreno)' : 'Terreno (toca para maqueta)');
+      });
+      if (bFoto) barraV.insertBefore(bFoto, barraV.firstChild);
+      if (bTer) { var bPl = barraV.querySelector('button[data-vista]'); barraV.insertBefore(bTer, bPl ? bPl.nextSibling : null); }
       canvas.insertAdjacentElement('afterend', barraV);
       var capasViejas = wrap.querySelector('.maq-capas-flot'); if (capasViejas) capasViejas.remove();
       var barraCapas = p.querySelector('.maq-barra');
       if (barraCapas) { barraCapas.className = 'maq-capas-flot'; canvas.insertAdjacentElement('afterend', barraCapas); }
       // si el panel flota sobre la maqueta, la barra se centra en el espacio libre a su izquierda
+      if (barraCapas) barraCapas.querySelectorAll('label.ico').forEach(function (l) {
+        var inp = l.querySelector('input'); if (inp) inp.addEventListener('change', function () { etiquetaToque((l.getAttribute('data-tip') || '').split(',')[0].split('(')[0].trim() + (inp.checked ? ' visible' : ' oculto')); });
+      });
+      // Posición sobre la maqueta (no del contenedor, que en el celular también incluye el panel)
+      function posicionarFlotantes() {
+        var top = canvas.offsetTop, h = canvas.offsetHeight;
+        barraV.style.top = (top + h - 52) + 'px'; barraV.style.left = canvas.offsetLeft + 'px'; barraV.style.width = canvas.offsetWidth + 'px';
+        if (barraCapas) barraCapas.style.top = (top + h / 2) + 'px';
+        var ovx = wrap.querySelector('.maq-overlay'); if (ovx) { ovx.style.bottom = 'auto'; ovx.style.top = (top + h - (ovx.offsetHeight || 50) - 18) + 'px'; }
+      }
       function ajustarBarraV() {
+        posicionarFlotantes();
         var pr = p.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
         var tapa = pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70;
         barraV.style.paddingRight = tapa ? Math.round(cr.right - pr.left + 8) + 'px' : '';
@@ -5971,7 +6010,7 @@
       // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
       var enPlanta = false;
       barraV.querySelectorAll('button[data-vista]').forEach(function (b) {
-        b.addEventListener('click', function () { enPlanta = !enPlanta; (enPlanta ? VISTAS.planta : VISTAS.lote)(); actualizarCamara(); solicitarRender(); marcarVista(enPlanta ? 'planta' : ''); });
+        b.addEventListener('click', function () { enPlanta = !enPlanta; (enPlanta ? VISTAS.planta : VISTAS.lote)(); actualizarCamara(); solicitarRender(); marcarVista(enPlanta ? 'planta' : ''); etiquetaToque(enPlanta ? 'Planta' : 'Vista 3D'); });
       });
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
       VISTAS.lote(); actualizarCamara(); solicitarRender();
@@ -5982,6 +6021,7 @@
       canvas.insertAdjacentElement('afterend', ov);
       overlayNorte = ov.querySelector('.maq-norte svg'); overlayEscala = ov.querySelector('.maq-escala');
       actualizarOverlay();
+      posicionarFlotantes();
       // entrada: medio giro lento hasta la vista del lote, una sola vez por predio
       if (introHechaPara !== estado.clave) {
         introHechaPara = estado.clave;
