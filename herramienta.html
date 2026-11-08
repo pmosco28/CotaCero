@@ -4785,17 +4785,28 @@
         return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
       });
       if (!vias.length) return null;
+      // índice espacial de segmentos (celdas del tamaño del alcance máximo): el resultado es idéntico a
+      // recorrer todas las vías, pero cada píxel solo mira los segmentos cercanos (antes era lo más lento)
+      var maxAlc = 1; vias.forEach(function (v) { maxAlc = Math.max(maxAlc, v.alcance); });
+      var celdaS = Math.max(8, maxAlc), indiceSeg = {};
+      vias.forEach(function (v) {
+        var acc = 0;
+        for (var i = 0; i < v.pts.length - 1; i++) {
+          var a = v.pts[i], b = v.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          var x0 = Math.floor((Math.min(a[0], b[0]) - maxAlc) / celdaS), x1 = Math.floor((Math.max(a[0], b[0]) + maxAlc) / celdaS);
+          var y0 = Math.floor((Math.min(a[1], b[1]) - maxAlc) / celdaS), y1 = Math.floor((Math.max(a[1], b[1]) + maxAlc) / celdaS);
+          var sg = { v: v, a: a, b: b, acc: acc, L: L };
+          for (var cx0 = x0; cx0 <= x1; cx0++) for (var cy0 = y0; cy0 <= y1; cy0++) (indiceSeg[cx0 + ',' + cy0] = indiceSeg[cx0 + ',' + cy0] || []).push(sg);
+          acc += L;
+        }
+      });
       function rasante(p) {
         var mejor = null, dmin = Infinity;
-        vias.forEach(function (v) {
-          var acc = 0;
-          for (var i = 0; i < v.pts.length - 1; i++) {
-            var a = v.pts[i], b = v.pts[i + 1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, L = Math.sqrt(L2);
-            var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
-            var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
-            if (d < dmin) { dmin = d; mejor = { v: v, s: acc + L * t }; }
-            acc += L;
-          }
+        (indiceSeg[Math.floor(p[0] / celdaS) + ',' + Math.floor(p[1] / celdaS)] || []).forEach(function (sg) {
+          var a = sg.a, b = sg.b, abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby;
+          var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
+          var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
+          if (d < dmin) { dmin = d; mejor = { v: sg.v, s: sg.acc + sg.L * t }; }
         });
         // solo se corrige cerca del propio eje: un punto lejos de toda vía conocida (otra calle que el
         // dibujo no tiene, un bajo) conserva el terreno — antes tomaba la rasante de una calle alta
