@@ -6169,7 +6169,7 @@
     var tit = cab, det = '', k = cab.indexOf(' (');
     if (k > 0) { tit = cab.slice(0, k); det = cab.slice(k + 2, -1); }
     cuerpo = cuerpo.charAt(0).toUpperCase() + cuerpo.slice(1);
-    return (tit ? '<div class="maq-r-tit">' + tit + '</div>' : '') + (det ? '<div class="maq-r-det">' + det + '</div>' : '') + '<p class="maq-r-txt">' + cuerpo + '</p>';
+    return (tit ? '<div class="maq-r-tit">' + tit + '</div>' : '') + (det ? '<div class="maq-r-det">' + det + '</div>' : '') + '<p class="maq-r-txt" lang="es">' + cuerpo + '</p>';
   }
   function urlProductoPredio(estado, idProducto) {
     var base = location.origin + location.pathname;
