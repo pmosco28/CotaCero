@@ -1454,12 +1454,28 @@
   // (clasificac, valor_regi). Cubre Centro Histórico y El Ejido; fuera de ahí queda OSM o 6 m.
   async function consultarBloquesMunicipales(bbox) {
     var cql = "BBOX(geom," + bbox.join(',') + ",'EPSG:4326')";
-    try {
-      var res = await fetch('https://ide.cuenca.gob.ec/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=dahp_catastro:bloques_fin&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql));
-      var data = await res.json();
-      return data.features || [];
-    } catch (e) { return []; }
+    // bloques_fin: pisos y altura revisados; bloques_cristo_rey_ch_ejido: valoración patrimonial
+    // del inventario (E/VAR A/VAR B/A/SV/N) y pisos, para Centro Histórico, El Ejido y Cristo Rey.
+    var capas = ['dahp_catastro:bloques_fin', 'dahp_catastro:bloques_cristo_rey_ch_ejido'];
+    var listas = await Promise.all(capas.map(function (c) {
+      return fetch('https://ide.cuenca.gob.ec/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + c + '&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql))
+        .then(function (r) { return r.json(); }).then(function (d) { return (d.features || []).map(function (f) { f.properties = f.properties || {}; f.properties.__capa = c; return f; }); })
+        .catch(function () { return []; });
+    }));
+    return listas[0].concat(listas[1]);
   }
+  // Valoración del inventario patrimonial de Cuenca: (E)(4) emergente, A(VAR A)(3) valor
+  // arquitectónico A, B(VAR B)(2) valor arquitectónico B, (A)(1) valor ambiental, (SV)(0) sin valor
+  // especial, (N)(-1) impacto negativo. De 1 hacia arriba la edificación se conserva.
+  function categoriaPatrimonial(valor) {
+    var t = String(valor || '');
+    var m = t.match(/\((-?\d)\)\s*$/);
+    if (m) return parseInt(m[1], 10);
+    if (/\(E\)/.test(t)) return 4; if (/VAR A/.test(t)) return 3; if (/VAR B/.test(t)) return 2;
+    if (/^\(A\)/.test(t)) return 1; if (/\(SV\)/.test(t)) return 0; if (/\(N\)/.test(t)) return -1;
+    return null;
+  }
+  var NOMBRE_CATEGORIA = { 4: 'emergente', 3: 'valor arquitectónico A', 2: 'valor arquitectónico B', 1: 'valor ambiental', 0: 'sin valor especial', '-1': 'impacto negativo' };
 
   async function consultarConstruccionesMunicipales(bbox) {
     var bboxStr = bbox.join(',');
@@ -1857,14 +1873,15 @@
         try { var i = turf.intersect(fe, turf.polygon([b.pts.concat([b.pts[0]])])); if (i) { var a = turf.area(i); if (a > mejorA) { mejorA = a; mejor = b; } } } catch (e) { }
       });
       if (mejor && mejorA > 0.3 * turf.area(fe)) {
-        var h = Number(mejor.p.altura_act) || (Number(mejor.p.pisos_actu) || 0) * 3;
-        if (h > 0) { ed.altura = h; ed.alturaReal = true; ed.fuente = 'municipio'; ed.pisos = Number(mejor.p.pisos_actu) || null; }
+        var h = Number(mejor.p.altura_act) || (Number(mejor.p.pisos_actu) || 0) * 3 || (mejor.p.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' ? (Number(mejor.p.altura) || 0) * 3 : 0);
+        if (h > 0) { ed.altura = h; ed.alturaReal = true; ed.fuente = 'municipio'; ed.pisos = Number(mejor.p.pisos_actu) || Number(mejor.p.altura) || null; }
       }
     });
     // Valoración patrimonial de lo construido en el lote (si la hay): condiciona qué se puede hacer.
-    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave); }).map(function (f) {
-      return { clasificacion: f.properties.clasificac, valor: f.properties.valor_regi, pisos: f.properties.pisos_actu, altura: f.properties.altura_act, bloque: f.properties.bloque };
-    });
+    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave) && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
+      var pr = f.properties;
+      return { clasificacion: pr.clasificac, valor: pr.valor_regi, categoria: categoriaPatrimonial(pr.valor_regi), pisos: pr.pisos_actu || pr.altura || null, altura: pr.altura_act || (pr.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' && pr.altura ? pr.altura * 3 : null), bloque: pr.bloque };
+    }).sort(function (a, b) { return (b.categoria == null ? -9 : b.categoria) - (a.categoria == null ? -9 : a.categoria); });
     var edificacionesContexto = todasEdificaciones.filter(function (ed) {
       try { return !turf.booleanIntersects(turf.polygon([ed.pts.concat([ed.pts[0]])]), poligonoLotePlano); } catch (e) { return true; }
     });
@@ -2014,7 +2031,9 @@
       esPredioPublico = mejorPublico && mejorSolape > 0.5 * areaL;
     } catch (e) { }
     var restriccionVolumen = null;
-    if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
+    var catMax = patrimonioLote.length ? patrimonioLote[0].categoria : null;
+    if (catMax != null && catMax >= 1) restriccionVolumen = 'Edificación patrimonial (' + NOMBRE_CATEGORIA[catMax] + ', inventario municipal ' + patrimonioLote[0].valor + '): se conserva, así que no se muestra un volumen de reemplazo. Qué intervención se admite (restauración, rehabilitación, ampliación posterior) lo define la Dirección General de Áreas Históricas.';
+    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
     else if (fraccionVerde > 0.5) restriccionVolumen = 'Más de la mitad de este predio es parque o área verde (' + (nombreAreaVerdeDelLote || 'OpenStreetMap') + '): no se muestra volumen edificable.';
     else if (areaLoteM2 > 10000) restriccionVolumen = 'Lote de ' + Math.round(areaLoteM2 / 10000 * 10) / 10 + ' ha: en un predio de este tamaño se edifica a través de un proceso de urbanización o plan, no con un volumen directo. Escríbenos para un estudio específico.';
 
@@ -2604,7 +2623,7 @@
       return d;
     }
     var cosA = Math.cos(estado.anguloRef || 0), sinA = Math.sin(estado.anguloRef || 0);
-    var patios = [];
+    var patios = [], intentos = 0;
     for (var it = 0; it < 6; it++) {
       var peor = null, dPeor = PROF_LUZ_M;
       celdas.forEach(function (c) {
@@ -2638,16 +2657,26 @@
         var cx = 0, cy = 0; pt.forEach(function (q) { cx += q[0] / pt.length; cy += q[1] / pt.length; });
         return pt.every(function (q) { return puntoDentroDePoligono([cx + (q[0] - cx) * 0.97, cy + (q[1] - cy) * 0.97], puntosEnvolvente); });
       };
+      // dos patios nunca se tocan (se superponían y el 3D perdía los huecos al subir pisos):
+      // entre patios queda al menos una crujía de 3 m
+      var libre = function (pt) {
+        return !patios.some(function (o) {
+          for (var k = 0; k < pt.length; k++) { if (puntoDentroDePoligono(pt[k], o)) return true; for (var m = 0; m < o.length; m++) if (distPuntoSegmento(pt[k], o[m], o[(m + 1) % o.length]) < 3) return true; }
+          for (var k2 = 0; k2 < o.length; k2++) { if (puntoDentroDePoligono(o[k2], pt)) return true; for (var m2 = 0; m2 < pt.length; m2++) if (distPuntoSegmento(o[k2], pt[m2], pt[(m2 + 1) % pt.length]) < 3) return true; }
+          return false;
+        });
+      };
       var patio = null;
-      [[cu, cv, 1], [cu, cv, 0.8], [0, 0, 0.8], [0, 0, 0.6]].some(function (t) {
+      [[cu, cv, 1], [cu, cv, 0.8], [0, 0, 0.8], [0, 0, 0.6], [0, 0, 0]].some(function (t) {
         var cand = rect(t[0], t[1], Math.max(lado, au * t[2]), Math.max(lado, av * t[2]));
-        if (dentro(cand)) { patio = cand; return true; } return false;
+        if (dentro(cand) && libre(cand)) { patio = cand; return true; } return false;
       });
       if (!patio) patio = rect(0, 0, lado, lado);
-      // el patio tiene que quedar dentro de la planta (cerrado), si no, se descarta el intento
-      if (!dentro(patio)) {
+      // el patio tiene que quedar dentro de la planta (cerrado) y separado de los demás; si no, se
+      // descarta ese punto oscuro y se sigue con el próximo
+      if (!dentro(patio) || !libre(patio)) {
         celdas = celdas.filter(function (c) { return c !== peor; });
-        it--; if (!celdas.length) break; continue;
+        intentos++; if (intentos > 150) break; it--; if (!celdas.length) break; continue;
       }
       patios.push(patio);
     }
@@ -2832,7 +2861,7 @@
     if (estado.restriccionVolumen) {
       notaTopeReal = '<div style="font-size:0.8rem; color:var(--ink); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🚫 ' + estado.restriccionVolumen + '</div>' + notaTopeReal;
     }
-    if (estado.patrimonioLote && estado.patrimonioLote.length) {
+    if (!estado.restriccionVolumen && estado.patrimonioLote && estado.patrimonioLote.length && estado.patrimonioLote[0].categoria != null && estado.patrimonioLote[0].categoria >= 1) {
       var pl = estado.patrimonioLote[0];
       notaTopeReal = '<div style="font-size:0.8rem; color:#7a2e12; background:#fbeee6; border:1px solid #e6b9a3; border-radius:10px; padding:10px 12px;">⚠️ Lo construido en este lote está registrado por el municipio como <strong>' + String(pl.clasificacion || '').toLowerCase() + '</strong> (valoración ' + (pl.valor || '—') + ', ' + (pl.pisos || '?') + ' pisos, ' + (pl.altura || '?') + ' m). Una edificación con valor patrimonial no se puede reemplazar libremente: el volumen de abajo es solo lo que la normativa permitiría en un lote libre. Confirmar con la Dirección General de Áreas Históricas qué intervención se admite.</div>' + notaTopeReal;
     }
