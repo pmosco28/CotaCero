@@ -239,6 +239,9 @@
   @media (max-width: 640px) {
     .maq-vistas-flot { gap: 6px; } .maq-vistas-flot .maq-switch { padding: 0 8px; font-size: 0.66rem; gap: 5px; }
     .maq-capas-flot { left: 10px; gap: 4px; } .maq-capas-flot .ico { width: 34px; height: 34px; }
+    .maq-vistas-flot { justify-content: flex-end; padding-right: 12px !important; box-sizing: border-box; }
+    .maq-vistas-flot button { width: 38px; height: 36px; }
+    .maq-toque { left: auto; right: 12px; transform: none; }
   }
   .maq-panel button { font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 1px solid #2b2a27; color: #2b2a27; border-radius: 3px; padding: 4px 8px; cursor: pointer; }
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
@@ -5995,7 +5998,12 @@
       function posicionarFlotantes() {
         var top = canvas.offsetTop, h = canvas.offsetHeight;
         barraV.style.top = (top + h - 52) + 'px'; barraV.style.left = canvas.offsetLeft + 'px'; barraV.style.width = canvas.offsetWidth + 'px';
-        if (barraCapas) barraCapas.style.top = (top + h / 2) + 'px';
+        if (barraCapas) {
+          // centrada en la maqueta, pero nunca encima del mapa de ubicación (esquina superior izquierda)
+          var y = top + h / 2, mini = document.getElementById('ubicacionMini');
+          if (mini && mini.offsetParent) { var mb = mini.getBoundingClientRect().bottom - canvas.getBoundingClientRect().top + top; y = Math.max(y, mb + 10 + barraCapas.offsetHeight / 2); }
+          barraCapas.style.top = y + 'px';
+        }
         var ovx = wrap.querySelector('.maq-overlay'); if (ovx) { ovx.style.bottom = 'auto'; ovx.style.top = (top + h - (ovx.offsetHeight || 50) - 18) + 'px'; }
       }
       function ajustarBarraV() {
