@@ -1020,8 +1020,9 @@
     // resuelve en el navegador, sin pedir nada al servidor en cada movimiento.
     var prediosVista = { clave: '', feats: [], cargando: null }, resaltadoF = null;
     // resaltado: línea blanca con borde negro (dos trazos superpuestos), se lee sobre plano y foto
-    var bordeR = { color: '#1C1A16', weight: 5.5, fill: false, interactive: false }, lineaR = { color: '#FFFFFF', weight: 2.5, fill: false, interactive: false };
-    var capasResalte = [L.geoJSON(null, { style: bordeR }).addTo(mapa), L.geoJSON(null, { style: lineaR }).addTo(mapa), L.geoJSON(null, { style: bordeR }).addTo(mapaLupa), L.geoJSON(null, { style: lineaR }).addTo(mapaLupa)];
+    // resaltado: solo un marco negro
+    var bordeR = { color: '#1C1A16', weight: 3, fill: false, interactive: false };
+    var capasResalte = [L.geoJSON(null, { style: bordeR }).addTo(mapa), L.geoJSON(null, { style: bordeR }).addTo(mapaLupa)];
     function cargarPrediosVista() {
       if (mapa.getZoom() < 17) return null;
       var b = mapa.getBounds().pad(0.3), k = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(function (v) { return v.toFixed(4); }).join(',');
