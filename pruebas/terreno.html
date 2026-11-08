@@ -40,7 +40,7 @@
   <h2>Maqueta: reconstrucción vs. verdad</h2>
   <div class="botones" id="botones3d"></div>
   <div class="maq3d">
-    <figure><canvas id="c3dA" width="900" height="675"></canvas><figcaption>Reconstruido: Copernicus 30 m + filtro de suelo + vías + ríos (terrazas de 1 m)</figcaption></figure>
+    <figure><canvas id="c3dA" width="900" height="675"></canvas><figcaption>Reconstruido: Copernicus 30 m + filtro de suelo + vías + ríos + calles interpretadas (terrazas de 1 m)</figcaption></figure>
     <figure><canvas id="c3dB" width="900" height="675"></canvas><figcaption>Verdad: MDT municipal de Cuenca (~3 m), mismas terrazas</figcaption></figure>
   </div>
   <p class="soft">Arrastra para girar (las dos maquetas giran juntas). Edificios de OSM con altura por pisos o 6 m.</p>
@@ -53,6 +53,7 @@
     <li><b>B · + edificios y vegetación:</b> los modelos satelitales miden techos y copas. Se resta un sesgo proporcional a la fracción construida, a la vegetación de OSM (parques, bosques, hileras de árboles) y a la franja de ribera (35 m a cada lado del río). Los tres coeficientes se calibran SOLO en El Ejido y se aplican igual a las otras zonas: Barranco y Cristo Rey son validación fuera de muestra.</li>
     <li><b>C · + vías:</b> red de calles de OSM como líneas de rasante: cada nodo se ajusta a B con continuidad a lo largo de la vía y misma cota en los cruces (mínimos cuadrados por relajación); las escalinatas pueden quebrar. La diferencia con B se reparte a las manzanas por difusión.</li>
     <li><b>E · filtro de suelo:</b> sin usar la verdad. Se busca la envolvente baja del terreno (apertura morfológica en ventanas de 21, 39 y 63 m); lo que sobresale más de lo que permite la pendiente se marca como objeto (techo, copa) y se rellena desde el suelo vecino; luego vías y ríos como en D. No necesita calibración, así que sirve en cualquier ciudad.</li>
+    <li><b>G · calles interpretadas:</b> el criterio de Cota Cero sobre la reconstrucción: toda la sección de la calle (ancho por categoría) toma la rasante del eje, plana de bordillo a bordillo, vereda +20 cm, y la corrección se desvanece ~6 m.</li>
     <li><b>D · + ríos:</b> el cauce baja siempre en el sentido del agua (mínimo acumulado aguas abajo) y talla el cauce con taludes 1:1 hasta 20 m de la orilla, sin subir nunca el terreno.</li>
     <li><b>Métricas:</b> se descuenta el sesgo medio (los modelos usan distinto origen vertical) y se mide el error cuadrático medio (RMSE), el error al 95 % y la pendiente.</li>
   </ul>
@@ -312,6 +313,49 @@
     var n = 0; for (var q3 = 0; q3 < N * N; q3++) if (objeto[q3]) n++;
     return { Z: v, fraccionObjeto: n / (N * N) };
   }
+  // ---------- G: calles interpretadas (criterio de Cota Cero) ----------
+  // Ancho por categoría (calzada, vereda por lado). Toda la sección toma la rasante del eje (perfil
+  // suavizado ~20 m): plana de bordillo a bordillo; vereda +20 cm; la corrección se desvanece 6 m.
+  var ANCHOS = { motorway: [16, 2], trunk: [14, 2], primary: [12, 3], secondary: [10, 2.5], tertiary: [8, 2], residential: [7, 1.8], unclassified: [7, 1.5], living_street: [6, 1.5], service: [5, 0], pedestrian: [6, 0], footway: [2.5, 0], path: [2, 0], cycleway: [2.5, 0], steps: [3, 0], track: [4, 0] };
+  function callesInterpretadas(N, Z, red) {
+    var tramos = [];
+    red.vias.forEach(function (v) {
+      if (v.puente) return;
+      var an = ANCHOS[v.tipo]; if (!an) return;
+      var pts = v.ids.map(function (id) { return red.nodos[id]; });
+      // perfil del eje cada 3 m, suavizado ±10 m
+      var m = [], acc = 0;
+      for (var i = 0; i < pts.length - 1; i++) { var a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 3)); for (var k = 0; k < n; k++) { var t = k / n; m.push({ p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], s: acc + L * t }); } acc += L; }
+      m.push({ p: pts[pts.length - 1], s: acc });
+      var z = m.map(function (o) { return (Math.abs(o.p[0]) < LADO / 2 && Math.abs(o.p[1]) < LADO / 2) ? muestrear(Z, N, o.p[0], o.p[1]) : NaN; });
+      var zs = z.map(function (_, i) { var sm = 0, n = 0; for (var k = Math.max(0, i - 3); k <= Math.min(z.length - 1, i + 3); k++) if (!isNaN(z[k])) { sm += z[k]; n++; } return n ? sm / n : NaN; });
+      tramos.push({ m: m, zs: zs, cal: an[0] / 2, ver: an[1], esc: v.tipo === 'steps' });
+    });
+    var out = Z.slice(), D = new Float32Array(N * N).fill(NaN);
+    for (var j = 0; j < N; j++) for (var i2 = 0; i2 < N; i2++) {
+      var x = -LADO / 2 + (i2 + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, mejor = null, dmin = Infinity;
+      tramos.forEach(function (t) {
+        var lim = t.cal + t.ver + 1.5;
+        for (var q = 0; q < t.m.length - 1; q++) {
+          var a = t.m[q].p, b = t.m[q + 1].p, abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby;
+          var u = L2 > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * abx + (y - a[1]) * aby) / L2)) : 0;
+          var d = Math.hypot(x - (a[0] + abx * u), y - (a[1] + aby * u));
+          if (d < dmin && d <= lim) { dmin = d; mejor = { t: t, z: t.zs[q] + (t.zs[q + 1] - t.zs[q]) * u, d: d }; }
+        }
+      });
+      if (!mejor || isNaN(mejor.z) || mejor.t.esc) continue;
+      var k2 = j * N + i2, zr = mejor.z + (mejor.d > mejor.t.cal ? 0.2 : 0), dd = zr - Z[k2];
+      if (Math.abs(dd) <= 3) D[k2] = dd;
+    }
+    // la corrección se desvanece ~6 m hacia afuera
+    for (var paso = 1; paso <= 2; paso++) {
+      var nuevos = [];
+      for (var j2 = 1; j2 < N - 1; j2++) for (var i3 = 1; i3 < N - 1; i3++) { var k3 = j2 * N + i3; if (!isNaN(D[k3])) continue; var sm = 0, n2 = 0; [k3 - 1, k3 + 1, k3 - N, k3 + N].forEach(function (q) { if (!isNaN(D[q])) { sm += D[q]; n2++; } }); if (n2) nuevos.push([k3, sm / n2 * (1 - paso / 3)]); }
+      nuevos.forEach(function (e) { D[e[0]] = e[1]; });
+    }
+    for (var q2 = 0; q2 < N * N; q2++) if (!isNaN(D[q2])) out[q2] += D[q2];
+    return out;
+  }
   function metodoRios(N, C, red) {
     var D = C.slice();
     red.rios.forEach(function (r) {
@@ -399,7 +443,9 @@
             var variantes = [
               ['F · solo filtro', FS.Z], ['F → vías', V1], ['F → vías → ríos', metodoRios(N, V1, red)],
               ['F → ríos → vías (orden inverso)', metodoVias(N, metodoRios(N, FS.Z, red), red, { sinPuentes: true }).C],
-              ['F → vías por categoría', V2], ['F → vías por categoría → ríos', metodoRios(N, V2, red)]
+              ['F → vías por categoría', V2], ['F → vías por categoría → ríos', metodoRios(N, V2, red)],
+              ['F → vías → ríos → calles interpretadas', callesInterpretadas(N, metodoRios(N, V1, red), red)],
+              ['… → calles interpretadas → vías de nuevo (2ª corrida)', metodoVias(N, callesInterpretadas(N, metodoRios(N, V1, red), red), red, { sinPuentes: true }).C]
             ];
             var callesV = new Uint8Array(N * N); metodoVias(N, FS.Z, red).ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k4 = idx(N, p[0] + dx, p[1] + dy); if (k4 >= 0) callesV[k4] = 1; } });
             ablacion.push({ zona: Z.nombre, filas: [['A · ALOS solo', A]].concat(variantes).map(function (v) { var m1 = metricas(N, v[1], T), m2 = metricas(N, v[1], T, callesV); return [v[0], m1.rmse, m2.rmse, pendienteRMSE(N, v[1], T)]; }) });
@@ -408,7 +454,7 @@
           var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
           var mA = metricas(N, A, T), mD = metricas(N, D, T), mE = metricas(N, E, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles), cE = metricas(N, E, T, calles);
           filasZona.push({ base: BS.nombre, A: mA, D: mD, E: mE, cA: cA, cD: cD, cE: cE, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T), pE: pendienteRMSE(N, E, T), obj: FS.fraccionObjeto });
-          if (BS.id === 'cop') { copD = E; sesgoCop = mE.sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
+          if (BS.id === 'cop') { var G = callesInterpretadas(N, E, red); copD = G; sesgoCop = metricas(N, G, T).sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
         } catch (e) { log('    ✗ ' + BS.nombre + ': ' + e); }
       }
       var todos = []; filasZona.forEach(function (f) { todos.push(f.A.rmse, f.D.rmse, f.E.rmse); });
