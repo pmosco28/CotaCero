@@ -128,6 +128,11 @@
   .maq-panel input[type=checkbox] { accent-color: #2b2a27; margin: 0; }
   .maq-panel input[type=color] { width: 24px; height: 18px; padding: 0; border: 1px solid #c9c6bf; border-radius: 3px; background: none; }
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
+  .maq-terreno { display: flex; margin: 8px 0 4px; }
+  .maq-terreno button { flex: 1; font: inherit; font-size: 0.72rem; padding: 6px 8px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; cursor: pointer; }
+  .maq-terreno button + button { border-left-width: 0; }
+  .maq-terreno button:first-child { border-radius: 4px 0 0 4px; } .maq-terreno button:last-child { border-radius: 0 4px 4px 0; }
+  .maq-terreno button.activa { background: #2b2a27; color: #f3f1ec; }
   .maq-vistas-flot { position: relative; z-index: 6; height: 52px; margin-top: -52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
   .maq-vistas-flot button { pointer-events: auto; font: inherit; font-size: 0.74rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: rgba(250,249,246,.94); color: #2b2a27; border: 1px solid #2b2a27; border-left-width: 0; padding: 7px 14px; cursor: pointer; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
   .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 4px 0 0 4px; }
@@ -4315,12 +4320,23 @@
     // Cada capa es la región con cota ≥ L, extruida 1 m, con la lámina impresa encima. Todo lo que
     // está sobre el terreno (edificios, árboles, lote, volumen) se apoya en la terraza que le toca.
     var grupoTerrazas = new THREE.Group(); scene.add(grupoTerrazas);
+    // Terreno triangulado (malla continua sobre la grilla de 1 m, con la lámina impresa): lectura
+    // "real" para el cliente. La maqueta en terrazas de 1 m queda como alternativa.
+    var grupoTIN = new THREE.Group(); scene.add(grupoTIN);
+    var modoTerreno = 'tin'; try { modoTerreno = localStorage.getItem('cotacero-terreno') || 'tin'; } catch (e) { }
+    var reasentar = null;
+    function aplicarModoTerreno() {
+      var hayTIN = grupoTIN.children.length > 0, tin = modoTerreno === 'tin' && hayTIN;
+      grupoTIN.visible = tin; grupoTerrazas.visible = !tin;
+      if (reasentar) reasentar();
+    }
     var texTerraza = texLamina.clone(); texTerraza.needsUpdate = true;
     texTerraza.wrapS = texTerraza.wrapT = THREE.ClampToEdgeWrapping;
     texTerraza.repeat.set(1 / (2 * R), 1 / (2 * R)); texTerraza.offset.set(0.5, 0.5);
     var matTerraza = new THREE.MeshStandardMaterial({ map: texTerraza, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0, toneMapped: false });
     function construirTerrazas(G, zmin, zmax) {
       while (grupoTerrazas.children.length) { var o = grupoTerrazas.children.pop(); if (o.geometry) o.geometry.dispose(); }
+      while (grupoTIN.children.length) { var o2 = grupoTIN.children.pop(); if (o2.geometry) o2.geometry.dispose(); }
       var W = G.W, H = G.H;
       // cota mínima y máxima dentro del zócalo
       var lo = Infinity, hi = -Infinity;
@@ -4376,12 +4392,53 @@
         var m = new THREE.Mesh(g, [matTerraza, matCanto]); m.castShadow = true; m.receiveShadow = true;
         grupoTerrazas.add(m);
       });
-      // apoyar todo sobre su terraza
+      // ---- terreno triangulado: malla de la grilla dentro del zócalo + faldón en los 4 bordes ----
+      (function () {
+        var ii = [], jj = [];
+        for (var i = 0; i < W; i++) if (Math.abs(G.X[i]) <= R + 0.01) ii.push(i);
+        for (var j = 0; j < H; j++) if (Math.abs(G.Y[j * W]) <= R + 0.01) jj.push(j);
+        var nx = ii.length, ny = jj.length; if (nx < 2 || ny < 2) return;
+        var pos = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2), idxT = [];
+        function alt(i, j) { var z = G.Z[j * W + i]; return isNaN(z) ? 0 : Math.max(0, z - Lmin); }
+        for (var b = 0; b < ny; b++) for (var a = 0; a < nx; a++) {
+          var k = b * nx + a, x = G.X[ii[a]], y = G.Y[jj[b] * W];
+          pos[k * 3] = x; pos[k * 3 + 1] = alt(ii[a], jj[b]); pos[k * 3 + 2] = -y; uv[k * 2] = x; uv[k * 2 + 1] = y;
+        }
+        for (var b2 = 0; b2 < ny - 1; b2++) for (var a2 = 0; a2 < nx - 1; a2++) {
+          var q = b2 * nx + a2, r = q + 1, s2 = q + nx, t = s2 + 1;
+          // diagonal según la menor diferencia de altura (sigue mejor quiebres y muros)
+          if (Math.abs(pos[q * 3 + 1] - pos[t * 3 + 1]) < Math.abs(pos[r * 3 + 1] - pos[s2 * 3 + 1])) idxT.push(q, s2, t, q, t, r); else idxT.push(q, s2, r, r, s2, t);
+        }
+        var g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        g.setIndex(idxT);
+        // ExtrudeGeometry tiene la Y de la forma hacia el norte; acá z = −y, así que el orden de los
+        // triángulos se invierte para que las caras miren hacia arriba
+        if (ddy < 0) { var ix = g.getIndex().array; for (var c = 0; c < ix.length; c += 3) { var tmp = ix[c + 1]; ix[c + 1] = ix[c + 2]; ix[c + 2] = tmp; } }
+        g.computeVertexNormals();
+        var mT = new THREE.Mesh(g, matTerraza); mT.receiveShadow = true; mT.castShadow = true; grupoTIN.add(mT);
+        // faldón: del borde de la malla hasta la base del zócalo
+        var fp = [], fi = [];
+        function lado(lista) {
+          var base = fp.length / 3;
+          lista.forEach(function (k) { fp.push(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2], pos[k * 3], -0.3, pos[k * 3 + 2]); });
+          for (var m = 0; m < lista.length - 1; m++) { var a3 = base + m * 2; fi.push(a3, a3 + 1, a3 + 2, a3 + 2, a3 + 1, a3 + 3); }
+        }
+        var arriba = [], abajo = [], izq = [], der = [];
+        for (var a4 = 0; a4 < nx; a4++) { arriba.push(a4); abajo.push((ny - 1) * nx + a4); }
+        for (var b4 = 0; b4 < ny; b4++) { izq.push(b4 * nx); der.push(b4 * nx + nx - 1); }
+        [arriba, abajo, izq, der].forEach(lado);
+        var gf = new THREE.BufferGeometry(); gf.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); gf.setIndex(fi); gf.computeVertexNormals();
+        var mF = new THREE.Mesh(gf, new THREE.MeshStandardMaterial({ color: matCanto.color, roughness: 0.95, side: THREE.DoubleSide })); grupoTIN.add(mF);
+      })();
+      // apoyar todo sobre el terreno (terraza de 1 m o malla continua, según el modo)
       function cota(p) {
         var i = Math.round((p[0] - G.X[0]) / ddx), j = Math.round((p[1] - G.Y[0]) / ddy);
         if (i < 0 || j < 0 || i >= W || j >= H) return 0;
-        var z = G.Z[j * W + i]; return isNaN(z) ? 0 : Math.max(0, Math.floor(z) - Lmin);
+        var z = G.Z[j * W + i]; if (isNaN(z)) return 0;
+        return (modoTerreno === 'tin' && grupoTIN.children.length) ? Math.max(0, z - Lmin) : Math.max(0, Math.floor(z) - Lmin);
       }
+      reasentar = function () {
       // Edificios en ladera: arrancan en la terraza MÁS BAJA que pisa su huella (quedan enterrados del
       // lado alto, nunca flotando del lado bajo) y conservan su altura sobre el punto medio; la
       // diferencia (hasta 12 m) se suma abajo, como los pisos que bajan por el barranco.
@@ -4407,6 +4464,8 @@
       grupoVolumen.children.forEach(function (sub) { if (sub.userData && sub.userData.cotaRef) sub.position.y = cota(sub.userData.cotaRef) - cLote; });
       if (/debug=lamina/.test(location.search)) window.__vol = { cLote: cLote, subs: grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; }).map(function (o) { return { y: o.position.y, ref: o.userData.cotaRef, n: o.children.length }; }) };
       meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
+      };
+      aplicarModoTerreno();
       // con terrazas, el predio va pintado en la lámina (sigue cada curva) en vez de una lámina plana flotando
       loteEnLamina = true; meshLoteSuperficie.visible = false; if (lineaLoteMesh) lineaLoteMesh.visible = false;
       solicitarRender();
@@ -4852,6 +4911,7 @@
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
+        '<div class="maq-terreno"><button type="button" data-terreno="tin"' + (modoTerreno === 'tin' ? ' class="activa"' : '') + '>Terreno</button><button type="button" data-terreno="terrazas"' + (modoTerreno !== 'tin' ? ' class="activa"' : '') + '>Maqueta en capas</button></div>' +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
         '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>' +
         '</div></details>';
@@ -4881,6 +4941,13 @@
       });
       var lnkPriv = p.querySelector('.maq-ficha-priv');
       if (lnkPriv) lnkPriv.addEventListener('click', function (ev) { ev.preventDefault(); var l = document.getElementById('link-privacidad'); if (l) l.click(); });
+      p.querySelectorAll('[data-terreno]').forEach(function (bt) {
+        bt.addEventListener('click', function () {
+          modoTerreno = bt.getAttribute('data-terreno'); try { localStorage.setItem('cotacero-terreno', modoTerreno); } catch (e) { }
+          p.querySelectorAll('[data-terreno]').forEach(function (o) { o.classList.toggle('activa', o === bt); });
+          aplicarModoTerreno(); solicitarRender();
+        });
+      });
       p.querySelectorAll('input[data-capa]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
