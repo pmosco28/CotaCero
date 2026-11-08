@@ -89,7 +89,7 @@
   .mapa-stage:not(.modo-3d) .icono-3d-col { display: none; }
   .mapa-stage:not(.modo-3d) .mapa-col { flex: 1 1 100%; }
   .mapa-ventana { position: relative; width: 100%; height: min(76vh, 720px); }
-  .capa-predios-gris { filter: grayscale(1) contrast(1.1); opacity: .55; mix-blend-mode: multiply; }
+  .capa-base-plano { filter: grayscale(1) contrast(1.25) brightness(1.02); }
   .leaflet-container .leaflet-control-attribution { background: transparent; color: #8a867e; font-size: 0.62rem; }
   #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
   .mapa-fade {
@@ -933,15 +933,11 @@
   // directo a los servidores de Google (uso no permitido por sus términos).
   var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
-  // Base: CARTO Positron (OSM), clara y en grises, con nombres de calles. Uso comercial gratuito hasta
-  // 1 millón de teselas al mes con una clave gratuita de CARTO (CARTO_KEY). Encima, los predios del
-  // catastro municipal (WMS del IDE Cuenca) en gris, desde el zoom de manzana.
-  var CARTO_KEY = '';
-  var capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' + (CARTO_KEY ? '?key=' + CARTO_KEY : ''), {
-    subdomains: 'abcd', maxZoom: 20, maxNativeZoom: 19, attribution: '© OpenStreetMap · © CARTO · Predios: IDE GAD Cuenca'
-  }).addTo(mapa);
-  L.tileLayer.wms(IDE_CUENCA_WMS, {
-    layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', minZoom: 16, maxZoom: 20, className: 'capa-predios-gris'
+  // Base: "Mapa Base" oficial del GAD (IDE Cuenca, WMS): predios, vías y nombres de calles. Se
+  // muestra en escala de grises (filtro CSS) para que el mapa sea blanco y negro, como un plano.
+  var capaBase = L.tileLayer.wms(IDE_CUENCA_WMS, {
+    layers: 'ide_interno:mapa_base', format: 'image/png', transparent: false, version: '1.1.1',
+    tileSize: 512, zoomOffset: 0, maxZoom: 20, className: 'capa-base-plano', attribution: 'Mapa base: GAD Municipal de Cuenca (IDE)'
   }).addTo(mapa);
   // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
   // en sí no se puede acelerar (depende del servidor del IDE Cuenca), pero sí dar una señal de que algo está
