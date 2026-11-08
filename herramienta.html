@@ -748,6 +748,8 @@
   .checkout ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
   .checkout li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(28,26,22,.08); padding: 4px 0; font-weight: 300; }
   .checkout li b { font-weight: 600; white-space: nowrap; } .checkout li.tot { border-bottom: 0; font-weight: 600; }
+  .modal-correo { font: inherit; font-size: 0.95rem; padding: 12px; border: 1px solid #1C1A16; border-radius: 10px; background: #fff; }
+  .modal-ok { font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 10px; background: #B2502E; color: #fff; cursor: pointer; }
   .checkout-btns { display: grid; gap: 8px; margin-top: 6px; }
   .checkout-btns a { display: block; text-align: center; text-decoration: none; font-weight: 700; padding: 12px; border-radius: 10px; }
   .checkout-pagar { background: #B2502E; color: #fff; } .checkout-wa { background: #1C1A16; color: #fff; }
@@ -806,6 +808,10 @@
   .ped-resumen { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
   .ped-continuar { font: inherit; font-weight: 700; height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #B2502E; color: #fff; cursor: pointer; }
   .maq-sol { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
+  .maq-sol-lab { width: 3.4em; font-weight: 300; color: #5E5B55; } .maq-sol-fecha, .maq-sol-txt { min-width: 3.6em; text-align: right; font-weight: 600; }
+  .maq-sol-rapido { display: flex; gap: 6px; } .maq-sol-rapido button { font: inherit; font-size: 0.72rem; padding: 4px 10px; border: 1px solid rgba(28,26,22,.25); border-radius: 999px; background: transparent; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .sol-etiqueta { position: absolute; z-index: 7; transform: translate(-50%, -100%); pointer-events: none; background: rgba(28,26,22,.9); color: #f3f1ec; padding: 5px 9px; border-radius: 8px; font-size: 0.72rem; line-height: 1.3; display: grid; text-align: center; white-space: nowrap; }
+  .sol-etiqueta[hidden] { display: none; } .sol-etiqueta span { font-weight: 300; font-size: 0.66rem; opacity: .8; }
   .maq-sol-fila { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; } .maq-sol-fila input[type=range] { flex: 1; accent-color: #1C1A16; }
 
   /* ---------- privacidad (LOPDP) ---------- */
@@ -1501,6 +1507,37 @@
   // Estado del estudio de sombras — persiste entre predios para no reiniciar la preferencia del
   // usuario cada vez que elige un lote nuevo.
   var sombrasActivas = true;
+  // ---------- Posición del sol en Cuenca (lat −2,9°, lon −79,0°, hora local UTC−5) ----------
+  // Declinación (Cooper) y ecuación del tiempo; precisión de ~1° y pocos minutos, de sobra para ver
+  // sombras. Azimut desde el norte en sentido horario.
+  var SOL_LAT = -2.9 * Math.PI / 180, SOL_CORR_LON = (-79.0 + 75) / 15; // horas (−16 min)
+  var MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function diaDelAnoHoy() { var a = new Date(), i = new Date(a.getFullYear(), 0, 0); return Math.floor((a - i) / 86400000); }
+  function solDeclinacion(dia) { return -23.44 * Math.PI / 180 * Math.cos(2 * Math.PI * (dia + 10) / 365); }
+  function solEoT(dia) { var B = 2 * Math.PI * (dia - 81) / 365; return (9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)) / 60; }
+  function posSolar(dia, hora) {
+    var d = solDeclinacion(dia), solar = hora + SOL_CORR_LON + solEoT(dia), H = (solar - 12) * 15 * Math.PI / 180;
+    var alt = Math.asin(Math.sin(SOL_LAT) * Math.sin(d) + Math.cos(SOL_LAT) * Math.cos(d) * Math.cos(H));
+    var cz = (Math.sin(d) - Math.sin(alt) * Math.sin(SOL_LAT)) / (Math.cos(alt) * Math.cos(SOL_LAT));
+    var az = Math.acos(Math.max(-1, Math.min(1, cz))); if (H > 0) az = 2 * Math.PI - az;
+    return { alt: alt, az: az };
+  }
+  // de una dirección del cielo (alt, az) a la fecha y hora en que el sol pasa por ahí
+  function inversaSolar(alt, az, diaRef) {
+    var dMax = 23.44 * Math.PI / 180;
+    var d = Math.asin(Math.max(-1, Math.min(1, Math.sin(SOL_LAT) * Math.sin(alt) + Math.cos(SOL_LAT) * Math.cos(alt) * Math.cos(az))));
+    d = Math.max(-dMax, Math.min(dMax, d));
+    var cH = (Math.sin(alt) - Math.sin(SOL_LAT) * Math.sin(d)) / (Math.cos(SOL_LAT) * Math.cos(d));
+    var H = Math.acos(Math.max(-1, Math.min(1, cH))); if (az < Math.PI) H = -H;
+    var th = Math.acos(Math.max(-1, Math.min(1, -d / dMax))), per = 365 / (2 * Math.PI);
+    var cand = [th * per - 10, (2 * Math.PI - th) * per - 10].map(function (n) { n = ((Math.round(n) - 1) % 365 + 365) % 365 + 1; return n; });
+    var dist = function (n) { var x = Math.abs(n - diaRef); return Math.min(x, 365 - x); };
+    var dia = dist(cand[0]) <= dist(cand[1]) ? cand[0] : cand[1];
+    var hora = 12 + H * 180 / Math.PI / 15 - SOL_CORR_LON - solEoT(dia);
+    return { dia: dia, hora: Math.max(5, Math.min(19, hora)) };
+  }
+  function fechaDeDia(dia) { var f = new Date(new Date().getFullYear(), 0, dia); return f.getDate() + ' ' + MESES_CORTOS[f.getMonth()]; }
+  var diaSol = diaDelAnoHoy(), cartaSolarVisible = false;
   var horaSol = 11;
   var volAnimId = null;
   var volControlsCleanup = null;
@@ -6034,6 +6071,7 @@
     // en el plano perpendicular a la vista, a la distancia del punto que se mira.
     var overlayNorte = null, overlayEscala = null;
     function actualizarOverlay() {
+      if (typeof posicionarEtiquetaSol === 'function' && gCarta) posicionarEtiquetaSol();
       if (!overlayNorte) return;
       var w0 = canvas.clientWidth, h0 = canvas.clientHeight;
       function aPant(v) { var q = v.clone().project(camera); return [(q.x + 1) / 2 * w0, (1 - q.y) / 2 * h0]; }
@@ -6165,6 +6203,111 @@
       if (rangoHora && onRangoHoraInput) rangoHora.removeEventListener('input', onRangoHoraInput);
     };
 
+    // ---------- Carta solar: cúpula sobre el lote con las trayectorias del sol (solsticios y
+    // equinoccio), líneas de hora y el sol, que se arrastra por la cúpula: al moverlo cambian la fecha
+    // y la hora, la luz y las sombras. ----------
+    var gCarta = new THREE.Group(); gCarta.visible = cartaSolarVisible; scene.add(gCarta);
+    var cLote = estado.centroideLote || [0, 0];
+    var boxV = new THREE.Box3().setFromObject(grupoVolumen);
+    var C0 = new THREE.Vector3(cLote[0], isFinite(boxV.min.y) ? boxV.min.y : 0, -cLote[1]);
+    var Rd = Math.max(maxDim * 1.25, 35);
+    function dirSol(alt, az) { return new THREE.Vector3(Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt)); }
+    function lineaCarta(pts, color, op, ancho) {
+      var g = new THREE.BufferGeometry().setFromPoints(pts);
+      var l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: op, depthWrite: false }));
+      l.renderOrder = 3; gCarta.add(l); return l;
+    }
+    (function armarCarta() {
+      var i, k, pts;
+      // horizonte y anillos de altura (30°, 60°)
+      [0, 30, 60].forEach(function (a) {
+        pts = []; for (i = 0; i <= 96; i++) pts.push(C0.clone().add(dirSol(a * Math.PI / 180, i / 96 * 2 * Math.PI).multiplyScalar(Rd)));
+        lineaCarta(pts, 0x1C1A16, a ? 0.18 : 0.45);
+      });
+      // meridianos cada 30°
+      for (k = 0; k < 12; k++) { pts = []; for (i = 0; i <= 24; i++) pts.push(C0.clone().add(dirSol(i / 24 * Math.PI / 2, k * Math.PI / 6).multiplyScalar(Rd))); lineaCarta(pts, 0x1C1A16, 0.1); }
+      // trayectorias: solsticios y equinoccio
+      [[172, 0x8F3F23], [80, 0x8F3F23], [355, 0x8F3F23]].forEach(function (dc) {
+        pts = []; for (var h = 5; h <= 19; h += 0.1) { var s = posSolar(dc[0], h); if (s.alt > 0) pts.push(C0.clone().add(dirSol(s.alt, s.az).multiplyScalar(Rd))); }
+        if (pts.length > 1) lineaCarta(pts, dc[1], 0.55);
+      });
+      // líneas de hora (6 a 18), a lo largo del año
+      for (var hr = 6; hr <= 18; hr++) {
+        pts = []; for (var dd = 172; dd <= 172 + 183; dd += 6) { var s2 = posSolar(((dd - 1) % 365) + 1, hr); if (s2.alt > 0) pts.push(C0.clone().add(dirSol(s2.alt, s2.az).multiplyScalar(Rd))); }
+        if (pts.length > 1) lineaCarta(pts, 0x1C1A16, 0.22);
+      }
+      // rótulo N
+      var cv = document.createElement('canvas'); cv.width = cv.height = 64; var cx = cv.getContext('2d');
+      cx.fillStyle = '#1C1A16'; cx.font = '600 44px Inter Tight, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('N', 32, 34);
+      var spN = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthWrite: false, transparent: true }));
+      spN.scale.set(Rd * 0.09, Rd * 0.09, 1); spN.position.copy(C0.clone().add(new THREE.Vector3(0, Rd * 0.04, -Rd * 1.08))); gCarta.add(spN);
+    })();
+    var lineaDia = null;
+    var solMesh = new THREE.Mesh(new THREE.SphereGeometry(Rd * 0.045, 20, 14), new THREE.MeshBasicMaterial({ color: 0xF2A93B }));
+    var halo = new THREE.Mesh(new THREE.SphereGeometry(Rd * 0.08, 20, 14), new THREE.MeshBasicMaterial({ color: 0xF2A93B, transparent: true, opacity: 0.25, depthWrite: false }));
+    solMesh.add(halo); gCarta.add(solMesh);
+    var rayoSol = lineaCarta([C0.clone(), C0.clone()], 0xF2A93B, 0.7);
+    var etiquetaSol = document.createElement('div'); etiquetaSol.className = 'sol-etiqueta'; etiquetaSol.hidden = true;
+    if (canvas.parentElement) { var vieja = canvas.parentElement.querySelector('.sol-etiqueta'); if (vieja) vieja.remove(); canvas.insertAdjacentElement('afterend', etiquetaSol); }
+    var avisoPanelSol = null; // callback del panel (sincroniza los controles)
+    function actualizarSol() {
+      var s = posSolar(diaSol, horaSol), v = dirSol(Math.max(s.alt, 0.02), s.az);
+      solMesh.position.copy(C0.clone().add(v.clone().multiplyScalar(Rd)));
+      rayoSol.geometry.setFromPoints([C0.clone(), solMesh.position.clone()]);
+      if (lineaDia) { gCarta.remove(lineaDia); lineaDia.geometry.dispose(); }
+      var pts = []; for (var h = 5; h <= 19; h += 0.1) { var q = posSolar(diaSol, h); if (q.alt > 0) pts.push(C0.clone().add(dirSol(q.alt, q.az).multiplyScalar(Rd))); }
+      lineaDia = pts.length > 1 ? lineaCarta(pts, 0xF2A93B, 0.95) : null;
+      var dist = Math.max(maxDim * 4, radioContexto * 2.5);
+      if (s.alt > 0) { dirLight.position.copy(target.clone().add(v.clone().multiplyScalar(dist))); dirLight.intensity = 2.1; }
+      else dirLight.intensity = 0.25; // de noche casi sin sol
+      etiquetaSol.innerHTML = '<b>' + fechaDeDia(diaSol) + ' · ' + formatoHora(horaSol) + '</b><span>' + (s.alt > 0 ? 'sol a ' + Math.round(s.alt * 180 / Math.PI) + '° de altura' : 'bajo el horizonte') + '</span>';
+      posicionarEtiquetaSol();
+      if (avisoPanelSol) avisoPanelSol();
+      solicitarRender();
+    }
+    function posicionarEtiquetaSol() {
+      etiquetaSol.hidden = !gCarta.visible; if (!gCarta.visible) return;
+      var q = solMesh.position.clone().project(camera), w0 = canvas.clientWidth, h0 = canvas.clientHeight;
+      etiquetaSol.style.left = (canvas.offsetLeft + (q.x + 1) / 2 * w0) + 'px'; etiquetaSol.style.top = (canvas.offsetTop + (1 - q.y) / 2 * h0 - 22) + 'px';
+    }
+    function mostrarCartaSolar(si) {
+      cartaSolarVisible = !!si; gCarta.visible = cartaSolarVisible;
+      dirLight.castShadow = true;
+      if (cartaSolarVisible) {
+        // encuadre: que se vea la cúpula completa
+        if (radius < Rd * 3.2) ajustarZoom(Rd * 3.2);
+        if (phi > 1.05) phi = 1.0;
+        actualizarCamara(); actualizarSol();
+      } else { etiquetaSol.hidden = true; solicitarRender(); }
+    }
+    function ponerSol(dia, hora) { diaSol = dia; horaSol = hora; actualizarSol(); }
+    // arrastre del sol por la cúpula (mouse y dedo); si el toque cae cerca del sol no se gira la cámara
+    var arrastrandoSol = false, rcSol = new THREE.Raycaster(), esfera = new THREE.Sphere(C0, Rd);
+    function cercaDelSol(e) {
+      if (!gCarta.visible) return false;
+      var r = canvas.getBoundingClientRect(), q = solMesh.position.clone().project(camera);
+      var sx = r.left + (q.x + 1) / 2 * r.width, sy = r.top + (1 - q.y) / 2 * r.height;
+      return Math.hypot(e.clientX - sx, e.clientY - sy) < (e.pointerType === 'touch' ? 34 : 22);
+    }
+    function solDown(e) { if (!cercaDelSol(e)) return; arrastrandoSol = true; e.stopImmediatePropagation(); e.preventDefault(); canvas.style.cursor = 'grabbing'; }
+    function solMove(e) {
+      if (!arrastrandoSol) { if (e.pointerType === 'mouse' && gCarta.visible) canvas.style.cursor = cercaDelSol(e) ? 'grab' : ''; return; }
+      e.stopImmediatePropagation();
+      var r = canvas.getBoundingClientRect();
+      rcSol.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -((e.clientY - r.top) / r.height * 2 - 1) }, camera);
+      var p = new THREE.Vector3();
+      if (!rcSol.ray.intersectSphere(esfera, p)) { rcSol.ray.closestPointToPoint(C0, p); }
+      var v = p.sub(C0).normalize(), alt = Math.max(0.02, Math.asin(Math.max(-1, Math.min(1, v.y)))), az = Math.atan2(v.x, -v.z); if (az < 0) az += 2 * Math.PI;
+      var inv = inversaSolar(alt, az, diaSol); diaSol = inv.dia; horaSol = Math.round(inv.hora * 12) / 12; actualizarSol();
+    }
+    function solUp() { if (arrastrandoSol) { arrastrandoSol = false; canvas.style.cursor = ''; } }
+    canvas.addEventListener('pointerdown', solDown, true);
+    window.addEventListener('pointermove', solMove, true);
+    window.addEventListener('pointerup', solUp, true);
+    var limpiarSol = function () { canvas.removeEventListener('pointerdown', solDown, true); window.removeEventListener('pointermove', solMove, true); window.removeEventListener('pointerup', solUp, true); etiquetaSol.remove(); };
+
+    var limpiarControles0 = volControlsCleanup;
+    volControlsCleanup = function () { if (limpiarControles0) limpiarControles0(); limpiarSol(); };
     // ---------- Panel de la maqueta: capas, colores y vistas ----------
     (function panelMaqueta() {
       var wrap = canvas.parentElement; if (!wrap) return;
@@ -6211,10 +6354,12 @@
             (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
               : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
           '</div>' +
-          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento</div>' +
-            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (sombrasActivas ? ' checked' : '') + '> Ver sombras</label>' +
-            '<div class="maq-sol-fila"><input type="range" class="maq-sol-hora" min="6" max="18" step="0.25" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
-            '<div class="maq-nota">Mueve la hora para ver cómo cae la sombra de tu volumen y de los vecinos. Un estudio completo (todo el año, horas de sol por fachada) está en Solicitar.</div>' +
+          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento · carta solar</div>' +
+            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (cartaSolarVisible ? ' checked' : '') + '> Mostrar la cúpula solar</label>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Fecha</span><input type="range" class="maq-sol-dia" min="1" max="365" step="1" value="' + diaSol + '"><span class="maq-sol-fecha">' + fechaDeDia(diaSol) + '</span></div>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Hora</span><input type="range" class="maq-sol-hora" min="5.5" max="18.5" step="0.0833" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
+            '<div class="maq-sol-rapido"><button type="button" data-dia="172">21 jun</button><button type="button" data-dia="80">21 mar</button><button type="button" data-dia="355">21 dic</button></div>' +
+            '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
           '</div>' +
         '</div>' +
         '<div class="maq-sec maq-pedir" data-sec="pedir"' + (secAbierta.pedir ? '' : ' hidden') + '>' +
@@ -6274,12 +6419,17 @@
       var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
       conectarSolicitar(p, estado);
       // asoleamiento: usa los mismos controles (ocultos) de sombra y hora de la escena
-      var solChk = p.querySelector('.maq-sol-chk'), solHora = p.querySelector('.maq-sol-hora'), solTxt = p.querySelector('.maq-sol-txt');
-      if (solChk && chkSombras) solChk.addEventListener('change', function () { chkSombras.checked = solChk.checked; chkSombras.dispatchEvent(new Event('change')); });
-      if (solHora && rangoHora) solHora.addEventListener('input', function () {
-        if (chkSombras && !chkSombras.checked) { chkSombras.checked = true; chkSombras.dispatchEvent(new Event('change')); if (solChk) solChk.checked = true; }
-        rangoHora.value = solHora.value; rangoHora.dispatchEvent(new Event('input')); if (solTxt) solTxt.textContent = formatoHora(parseFloat(solHora.value));
-      });
+      var solChk = p.querySelector('.maq-sol-chk'), solHora = p.querySelector('.maq-sol-hora'), solTxt = p.querySelector('.maq-sol-txt'), solDia = p.querySelector('.maq-sol-dia'), solFecha = p.querySelector('.maq-sol-fecha');
+      avisoPanelSol = function () {
+        if (solHora && document.activeElement !== solHora) solHora.value = horaSol; if (solTxt) solTxt.textContent = formatoHora(horaSol);
+        if (solDia && document.activeElement !== solDia) solDia.value = diaSol; if (solFecha) solFecha.textContent = fechaDeDia(diaSol);
+      };
+      if (solChk) solChk.addEventListener('change', function () { mostrarCartaSolar(solChk.checked); });
+      function encenderSiHaceFalta() { if (!cartaSolarVisible) { if (solChk) solChk.checked = true; mostrarCartaSolar(true); } }
+      if (solHora) solHora.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(diaSol, parseFloat(solHora.value)); });
+      if (solDia) solDia.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(parseInt(solDia.value, 10), horaSol); });
+      p.querySelectorAll('.maq-sol-rapido button').forEach(function (bq) { bq.addEventListener('click', function () { encenderSiHaceFalta(); ponerSol(parseInt(bq.getAttribute('data-dia'), 10), horaSol); }); });
+      if (cartaSolarVisible) actualizarSol();
       var b3d = p.querySelector('.maq-3d-btn');
       if (b3d) b3d.addEventListener('click', function () {
         var inC = p.querySelector('.maq-ficha-correo'), correo = (inC.value || '').trim(), msgF = p.querySelector('.maq-ficha-msg');
@@ -7238,13 +7388,12 @@
     'entorno-mejorado': { ico: 'camara', corta: 'Fachadas y detalles levantados con fotos en sitio' },
     'analisis-sitio': { ico: 'lupa', corta: 'Equipamientos, accesibilidad y entorno' },
     'cabida': { ico: 'grafico', corta: 'Qué y cuánto conviene construir' },
-    'asoleamiento': { ico: 'sol', corta: 'Sol y sombras todo el año, por fachada' },
     'diseno-lotizacion': { ico: 'lotes', corta: 'Lotes, vía interna y áreas verdes' }
   };
   var GRUPOS_PEDIDO = [
     { id: 'construir', tit: 'Construir', ico: 'sello', sub: 'Documentación legal y municipal para construir o saber qué construir', ids: ['planimetrico-iprus', 'levantamiento', 'planimetrico', 'croquis', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
     { id: 'archivos', tit: 'Archivos', ico: 'cubo', sub: 'Maquetas y archivos para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
-    { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'asoleamiento', 'diseno-lotizacion'] }
+    { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'diseno-lotizacion'] }
   ];
   // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
   // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
@@ -7342,7 +7491,34 @@
     actualizarCarrito(estado, p);
   }
   // Botones flotantes junto a WhatsApp: "Ficha gratis" (siempre que haya un predio) y "Tu pedido"
+  // Ficha gratis desde el botón flotante: pide el correo (obligatorio) en una ventanita y descarga
+  // con el mismo flujo del bloque de Normativa (registro del interesado + PDF).
   function abrirFichaGratis() {
+    var p = document.querySelector('.maq-panel'); if (!p || !estadoSeleccionado) return;
+    var m = document.getElementById('modal-ficha'); if (m) m.remove();
+    var guardado = ''; try { guardado = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
+    m = document.createElement('div'); m.id = 'modal-ficha'; m.className = 'checkout';
+    m.innerHTML = '<form class="checkout-caja" novalidate><button type="button" class="checkout-x" aria-label="Cerrar">×</button>' +
+      '<div class="maq-estudio-tit">Ficha gratis del predio ' + (estadoSeleccionado.esUnion ? estadoSeleccionado.claves.join(' + ') : (estadoSeleccionado.clave || '')) + '</div>' +
+      '<div class="maq-nota">Normativa, qué puedes construir, usos de suelo, afectaciones y qué te toca gestionar. Te la enviamos a tu correo y la descargas ahora.</div>' +
+      '<input type="email" class="modal-correo" placeholder="Tu correo" autocomplete="email" required value="' + escaparSvg(guardado) + '">' +
+      '<div class="modal-msg maq-nota" hidden></div>' +
+      '<button type="submit" class="modal-ok">Descargar ficha</button>' +
+      '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio.</div></form>';
+    document.body.appendChild(m);
+    var inp = m.querySelector('.modal-correo'), msg = m.querySelector('.modal-msg');
+    setTimeout(function () { try { inp.focus(); } catch (e) { } }, 50);
+    m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
+    m.querySelector('form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var c = (inp.value || '').trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)) { msg.hidden = false; msg.textContent = 'Escribe un correo válido: ahí te enviamos la ficha.'; inp.focus(); return; }
+      var pIn = p.querySelector('.maq-ficha-correo'), pBtn = p.querySelector('.maq-ficha-btn');
+      if (pIn && pBtn) { pIn.value = c; pBtn.click(); }
+      m.remove();
+    });
+  }
+  function irAFichaEnPanel() {
     var p = document.querySelector('.maq-panel'); if (!p) return;
     var b = p.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
     var f = p.querySelector('.maq-ficha'); if (!f) return;
@@ -8084,8 +8260,6 @@
       descripcion: 'Terreno, curvas, lotes, vías y edificios del entorno en DWG y SketchUp, listos para empezar un proyecto o una entrega académica.' },
     { id: 'entorno-mejorado', nombre: 'Entorno mejorado', precioBase: '', nota: 'según el área',
       descripcion: 'La maqueta del entorno levantada elemento por elemento (fachadas, alturas, vanos, cubiertas, árboles y mobiliario) a partir de fotografías de calle tomadas en sitio.' },
-    { id: 'asoleamiento', nombre: 'Estudio de asoleamiento', precioBase: '', nota: 'según el proyecto',
-      descripcion: 'Sombras y horas de sol por fachada a lo largo del año, sobre tu volumen y los vecinos.' },
     { id: 'cabida', nombre: 'Estudio de cabida y factibilidad', precioBase: '', nota: 'según el terreno',
       descripcion: 'Qué y cuánto conviene construir: alternativas de altura, unión o división de lotes y su rendimiento en m².' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
