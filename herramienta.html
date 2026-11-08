@@ -4820,7 +4820,7 @@
       __marca('s1_rasantes');
       // 2) máscaras de calzada y vereda en raster de 1 m (canvas)
       var Rm = R + 12, N = Math.ceil(2 * Rm), cv = document.createElement('canvas'); cv.width = cv.height = N;
-      var cx = cv.getContext('2d');
+      var cx = cv.getContext('2d', { willReadFrequently: true }); // se lee con getImageData: en CPU es mucho más rápido
       function camino(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) ctx.lineTo(u, v); else ctx.moveTo(u, v); }); ctx.closePath(); }); }
       function mascara(dibujar) { cx.clearRect(0, 0, N, N); cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; dibujar(); return cx.getImageData(0, 0, N, N).data; }
       var mCalz = mascara(function () { if (calzadaUnion) { cx.beginPath(); camino(cx, calzadaUnion); cx.fill('evenodd'); } });
