@@ -609,8 +609,9 @@
     <details class="editor-flotante" id="editorFlotante" open>
       <summary>Pisos <span id="label-pisos" class="mono">—</span></summary>
       <input type="range" id="slider-pisos" min="1" max="1" value="1">
-      <label class="vol-sombra-toggle"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label>
-      <input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11"><span id="label-hora" class="mono"></span>
+      <!-- Estudio de asoleamiento desactivado en esta etapa: la sombra queda fija (luz de estudio). -->
+      <label class="vol-sombra-toggle" hidden><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label>
+      <input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11" hidden><span id="label-hora" class="mono" hidden></span>
     </details>
   </div>
 </div>
@@ -709,15 +710,26 @@
     var lo = parseInt(m[1], 10), hi = m[2] ? parseInt(m[2], 10) : lo;
     return [lo, hi];
   }
+  // Áreas Históricas y Patrimoniales fuera del Centro Histórico (PIT AHP-*, p. ej. AHP-EJIDO-1):
+  // Ordenanza PPEAHP (30/04/2024) — hasta 4 plantas como regla general de las áreas históricas y
+  // retiros de 3 m; sin voladizos. Es REFERENCIAL: los determinantes finales de El Ejido están en la
+  // ficha del Plan de El Ejido (Anexo 5 de la ordenanza) y en el IPRUS del predio.
+  var regimenAreaHistorica = false;
+  var NORMATIVA_AREA_HISTORICA = {
+    determinantes: [
+      { altura: '1 a 4 pisos', lote_min: 0, frente_min: 0, implantacion: 'Continua con retiros (PPEAHP)', rf: 3, rl: 0, rp: 3, densidad_viv_ha: '—' }
+    ]
+  };
+  function determinantesActivos() { return regimenAreaHistorica ? NORMATIVA_AREA_HISTORICA.determinantes : NORMATIVA_REFERENCIA.determinantes; }
   function maxPisosDisponibles(areaM2) {
     var max = 1;
-    NORMATIVA_REFERENCIA.determinantes.forEach(function (n) {
+    determinantesActivos().forEach(function (n) {
       if (areaM2 >= n.lote_min) { var r = rangoPisos(n); if (r[1] > max) max = r[1]; }
     });
     return max;
   }
   function nivelParaPisos(pisos) {
-    var niveles = NORMATIVA_REFERENCIA.determinantes;
+    var niveles = determinantesActivos();
     var elegido = niveles[0];
     for (var i = 0; i < niveles.length; i++) {
       var r = rangoPisos(niveles[i]);
@@ -1938,7 +1950,9 @@
     // margen de protección puede no estar cargado en todas las zonas (capa más nueva, menos completa
     // que el catastro de vías). Umbral más generoso que el de vía (15m) porque en Cuenca casi siempre
     // hay un malecón/vía marginal entre el lote y el cauce real — exigir <15m descartaría casos reales.
-    var UMBRAL_RIO_M = 30;
+    // En áreas históricas (PIT AHP-*) el escalonamiento hacia el río aplica al predio frentista a la
+    // margen aunque entre el lote y el cauce haya una avenida — umbral más amplio.
+    var UMBRAL_RIO_M = (usoSuelo && /^AHP/i.test(usoSuelo.codPit || '')) ? 60 : 30;
     var ladosRio = ladosInfo.filter(function (l) {
       return (l.distRio != null && l.distRio <= UMBRAL_RIO_M) || (l.distMargen != null && l.distMargen <= UMBRAL_RIO_M);
     }).map(function (l) { return l.i; });
@@ -2520,6 +2534,16 @@
     // dibujarVolumetria también necesitan saber si el predio es centro histórico — ahí decide si usar
     // la tipología de pabellones+patios grandes (lotes "Aislada" con retiros reales) o la de patio
     // central con edificio perimetral adosado a los colindantes (ver dividirEnBloques más abajo).
+    // Régimen normativo por el PIT OFICIAL del predio (capa iprus:usos_especificos), no por distancia:
+    // el radio desde la Catedral clasificaba El Ejido (AHP-EJIDO-1, al sur del río) como centro
+    // histórico y le daba un tope "conservador" de 2 pisos. El radio queda solo como respaldo si la
+    // consulta del PIT falla.
+    var pitOficial = (estado.usoSuelo && estado.usoSuelo.codPit) ? String(estado.usoSuelo.codPit).toUpperCase() : '';
+    if (pitOficial) esCentroHistorico = /^CH/.test(pitOficial);
+    var esAreaHistorica = !esCentroHistorico && /^AHP/.test(pitOficial);
+    estado.pitOficial = pitOficial;
+    estado.esAreaHistorica = esAreaHistorica;
+    regimenAreaHistorica = esAreaHistorica;
     estado.esCentroHistorico = esCentroHistorico;
 
     capaPredio.clearLayers();
@@ -2556,12 +2580,12 @@
       // pisos tenga el edificio — la normativa de referencia exige el retiro mayor recién a partir de
       // la altura que lo motiva (más masa, más necesidad de luz/privacidad entre lotes), no desde
       // planta baja. `estado.retiros` (el de arriba) pasa a ser el de PLANTAS ALTAS únicamente.
-      var nivelMinimo = NORMATIVA_REFERENCIA.determinantes[0];
+      var nivelMinimo = determinantesActivos()[0];
       estado.retirosPB = { frente: nivelMinimo.rf, lateral: nivelMinimo.rl, posterior: nivelMinimo.rp };
       estado.pisos = maxPisosLote;
     }
     estado.maxPisosLote = maxPisosLote;
-    estado.voladizo = 1.2;
+    estado.voladizo = estado.esAreaHistorica ? 0 : 1.2; // en áreas históricas no hay voladizos
 
     var filasLados = estado.ladosInfo.map(function (lado, idx) {
       var tipo = estado.tipoLado[idx];
@@ -2601,6 +2625,9 @@
     var notaTopeReal = (!esCentroHistorico && estado.limitadoPorRetiros)
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
+    if (estado.esAreaHistorica) {
+      notaTopeReal = '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏛️ Predio en <strong>área histórica y patrimonial</strong> (PIT ' + estado.pitOficial + '). Volumen referencial según la Ordenanza de Áreas Históricas y Patrimoniales: hasta 4 plantas, retiros de 3 m, sin voladizos' + (estado.frenteARio ? ', escalonado hacia el río' : '') + '. Los determinantes finales están en la ficha del plan del sector y en el IPRUS del predio.</div>' + notaTopeReal;
+    }
 
     // El croquis ya NO tiene un formulario propio acá — pedido explícito: "la vista previa aparece
     // apenas hago clic en croquis, la parte de los datos se completa en la misma vista previa, no en
@@ -2611,7 +2638,7 @@
         '<div class="result-head">' +
           '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
           '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
-          '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : 'Normativa de referencia') + '</span>' +
+          '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : (estado.esAreaHistorica ? 'Área histórica · ' + estado.pitOficial : 'Normativa de referencia')) + '</span>' +
         '</div>' +
         '<div class="pedir-predio">' +
           '<button type="button" class="btn" id="btn-pedir-informe">📄 Pedir informe de este predio</button>' +
@@ -3007,12 +3034,13 @@
     var ESCALON_RIO_M = 3;
     function construirZonasAltasBloque(puntosAltasFinalMBloque) {
       if (pisos <= 1) return [];
-      var finBase = (estado.frenteARio && pisos > 4) ? 4 : pisos;
+      var pisoBaseRio = estado.esAreaHistorica ? 2 : 4;
+      var finBase = (estado.frenteARio && pisos > pisoBaseRio) ? pisoBaseRio : pisos;
       var zonas = [{ inicio: 2, fin: finBase, puntos: puntosAltasFinalMBloque }];
       if (estado.frenteARio) {
         var retirosAltasVigentes = { frente: Math.max(0, estado.retiros.frente - estado.voladizo), lateral: estado.retiros.lateral, posterior: estado.retiros.posterior };
-        for (var p = 5; p <= pisos; p++) {
-          var extra = ESCALON_RIO_M * (p - 4);
+        for (var p = pisoBaseRio + 1; p <= pisos; p++) {
+          var extra = ESCALON_RIO_M * (p - pisoBaseRio);
           // En vez de recalcular TODO el envolvente desde los 9 (o más) lados del lote con el extra
           // sumado — eso volvía a forzar un resultado casi-convexo en lotes cóncavos vía el offset
           // mitrado de recortarConRetiros (bug real: en un vértice muy agudo con un retiro grande, el
@@ -3367,6 +3395,49 @@
         polys.forEach(function (pc) { var r = pc[0].map(function (c) { return estado.aMetros(c); }); if (r.length >= 3) prediosM.push(r); });
       } catch (e) { }
     });
+    // Calzada vehicular como UNA sola superficie: cada tramo es un rectángulo y cada vértice una
+    // junta redonda; se unen todos y se les restan los predios (la línea de fábrica manda). El borde
+    // de esa superficie es el bordillo. Antes se dibujaban dos offsets por vía que se cruzaban en las
+    // esquinas y dejaban recortes raros.
+    function unirTodos(lista) {
+      var acc = null;
+      lista.forEach(function (p) { if (!p) return; try { acc = acc ? (turf.union(acc, p) || acc) : p; } catch (e) { } });
+      return acc;
+    }
+    function juntaRedonda(c, r) {
+      var anillo = []; for (var i = 0; i < 16; i++) { var a = i / 16 * Math.PI * 2; anillo.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); }
+      anillo.push(anillo[0]); return turf.polygon([anillo]);
+    }
+    var cuadradoAmplio = turf.polygon([[[-R - 6, -R - 6], [R + 6, -R - 6], [R + 6, R + 6], [-R - 6, R + 6], [-R - 6, -R - 6]]]);
+    var calzadaUnion = null;
+    (function () {
+      var porVia = [];
+      viasSnapeadas.forEach(function (via) {
+        if (!esVehicular(via) || via.pts.length < 2) return;
+        var h = refDeVia(via).calzada / 2, piezas = [];
+        for (var i = 0; i < via.pts.length - 1; i++) {
+          var a = via.pts[i], b = via.pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+          if (L < 0.05) continue;
+          var nx = -dy / L * h, ny = dx / L * h;
+          try { piezas.push(turf.polygon([[[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny], [a[0] + nx, a[1] + ny]]])); } catch (e) { }
+        }
+        via.pts.forEach(function (p) { piezas.push(juntaRedonda(p, h)); });
+        var u = unirTodos(piezas);
+        if (u) { try { u = turf.intersect(u, cuadradoAmplio); } catch (e) { } if (u) porVia.push(u); }
+      });
+      calzadaUnion = unirTodos(porVia);
+      var prediosU = unirTodos(prediosM.map(function (r) { try { return turf.polygon([r.concat([r[0]])]); } catch (e) { return null; } }));
+      if (calzadaUnion && prediosU) { try { calzadaUnion = turf.difference(calzadaUnion, prediosU) || calzadaUnion; } catch (e) { } }
+    })();
+    function anillosDe(f) {
+      if (!f) return [];
+      var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+      var out = []; polys.forEach(function (pc) { pc.forEach(function (r) { out.push(r); }); }); return out;
+    }
+    function enCalzada(p) {
+      if (!calzadaUnion) return false;
+      try { return turf.booleanPointInPolygon(p, calzadaUnion); } catch (e) { return false; }
+    }
     var laminaConLineas = true;
     function dibujarLamina() {
       var c = laminaCtx;
@@ -3387,13 +3458,16 @@
               c.setLineDash([3, 3]); c.strokeStyle = 'rgba(120,100,75,0.6)'; c.lineWidth = 1.1; c.stroke(); c.setLineDash([]);
               return;
             }
-            // Bordillos: dos líneas oscuras a cada lado de la calzada.
-            [ref.calzada / 2, -ref.calzada / 2].forEach(function (off) {
-              trazar(polilineaOffset(tramo, off)); c.strokeStyle = '#55514B'; c.lineWidth = 1.4; c.stroke();
-            });
           } catch (e) { }
         });
       });
+      // Calzada única: tinte muy leve + bordillo como borde de la unión.
+      if (calzadaUnion) {
+        c.beginPath();
+        anillosDe(calzadaUnion).forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
+        c.fillStyle = 'rgba(120,114,104,0.07)'; c.fill('evenodd');
+        c.strokeStyle = '#55514B'; c.lineWidth = 1.4; c.lineJoin = 'round'; c.stroke();
+      }
       var nombresPuestos = [];
       viasSnapeadas.forEach(function (via) {
         if (!via.nombre) return;
@@ -3430,9 +3504,18 @@
     var matArena = new THREE.MeshStandardMaterial({ map: arena, bumpMap: arena, bumpScale: 0.6, roughness: 1, color: cLin(colorMaqueta('cSand')) });
     var cuadradoTurf = turf.polygon([ptsContexto.concat([ptsContexto[0]])]);
     var grupoVerde = new THREE.Group(); scene.add(grupoVerde);
-    (estado.areasVerdesOSM || []).forEach(function (av) {
+    // OSM superpone parques, jardines y césped del mismo lugar: se unen en una sola superficie (antes
+    // cada polígono era una malla y se montaban unas sobre otras), y se les resta el río y la calzada.
+    var verdeUnion = unirTodos((estado.areasVerdesOSM || []).map(function (av) {
+      try { return turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), cuadradoTurf); } catch (e) { return null; }
+    }));
+    (estado.riosFlat || []).forEach(function (rio) {
+      if (!verdeUnion || rio.pts.length < 2) return;
+      try { var cinta = cintaPoligono(rio.pts, (rio.ancho || 12) + 1); verdeUnion = turf.difference(verdeUnion, turf.polygon([cinta.concat([cinta[0]])])) || null; } catch (e) { }
+    });
+    if (verdeUnion && calzadaUnion) { try { verdeUnion = turf.difference(verdeUnion, calzadaUnion) || null; } catch (e) { } }
+    [verdeUnion].forEach(function (rec) {
       try {
-        var rec = turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), cuadradoTurf);
         if (!rec) return;
         var partes = rec.geometry.type === 'Polygon' ? [rec.geometry.coordinates] : rec.geometry.coordinates;
         partes.forEach(function (pc) {
@@ -3475,6 +3558,7 @@
     var matVecino = mat;
     var matAristaVecino = new THREE.LineBasicMaterial({ color: cLin(0xA9A398) });
     var grupoEdificios = new THREE.Group(); scene.add(grupoEdificios);
+    var huellasEdificios = []; // huellas finales (ya recortadas) para sacar árboles que caen dentro
     function recortarEdificio(ptsEd) {
       var f = turf.polygon([ptsEd.concat([ptsEd[0]])]);
       // 1) al predio donde cae (si el catastro de vecinos cubre esa zona)
@@ -3497,6 +3581,7 @@
         recortarEdificio(ed.pts).forEach(function (ptsR) {
           var area = 0; for (var i = 0; i < ptsR.length; i++) { var a = ptsR[i], b = ptsR[(i + 1) % ptsR.length]; area += a[0] * b[1] - b[0] * a[1]; }
           if (Math.abs(area) / 2 < 4) return;
+          huellasEdificios.push(ptsR);
           var geoVecino = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(ptsR)), { depth: ed.altura, bevelEnabled: false });
           geoVecino.rotateX(-Math.PI / 2);
           geoVecino.computeVertexNormals();
@@ -3514,7 +3599,21 @@
     var grupoArboles = new THREE.Group(); scene.add(grupoArboles);
     var geoCopa = new THREE.IcosahedronGeometry(2.5, 1); geoCopa.scale(1, 0.92, 1); geoCopa.translate(0, 5.4, 0);
     var geoTronco = new THREE.CylinderGeometry(0.14, 0.2, 3.4, 6); geoTronco.translate(0, 1.7, 0);
+    function sobreEdificio(p, radio) {
+      // incluye el lote en estudio: el volumen propuesto / existente no lleva árboles encima
+      var huellas = huellasEdificios.concat(estado.pts ? [estado.pts] : []);
+      return huellas.some(function (h) {
+        if (puntoDentroDePoligono(p, h)) return true;
+        for (var i = 0; i < h.length; i++) if (distPuntoSegmento(p, h[i], h[(i + 1) % h.length]) < radio) return true;
+        return false;
+      });
+    }
     function sobreCalzada(p) {
+      if (calzadaUnion) return enCalzada(p) || viasSnapeadas.some(function (via) {
+        if (!esVehicular(via)) return false;
+        for (var i = 0; i < via.pts.length - 1; i++) if (distPuntoSegmento(p, via.pts[i], via.pts[i + 1]) < refDeVia(via).calzada / 2 + 0.3) return true;
+        return false;
+      });
       return viasSnapeadas.some(function (via) {
         if (!esVehicular(via)) return false;
         var mitad = refDeVia(via).calzada / 2 + 0.3;
@@ -3524,8 +3623,8 @@
     }
     (estado.arbolesDetectados || []).forEach(function (arbol) {
       try {
-        if (!dentroDelDisco(arbol.p) || sobreCalzada(arbol.p)) return;
         var esc = Math.max(0.55, Math.min(1.2, arbol.radioM / 2.5));
+        if (!dentroDelDisco(arbol.p) || sobreCalzada(arbol.p) || sobreEdificio(arbol.p, 1.2 * esc)) return;
         [new THREE.Mesh(geoCopa, matCopa), new THREE.Mesh(geoTronco, matTronco)].forEach(function (m) {
           m.position.set(arbol.p[0], 0, -arbol.p[1]); m.scale.setScalar(esc); m.castShadow = true; grupoArboles.add(m);
         });
@@ -3692,9 +3791,9 @@
       chkSombras.checked = sombrasActivas;
       rangoHora.value = horaSol;
       labelHora.textContent = formatoHora(horaSol);
-      rangoHora.style.display = sombrasActivas ? '' : 'none';
-      labelHora.style.display = sombrasActivas ? '' : 'none';
-      dirLight.castShadow = sombrasActivas;
+      rangoHora.style.display = 'none';
+      labelHora.style.display = 'none';
+      dirLight.castShadow = true;
       onChkSombrasChange = function () {
         sombrasActivas = chkSombras.checked;
         rangoHora.style.display = sombrasActivas ? '' : 'none';
@@ -3711,7 +3810,8 @@
       chkSombras.addEventListener('change', onChkSombrasChange);
       rangoHora.addEventListener('input', onRangoHoraInput);
     }
-    aplicarPosicionSol(horaSol);
+    dirLight.position.set(target.x - 0.85 * R, target.y + 0.85 * R, target.z + 0.55 * R);
+    dirLight.castShadow = true;
 
     var arrastrando = false, ultimoX = 0, ultimoY = 0;
     function posEvento(e) { return e.touches && e.touches[0] ? e.touches[0] : e; }
