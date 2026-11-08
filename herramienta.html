@@ -1061,7 +1061,8 @@
     if (!resumenAntesDeUnir && ultimoResumen && prediosUnion.length === 1) resumenAntesDeUnir = { m2: ultimoResumen.m2, viv: ultimoResumen.viv, area: Math.round(turf.area(prediosUnion[0])), clave: claveDe(prediosUnion[0]) };
     modoUnir = true;
     desactivarModo3D();
-    var st = document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(function () { try { mapa.fitBounds(capaPredio.getBounds(), { padding: [70, 70], maxZoom: 19 }); } catch (e) { } }, 120);
+    var st = document.getElementById('buscar-maps-msg') || document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
     mostrarMsgBusqueda('Toca en el mapa el lote vecino que quieres unir (debe tocarse con el tuyo). Tocar uno ya unido lo quita.');
   }
   async function agregarALaUnion(latlng) {
