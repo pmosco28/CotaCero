@@ -941,6 +941,48 @@
     cacheMDT[clave] = g;
     return g;
   }
+  // Une los segmentos sueltos de marching squares en polilíneas y las suaviza (Chaikin, 2 pasadas):
+  // sin esto, los bordes de la grilla de 1 m se ven como escalones.
+  function polilineasDeSegmentos(segs) {
+    function clave(p) { return Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); }
+    var porPunto = {}, usado = new Array(segs.length);
+    segs.forEach(function (sg, i) { [0, 1].forEach(function (e) { var k = clave(sg[e]); (porPunto[k] = porPunto[k] || []).push(i); }); });
+    function siguiente(p, i0) {
+      var l = porPunto[clave(p)] || [];
+      for (var k = 0; k < l.length; k++) if (!usado[l[k]] && l[k] !== i0) return l[k];
+      return -1;
+    }
+    var lineas = [];
+    for (var i = 0; i < segs.length; i++) {
+      if (usado[i]) continue;
+      usado[i] = true;
+      var linea = [segs[i][0], segs[i][1]];
+      [1, 0].forEach(function (lado) {
+        while (true) {
+          var extremo = lado ? linea[linea.length - 1] : linea[0];
+          var j = siguiente(extremo, -1); if (j < 0) break;
+          usado[j] = true;
+          var a = segs[j][0], b = segs[j][1], otro = clave(a) === clave(extremo) ? b : a;
+          if (lado) linea.push(otro); else linea.unshift(otro);
+        }
+      });
+      lineas.push(linea);
+    }
+    return lineas.map(function (L) {
+      var cerrada = L.length > 3 && clave(L[0]) === clave(L[L.length - 1]);
+      for (var it = 0; it < 2; it++) {
+        var n = [];
+        if (!cerrada) n.push(L[0]);
+        for (var k = 0; k < L.length - 1; k++) {
+          var a = L[k], b = L[k + 1];
+          n.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+        }
+        if (!cerrada) n.push(L[L.length - 1]); else n.push(n[0]);
+        L = n;
+      }
+      return L;
+    }).filter(function (L) { var len = 0; for (var k = 1; k < L.length; k++) len += Math.hypot(L[k][0] - L[k - 1][0], L[k][1] - L[k - 1][1]); return len > 4; });
+  }
   // Segmentos de curva por marching squares sobre la grilla (ya en metros locales).
   function curvasDeGrilla(X, Y, Z, W, H, niveles) {
     var segs = [];
@@ -966,7 +1008,7 @@
           case 10: if (centro > L) { lista.push([top(), der()]); lista.push([izq(), abj()]); } else { lista.push([izq(), top()]); lista.push([abj(), der()]); } break;
         }
       }
-      segs.push({ nivel: L, segs: lista });
+      segs.push({ nivel: L, segs: lista, lineas: polilineasDeSegmentos(lista) });
     });
     return segs;
   }
@@ -1346,7 +1388,7 @@
     // inventado — por eso se usa para pintar estas zonas de verde Y para confirmar (cuando hay match)
     // si el predio sujeto mismo cae en una.
     var TAGS_AREA_VERDE = { leisure: ['park', 'garden', 'nature_reserve', 'pitch'], landuse: ['grass', 'recreation_ground', 'forest', 'allotments', 'meadow'] };
-    var rios = [], edificaciones = [], areasVerdes = [], viasOSM = [];
+    var rios = [], edificaciones = [], areasVerdes = [], viasOSM = [], puentes = [];
     xml.querySelectorAll('way').forEach(function (w) {
       var tags = {};
       w.querySelectorAll('tag').forEach(function (tag) { tags[tag.getAttribute('k')] = tag.getAttribute('v'); });
@@ -1369,8 +1411,9 @@
       // snapping real en las esquinas) y quería verlo al lado de lo demás antes de decidir si vale la
       // pena usarlo para algo más que comparar.
       if (tags.highway && coords.length >= 2) viasOSM.push({ coords: coords, tipo: tags.highway, nombre: tags.name });
+      if (tags.highway && tags.bridge && tags.bridge !== 'no' && coords.length >= 2) puentes.push({ coords: coords, tipo: tags.highway, nombre: tags.name || null, ancho: tags.width ? parseFloat(tags.width) : null });
     });
-    return { rios: rios, edificaciones: edificaciones, areasVerdes: areasVerdes, viasOSM: viasOSM };
+    return { rios: rios, edificaciones: edificaciones, areasVerdes: areasVerdes, viasOSM: viasOSM, puentes: puentes };
   }
 
   var ALTURA_EDIFICACION_SIN_DATO_M = 6; // ~2 pisos — municipal nunca trae altura, igual que el ~7% de OSM sin height/levels
@@ -1946,7 +1989,14 @@
         if (!turf.booleanIntersects(f, poligonoLotePlano)) return;
         var r = turf.intersect(f, poligonoLotePlano); if (!r) return;
         var polys = r.geometry.type === 'Polygon' ? [r.geometry.coordinates] : r.geometry.coordinates;
-        polys.forEach(function (pc) { var anillo = pc[0].slice(0, -1); if (anillo.length >= 3 && turf.area(turf.polygon([pc[0]])) > 0) edificacionesLote.push({ pts: anillo, altura: ed.altura, fuente: ed.fuente }); });
+        polys.forEach(function (pc) {
+          var anillo = pc[0].slice(0, -1); if (anillo.length < 3) return;
+          // fuera astillas: recortar contra el lindero deja tiras finas de edificios vecinos
+          var A = 0, P = 0; for (var i = 0; i < anillo.length; i++) { var a = anillo[i], b = anillo[(i + 1) % anillo.length]; A += a[0] * b[1] - b[0] * a[1]; P += Math.hypot(b[0] - a[0], b[1] - a[1]); }
+          A = Math.abs(A) / 2;
+          if (A < 8 || 2 * A / P < 1.5) return;
+          edificacionesLote.push({ pts: anillo, altura: ed.altura, fuente: ed.fuente });
+        });
       } catch (e) { }
     });
 
@@ -2348,6 +2398,7 @@
       edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, patrimonioLote: patrimonioLote, riosFlat: riosFlat,
       areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote, restriccionVolumen: restriccionVolumen,
       viasDibujo: viasDibujo,
+      puentes: (datosOSM.puentes || []).map(function (pu) { return { pts: pu.coords.map(aMetros), tipo: pu.tipo, nombre: pu.nombre, ancho: pu.ancho }; }),
       arbolesDetectados: arbolesDetectados,
       frenteARio: frenteARio, ladosRio: ladosRio, usoSuelo: usoSuelo, maxPisosPech: maxPisosPech,
       // editables en vivo por el panel/editor — valores por defecto, se pisan en mostrarResultado()
@@ -3488,6 +3539,7 @@
     var laminaCanvas = document.createElement('canvas');
     laminaCanvas.width = laminaCanvas.height = LAMINA_PX;
     var laminaCtx = laminaCanvas.getContext('2d');
+    if (/[?&]debug=lamina/.test(location.search)) window.__lamina = laminaCanvas; // revisión de la lámina, solo con ?debug=lamina
     var pxPorM = LAMINA_PX / (2 * R);
     function aLamina(p) { return [(p[0] + R) * pxPorM, (R - p[1]) * pxPorM]; }
     var texLamina = new THREE.CanvasTexture(laminaCanvas);
@@ -3529,6 +3581,7 @@
     meshLoteSuperficie.position.y = 0.12;
     meshLoteSuperficie.receiveShadow = true;
     scene.add(meshLoteSuperficie);
+    var lineaLoteMesh = null;
     // Borde del predio — a pedido del usuario, corregido: lo que diferencia el predio elegido del
     // contexto tiene que ser el LINDERO LEGAL (ptsLote, fijo), no el contorno del volumen construido
     // (eso cambia con cada ajuste de pisos/retiros — un primer intento marcaba el edificio, no el
@@ -3540,7 +3593,8 @@
       var puntosLote = ptsLote.map(function (p) { return new THREE.Vector3(p.x, 0.06, -p.y); });
       puntosLote.push(puntosLote[0].clone());
       var geoLineaLote = new THREE.BufferGeometry().setFromPoints(puntosLote);
-      scene.add(new THREE.Line(geoLineaLote, new THREE.LineBasicMaterial({ color: cLin(0xA8432A) })));
+      lineaLoteMesh = new THREE.Line(geoLineaLote, new THREE.LineBasicMaterial({ color: cLin(0xA8432A) }));
+      scene.add(lineaLoteMesh);
     }
 
     // --- Contexto urbano: vía (calzada + veredas + eje, ver abajo), río (cinta con ancho real de OSM
@@ -3780,7 +3834,7 @@
       var porVia = [];
       viasSnapeadas.forEach(function (via) {
         if (!esVehicular(via) || via.pts.length < 2) return;
-        var ref = refDeVia(via), h = ref.calzada / 2, W = h + ref.vereda + 8, piezas = [];
+        var ref = refDeVia(via), h = ref.calzada / 2, W = h + ref.vereda + 4, piezas = [];
         var buf = bufferPredios(ref.vereda);
         for (var i = 0; i < via.pts.length - 1; i++) {
           var a = via.pts[i], b = via.pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
@@ -3882,7 +3936,7 @@
         }
       }
       if (typeof dibujarCurvas === 'function') dibujarCurvas(c);
-      if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; return; }
+      if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; if (typeof texTerraza !== 'undefined' && texTerraza) texTerraza.needsUpdate = true; return; }
       // Linderos de predios: línea gris fina.
       c.strokeStyle = '#A9A399'; c.lineWidth = 1.4;
       prediosM.forEach(function (r) { trazar(r.concat([r[0]])); c.stroke(); });
@@ -3924,6 +3978,7 @@
       });
       c.restore();
       texLamina.needsUpdate = true;
+      if (typeof texTerraza !== 'undefined' && texTerraza) texTerraza.needsUpdate = true;
     }
     // Áreas verdes y río PINTADOS en la lámina (no mallas encima): antes eran superficies 3D apoyadas
     // a 3 cm del terreno, y donde se montaban entre sí o con el terreno parpadeaban (z-fighting) y
@@ -3955,7 +4010,95 @@
       if (borde) { c.strokeStyle = borde; c.lineWidth = 1.2; c.stroke(); }
     }
     // Curvas de nivel (referenciales): MDT municipal ~3 m, suavizado leve, cada 1 m y maestras cada 5 m.
-    var curvasLamina = null, curvasVisibles = true, cotaMinMaxLamina = null;
+    var curvasLamina = null, curvasVisibles = true, cotaMinMaxLamina = null, curvasInterpretadas = false;
+    // ---------- Superficie interpretada (criterio de Trama Urbana, versión liviana) ----------
+    // Sobre una grilla de 1 m:
+    //  - calzada: rasante a lo largo del eje de cada vía (perfil del MDT suavizado ~20 m) y sección
+    //    transversal PLANA → las curvas cruzan la calle rectas y perpendiculares;
+    //  - vereda: rasante + 20 cm (el salto gráfico del bordillo);
+    //  - predios: terreno del MDT, con la corrección de la calle desvaneciéndose en ~6 m hacia adentro
+    //    para que las curvas empalmen sin escalones.
+    function interpretarSuperficie(X0, Y0, Z0, W0, H0) {
+      var x0 = X0[0], dx = X0[1] - X0[0], y0 = Y0[0], dy = Y0[W0] - Y0[0];
+      function zMDT(x, y) {
+        var fi = (x - x0) / dx, fj = (y - y0) / dy, i = Math.floor(fi), j = Math.floor(fj);
+        if (i < 0 || j < 0 || i >= W0 - 1 || j >= H0 - 1) return NaN;
+        var tx = fi - i, ty = fj - j, k = j * W0 + i;
+        var a = Z0[k], b = Z0[k + 1], c = Z0[k + W0], d = Z0[k + W0 + 1];
+        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+      }
+      // 1) rasantes por vía
+      var vias = viasSnapeadas.filter(function (v) { return esVehicular(v) && v.pts.length >= 2; }).map(function (v) {
+        var mues = [], acc = 0;
+        for (var i = 0; i < v.pts.length - 1; i++) {
+          var a = v.pts[i], b = v.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 2));
+          for (var k = 0; k < n; k++) { var t = k / n; mues.push({ s: acc + L * t, p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] }); }
+          acc += L;
+        }
+        mues.push({ s: acc, p: v.pts[v.pts.length - 1] });
+        var z = mues.map(function (m) { return zMDT(m.p[0], m.p[1]); });
+        var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - 5); k <= Math.min(z.length - 1, i + 5); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
+        var rf = refDeVia(v);
+        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
+      });
+      if (!vias.length) return null;
+      function rasante(p) {
+        var mejor = null, dmin = Infinity;
+        vias.forEach(function (v) {
+          var acc = 0;
+          for (var i = 0; i < v.pts.length - 1; i++) {
+            var a = v.pts[i], b = v.pts[i + 1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, L = Math.sqrt(L2);
+            var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
+            var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
+            if (d < dmin) { dmin = d; mejor = { v: v, s: acc + L * t }; }
+            acc += L;
+          }
+        });
+        // solo se corrige cerca del propio eje: un punto lejos de toda vía conocida (otra calle que el
+        // dibujo no tiene, un bajo) conserva el terreno — antes tomaba la rasante de una calle alta
+        // vecina y levantaba la calle de abajo 20 m
+        if (!mejor || dmin > mejor.v.alcance) return NaN;
+        var S = mejor.v.s, Zr = mejor.v.z, k = 1; while (k < S.length - 1 && S[k] < mejor.s) k++;
+        var f = (mejor.s - S[k - 1]) / ((S[k] - S[k - 1]) || 1);
+        return Zr[k - 1] + (Zr[k] - Zr[k - 1]) * f;
+      }
+      // 2) máscaras de calzada y vereda en raster de 1 m (canvas)
+      var Rm = R + 12, N = Math.ceil(2 * Rm), cv = document.createElement('canvas'); cv.width = cv.height = N;
+      var cx = cv.getContext('2d');
+      function camino(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) ctx.lineTo(u, v); else ctx.moveTo(u, v); }); ctx.closePath(); }); }
+      function mascara(dibujar) { cx.clearRect(0, 0, N, N); cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; dibujar(); return cx.getImageData(0, 0, N, N).data; }
+      var mCalz = mascara(function () { if (calzadaUnion) { cx.beginPath(); camino(cx, calzadaUnion); cx.fill('evenodd'); } });
+      var mVer = mascara(function () {
+        Object.keys(veredasPorAncho).forEach(function (k) { if (veredasPorAncho[k]) { cx.beginPath(); camino(cx, veredasPorAncho[k]); cx.fill('nonzero'); } });
+        cx.globalCompositeOperation = 'destination-out';
+        cx.beginPath(); prediosM.concat([estado.pts]).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) cx.lineTo(u, v); else cx.moveTo(u, v); }); cx.closePath(); }); cx.fill('nonzero');
+      });
+      // 3) grilla 1 m con la corrección
+      var W = N, H = N, X = new Float32Array(W * H), Y = new Float32Array(W * H), Z = new Float32Array(W * H), D = new Float32Array(W * H).fill(NaN);
+      for (var j = 0; j < H; j++) for (var i = 0; i < W; i++) {
+        var k = j * W + i, x = i + 0.5 - Rm, y = Rm - (j + 0.5);
+        X[k] = x; Y[k] = y;
+        var zt = zMDT(x, y); Z[k] = zt;
+        var esC = mCalz[k * 4 + 3] > 128, esV = !esC && mVer[k * 4 + 3] > 128;
+        if ((esC || esV) && !isNaN(zt)) {
+          var zr = rasante([x, y]);
+          if (!isNaN(zr)) { var dd = (zr + (esV ? 0.2 : 0)) - zt; if (Math.abs(dd) <= 3) D[k] = dd; }
+        }
+      }
+      // 4) la corrección se desvanece ~6 m hacia los predios (anillos de 1 m)
+      for (var paso = 1; paso <= 6; paso++) {
+        var nuevos = [];
+        for (var j2 = 1; j2 < H - 1; j2++) for (var i2 = 1; i2 < W - 1; i2++) {
+          var k2 = j2 * W + i2; if (!isNaN(D[k2])) continue;
+          var s = 0, n = 0;
+          [k2 - 1, k2 + 1, k2 - W, k2 + W].forEach(function (q) { if (!isNaN(D[q])) { s += D[q]; n++; } });
+          if (n) nuevos.push([k2, (s / n) * (1 - paso / 7)]);
+        }
+        nuevos.forEach(function (e) { D[e[0]] = e[1]; });
+      }
+      for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
+      return { X: X, Y: Y, Z: Z, W: W, H: H };
+    }
     (function () {
       var sw = estado.metrosALatLng([-R - 12, -R - 12]), ne = estado.metrosALatLng([R + 12, R + 12]);
       cargarMDT(sw[1], sw[0], ne[1], ne[0]).then(function (g) {
@@ -3970,11 +4113,110 @@
         }
         if (!isFinite(zmin)) return;
         var niveles = []; for (var L = Math.ceil(zmin); L <= Math.floor(zmax); L++) niveles.push(L);
-        curvasLamina = curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        var interp = null;
+        try { interp = interpretarSuperficie(X, Y, Zs, W, H); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
+        curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        curvasInterpretadas = !!interp;
+        try { construirTerrazas(interp || { X: X, Y: Y, Z: Zs, W: W, H: H }, zmin, zmax); } catch (e) { console.warn('Terrazas: no se pudieron armar', e); }
         cotaMinMaxLamina = [zmin, zmax];
         dibujarLamina(); solicitarRender();
       }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
     })();
+    // ---------- Maqueta en terrazas de 1 m (como la de cartón por capas) ----------
+    // Cada capa es la región con cota ≥ L, extruida 1 m, con la lámina impresa encima. Todo lo que
+    // está sobre el terreno (edificios, árboles, lote, volumen) se apoya en la terraza que le toca.
+    var grupoTerrazas = new THREE.Group(); scene.add(grupoTerrazas);
+    var texTerraza = texLamina.clone(); texTerraza.needsUpdate = true;
+    texTerraza.wrapS = texTerraza.wrapT = THREE.ClampToEdgeWrapping;
+    texTerraza.repeat.set(1 / (2 * R), 1 / (2 * R)); texTerraza.offset.set(0.5, 0.5);
+    var matTerraza = new THREE.MeshStandardMaterial({ map: texTerraza, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0, toneMapped: false });
+    function construirTerrazas(G, zmin, zmax) {
+      while (grupoTerrazas.children.length) { var o = grupoTerrazas.children.pop(); if (o.geometry) o.geometry.dispose(); }
+      var W = G.W, H = G.H;
+      // cota mínima y máxima dentro del zócalo
+      var lo = Infinity, hi = -Infinity;
+      for (var k = 0; k < W * H; k++) { if (Math.abs(G.X[k]) <= R && Math.abs(G.Y[k]) <= R && !isNaN(G.Z[k])) { lo = Math.min(lo, G.Z[k]); hi = Math.max(hi, G.Z[k]); } }
+      if (!isFinite(lo)) return;
+      var Lmin = Math.floor(lo);
+      // grilla con borde muy bajo: todas las curvas salen cerradas
+      var W2 = W + 2, H2 = H + 2, X2 = new Float32Array(W2 * H2), Y2 = new Float32Array(W2 * H2), Z2 = new Float32Array(W2 * H2).fill(-1e9);
+      var ddx = G.X[1] - G.X[0], ddy = G.Y[W] - G.Y[0];
+      for (var j = 0; j < H2; j++) for (var i = 0; i < W2; i++) {
+        var q = j * W2 + i; X2[q] = G.X[0] + (i - 1) * ddx; Y2[q] = G.Y[0] + (j - 1) * ddy;
+        if (i > 0 && j > 0 && i <= W && j <= H) { var z = G.Z[(j - 1) * W + (i - 1)]; Z2[q] = isNaN(z) ? -1e9 : z; }
+      }
+      function areaR(r) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return a / 2; }
+      var niveles = []; for (var L = Lmin + 1; L <= Math.floor(hi); L++) niveles.push(L);
+      var porNivel = curvasDeGrilla(X2, Y2, Z2, W2, H2, niveles);
+      porNivel.forEach(function (cn) {
+        var anillos = cn.lineas.filter(function (r) { return r.length > 3; }).map(function (r) {
+          var c = r.slice(); if (c[0][0] !== c[c.length - 1][0] || c[0][1] !== c[c.length - 1][1]) c.push(c[0]); return c;
+        }).filter(function (r) { return Math.abs(areaR(r)) > 2; });
+        if (!anillos.length) return;
+        anillos.sort(function (a, b) { return Math.abs(areaR(b)) - Math.abs(areaR(a)); });
+        // anidamiento par/impar: par = contorno exterior, impar = hueco del exterior que lo contiene
+        var exteriores = [];
+        anillos.forEach(function (r) {
+          var prof = 0, padre = null;
+          anillos.forEach(function (o) { if (o !== r && Math.abs(areaR(o)) > Math.abs(areaR(r)) && puntoDentroDePoligono(r[0], o)) prof++; });
+          if (prof % 2 === 0) exteriores.push({ ext: r, huecos: [] });
+          else {
+            for (var e = exteriores.length - 1; e >= 0; e--) if (puntoDentroDePoligono(r[0], exteriores[e].ext)) { padre = exteriores[e]; break; }
+            if (padre) padre.huecos.push(r);
+          }
+        });
+        var formas = [];
+        exteriores.forEach(function (ex) {
+          var f;
+          try {
+            var ext = areaR(ex.ext) > 0 ? ex.ext : ex.ext.slice().reverse();
+            var hs = ex.huecos.map(function (h) { return areaR(h) < 0 ? h : h.slice().reverse(); });
+            f = turf.intersect(turf.polygon([ext].concat(hs)), cuadradoTurf);
+          } catch (e) { f = null; }
+          if (!f) return;
+          var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+          polys.forEach(function (pc) {
+            var sh = new THREE.Shape(metrosArrAVec2(pc[0].slice(0, -1)));
+            pc.slice(1).forEach(function (h) { sh.holes.push(new THREE.Path(metrosArrAVec2(h.slice(0, -1)))); });
+            formas.push(sh);
+          });
+        });
+        if (!formas.length) return;
+        var g = new THREE.ExtrudeGeometry(formas, { depth: 1, bevelEnabled: false, curveSegments: 1 });
+        g.rotateX(-Math.PI / 2); g.translate(0, cn.nivel - 1 - Lmin - 0.02, 0);
+        var m = new THREE.Mesh(g, [matTerraza, matCanto]); m.castShadow = true; m.receiveShadow = true;
+        grupoTerrazas.add(m);
+      });
+      // apoyar todo sobre su terraza
+      function cota(p) {
+        var i = Math.round((p[0] - G.X[0]) / ddx), j = Math.round((p[1] - G.Y[0]) / ddy);
+        if (i < 0 || j < 0 || i >= W || j >= H) return 0;
+        var z = G.Z[j * W + i]; return isNaN(z) ? 0 : Math.max(0, Math.floor(z) - Lmin);
+      }
+      // Edificios en ladera: arrancan en la terraza MÁS BAJA que pisa su huella (quedan enterrados del
+      // lado alto, nunca flotando del lado bajo) y conservan su altura sobre el punto medio; la
+      // diferencia (hasta 12 m) se suma abajo, como los pisos que bajan por el barranco.
+      [grupoEdificios, grupoExistente].forEach(function (gr) {
+        gr.children.forEach(function (o) {
+          var u = o.userData || {}; if (!u.c) return;
+          var zc = cota(u.c), zmin = zc;
+          (u.pts || []).forEach(function (q) { zmin = Math.min(zmin, cota(q)); });
+          var extra = Math.min(12, zc - zmin);
+          o.position.y = zc - extra;
+          if (u.h && extra > 0) o.scale.y = (u.h + extra) / u.h;
+        });
+      });
+      grupoArboles.children.forEach(function (o) { if (o.userData && o.userData.c) o.position.y = cota(o.userData.c); });
+      // tablero del puente al nivel de la calle en sus extremos (el más alto), apenas por encima
+      grupoPuentes.children.forEach(function (o) {
+        var e = o.userData && o.userData.extremos; if (!e) return;
+        var nivel = Math.max(cota(e[0]), cota(e[1]));
+        o.position.y = nivel - 0.6 + (o.userData.sobre || 0);
+      });
+      var cLote = cota(estado.centroideLote);
+      grupoVolumen.position.y = cLote; meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
+      solicitarRender();
+    }
     function dibujarCurvas(c) {
       if (!curvasLamina || !curvasVisibles) return;
       var cv = document.createElement('canvas'); cv.width = cv.height = LAMINA_PX;
@@ -3983,8 +4225,9 @@
         var maestra = cn.nivel % 5 === 0;
         x.strokeStyle = maestra ? 'rgba(122,92,60,0.75)' : 'rgba(122,92,60,0.38)';
         x.lineWidth = maestra ? 2.2 : 1.1;
+        x.lineJoin = 'round';
         x.beginPath();
-        cn.segs.forEach(function (sg) { var a = aLamina(sg[0]), b = aLamina(sg[1]); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); });
+        cn.lineas.forEach(function (L) { L.forEach(function (p, i) { var q = aLamina(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); });
         x.stroke();
       });
       // cotas de las maestras, pocas y con halo
@@ -3992,9 +4235,10 @@
       var puestas = [];
       curvasLamina.forEach(function (cn) {
         if (cn.nivel % 5 !== 0) return;
-        cn.segs.forEach(function (sg, i) {
-          if (i % 23 !== 7) return;
-          var a = aLamina(sg[0]), b = aLamina(sg[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        cn.lineas.forEach(function (L) {
+          if (L.length < 12) return;
+          var mi = Math.floor(L.length / 2);
+          var a = aLamina(L[mi - 3]), b = aLamina(L[mi + 3]), m = aLamina(L[mi]);
           if (puestas.some(function (q) { return Math.hypot(q[0] - m[0], q[1] - m[1]) < 40 * pxPorM; })) return;
           puestas.push(m);
           var ang = Math.atan2(b[1] - a[1], b[0] - a[0]); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
@@ -4058,10 +4302,41 @@
           geoVecino.computeVertexNormals();
           var meshVecino = new THREE.Mesh(geoVecino, matVecino);
           meshVecino.receiveShadow = true; meshVecino.castShadow = true;
-          grupoEdificios.add(meshVecino);
-          grupoEdificios.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino));
+          var cEd = ptsR.reduce(function (a, q) { return [a[0] + q[0] / ptsR.length, a[1] + q[1] / ptsR.length]; }, [0, 0]);
+          meshVecino.userData.c = cEd; meshVecino.userData.pts = ptsR; meshVecino.userData.h = ed.altura; grupoEdificios.add(meshVecino);
+          var aristaV = new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino); aristaV.userData.c = cEd; aristaV.userData.pts = ptsR; aristaV.userData.h = ed.altura;
+          grupoEdificios.add(aristaV);
         });
       } catch (e) { }
+    });
+
+    // Puentes (OSM bridge=yes): tablero blanco sobre el río, a la cota de sus extremos.
+    var grupoPuentes = new THREE.Group(); scene.add(grupoPuentes);
+    (estado.puentes || []).forEach(function (pu) {
+      recortarTramosVisibles(pu.pts).forEach(function (tramo) {
+        try {
+          if (tramo.length < 2) return;
+          var tn = String(pu.tipo || '').toUpperCase();
+          var ancho = pu.ancho || (TIPOS_PEATONALES_OSM.indexOf(tn) !== -1 ? 3 : refDeVia({ tipo: pu.tipo }).calzada + 2);
+          var anillo = cintaPoligono(tramo, ancho);
+          var g = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(anillo)), { depth: 0.8, bevelEnabled: false });
+          g.rotateX(-Math.PI / 2); g.computeVertexNormals();
+          var m = new THREE.Mesh(g, matVecino); m.castShadow = true; m.receiveShadow = true;
+          m.userData.extremos = [tramo[0], tramo[tramo.length - 1]];
+          m.position.y = 0.2;
+          grupoPuentes.add(m);
+          var ar = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), matAristaVecino); ar.userData.extremos = m.userData.extremos; ar.position.y = 0.2;
+          grupoPuentes.add(ar);
+          // barandas finas a cada lado
+          [ancho / 2 - 0.15, -(ancho / 2 - 0.15)].forEach(function (off) {
+            var lado = polilineaOffset(tramo, off);
+            var bg = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(cintaPoligono(lado, 0.25))), { depth: 1.0, bevelEnabled: false });
+            bg.rotateX(-Math.PI / 2);
+            var b = new THREE.Mesh(bg, matVecino); b.castShadow = true; b.userData.extremos = m.userData.extremos; b.userData.sobre = 0.8; b.position.y = 1.0;
+            grupoPuentes.add(b);
+          });
+        } catch (e) { }
+      });
     });
 
     // Lo construido hoy en el lote (catastro/OSM): se ve mientras el volumen normativo está apagado.
@@ -4071,8 +4346,10 @@
         var geo = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(ed.pts)), { depth: ed.altura || 6, bevelEnabled: false });
         geo.rotateX(-Math.PI / 2); geo.computeVertexNormals();
         var m = new THREE.Mesh(geo, matVecino); m.castShadow = true; m.receiveShadow = true;
-        grupoExistente.add(m);
-        grupoExistente.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matAristaVecino));
+        var cEx = ed.pts.reduce(function (a, q) { return [a[0] + q[0] / ed.pts.length, a[1] + q[1] / ed.pts.length]; }, [0, 0]);
+        m.userData.c = cEx; m.userData.pts = ed.pts; m.userData.h = ed.altura || 6; grupoExistente.add(m);
+        var aristaE = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matAristaVecino); aristaE.userData.c = cEx; aristaE.userData.pts = ed.pts; aristaE.userData.h = ed.altura || 6;
+        grupoExistente.add(aristaE);
         huellasEdificios.push(ed.pts);
       } catch (e) { }
     });
@@ -4112,7 +4389,7 @@
         if (!dentroDelDisco(arbol.p) || sobreCalzada(arbol.p) || sobreEdificio(arbol.p, 1.2 * esc)) return;
         if ((estado.riosFlat || []).some(function (rio) { for (var k = 0; k < rio.pts.length - 1; k++) if (distPuntoSegmento(arbol.p, rio.pts[k], rio.pts[k + 1]) < (rio.ancho || 12) / 2 + 0.5) return true; return false; })) return;
         [new THREE.Mesh(geoCopa, matCopa), new THREE.Mesh(geoTronco, matTronco)].forEach(function (m) {
-          m.position.set(arbol.p[0], 0, -arbol.p[1]); m.scale.setScalar(esc); m.castShadow = true; grupoArboles.add(m);
+          m.position.set(arbol.p[0], 0, -arbol.p[1]); m.userData.c = arbol.p; m.scale.setScalar(esc); m.castShadow = true; grupoArboles.add(m);
         });
       } catch (e) { }
     });
@@ -4379,7 +4656,7 @@
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
-        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
+        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
         '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>' +
         '</div></details>';
