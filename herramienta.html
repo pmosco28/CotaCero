@@ -3456,8 +3456,22 @@
       c.save();
       c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX);
       if (typeof verdeEnLamina !== 'undefined') {
-        pintarPoligono(verdeEnLamina, colorMaqueta('cSand'), null);
-        if (rioVisible) pintarPoligono(rioEnLamina, colorMaqueta('cRes'), 'rgba(40,80,120,0.45)');
+        // áreas verdes: un solo camino con todas las piezas → un solo relleno, sin bordes montados
+        c.beginPath();
+        verdeEnLamina.forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
+        c.fillStyle = colorMaqueta('cSand'); c.fill('nonzero');
+        c.fillStyle = granoPintura; c.fill('nonzero');
+        // río: trazo ancho con juntas redondas (ancho real de la cinta)
+        if (rioVisible) {
+          (estado.riosFlat || []).forEach(function (rio) {
+            if (!rio.pts || rio.pts.length < 2) return;
+            var w = (rio.ancho || 12) * pxPorM;
+            trazar(rio.pts); c.lineJoin = 'round'; c.lineCap = 'round';
+            c.strokeStyle = 'rgba(40,80,120,0.5)'; c.lineWidth = w + 2.5; c.stroke();
+            trazar(rio.pts); c.strokeStyle = colorMaqueta('cRes'); c.lineWidth = w; c.stroke();
+          });
+          c.lineCap = 'butt';
+        }
       }
       if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; return; }
       // Linderos de predios: línea gris fina.
@@ -3509,18 +3523,12 @@
     var grupoVerde = new THREE.Group(); scene.add(grupoVerde);   // vacío: se conserva por compatibilidad
     var grupoResina = new THREE.Group(); scene.add(grupoResina); // idem
     var matArena = null, matResina = null;
-    var verdeUnion = unirTodos((estado.areasVerdesOSM || []).map(function (av) {
-      try { return turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), cuadradoAmplio); } catch (e) { return null; }
-    }));
-    var riosPoligonos = [];
-    (estado.riosFlat || []).forEach(function (rio) {
-      if (rio.pts.length < 2) return;
-      try { var cinta = cintaPoligono(rio.pts, rio.ancho || 12); riosPoligonos.push(turf.polygon([cinta.concat([cinta[0]])])); } catch (e) { }
-    });
-    var rioUnion = unirTodos(riosPoligonos);
-    if (verdeUnion && rioUnion) { try { verdeUnion = turf.difference(verdeUnion, rioUnion) || null; } catch (e) { } }
-    if (verdeUnion && calzadaUnion) { try { verdeUnion = turf.difference(verdeUnion, calzadaUnion) || null; } catch (e) { } }
-    var verdeEnLamina = verdeUnion, rioEnLamina = rioUnion, rioVisible = true;
+    // Pintura: no hacen falta operaciones booleanas (fallaban en silencio con polígonos de OSM
+    // superpuestos o cintas de río con auto-intersecciones). En pintura el orden resuelve todo:
+    // verdes primero, río encima, calzada y líneas después.
+    var verdeEnLamina = (estado.areasVerdesOSM || []).filter(function (av) { return av.pts && av.pts.length >= 3; }).map(function (av) { return av.pts; });
+    var rioVisible = true;
+    var rioUnion = null; // ya no se usa para geometría; los árboles se filtran por distancia al eje
     // grano de pintura (no ruido de arena encima de otra textura)
     var granoPintura = (function () {
       var n = 128, cv = document.createElement('canvas'); cv.width = cv.height = n;
@@ -3618,7 +3626,7 @@
       try {
         var esc = Math.max(0.55, Math.min(1.2, arbol.radioM / 2.5));
         if (!dentroDelDisco(arbol.p) || sobreCalzada(arbol.p) || sobreEdificio(arbol.p, 1.2 * esc)) return;
-        if (rioUnion) { try { if (turf.booleanPointInPolygon(arbol.p, rioUnion)) return; } catch (e) { } }
+        if ((estado.riosFlat || []).some(function (rio) { for (var k = 0; k < rio.pts.length - 1; k++) if (distPuntoSegmento(arbol.p, rio.pts[k], rio.pts[k + 1]) < (rio.ancho || 12) / 2 + 0.5) return true; return false; })) return;
         [new THREE.Mesh(geoCopa, matCopa), new THREE.Mesh(geoTronco, matTronco)].forEach(function (m) {
           m.position.set(arbol.p[0], 0, -arbol.p[1]); m.scale.setScalar(esc); m.castShadow = true; grupoArboles.add(m);
         });
@@ -3806,6 +3814,7 @@
     }
     dirLight.position.set(target.x - 0.85 * R, target.y + 0.85 * R, target.z + 0.55 * R);
     dirLight.castShadow = true;
+    dirLight.shadow.bias = -0.0006; dirLight.shadow.normalBias = 0.04;
 
     var arrastrando = false, ultimoX = 0, ultimoY = 0;
     function posEvento(e) { return e.touches && e.touches[0] ? e.touches[0] : e; }
