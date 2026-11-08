@@ -4105,7 +4105,7 @@
       // primero los predios (incluido el lote), luego los edificios encima
       // predios grandes: solo si están construidos (un parque o un terreno vacío grande no se aplana)
       var centrosEd = (huellasEdificios || []).map(function (h) { return h.reduce(function (a, q) { return [a[0] + q[0] / h.length, a[1] + q[1] / h.length]; }, [0, 0]); });
-      prediosM.concat(estado.pts ? [estado.pts] : []).forEach(function (rg) {
+      (prediosTerreno || prediosM.concat(estado.pts ? [estado.pts] : [])).forEach(function (rg) {
         var construido = centrosEd.some(function (c) { return puntoDentroDePoligono(c, rg); });
         plataforma(rg, construido ? 8000 : 2000, true);
       });
@@ -4123,7 +4123,7 @@
       }
       if (/debug=lamina/.test(location.search)) window.__plataformas = estadisticaPlataformas;
     }
-    var estadisticaPlataformas = [];
+    var estadisticaPlataformas = [], prediosTerreno = null;
     function interpretarSuperficie(X0, Y0, Z0, W0, H0) {
       var x0 = X0[0], dx = X0[1] - X0[0], y0 = Y0[0], dy = Y0[W0] - Y0[0];
       function zMDT(x, y) {
@@ -4215,7 +4215,16 @@
     }
     (function () {
       var sw = estado.metrosALatLng([-R - 12, -R - 12]), ne = estado.metrosALatLng([R + 12, R + 12]);
-      cargarMDT(sw[1], sw[0], ne[1], ne[0]).then(function (g) {
+      // predios de TODA la maqueta (los vecinos solo cubren 40 m alrededor del lote): solo geometría,
+      // para que cada predio del contexto tenga su plataforma
+      var urlPrediosCtx = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&propertyName=geom&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=3000&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + [sw[1], sw[0], ne[1], ne[0]].join(',') + ",'EPSG:4326')");
+      var prediosCtx = fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) {
+        var out = [];
+        (d.features || []).forEach(function (f) { try { var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates; polys.forEach(function (pc) { var r = pc[0].map(function (c) { return estado.aMetros(c); }); if (r.length >= 3) out.push(r); }); } catch (e) { } });
+        return out;
+      }).catch(function () { return null; });
+      Promise.all([cargarMDT(sw[1], sw[0], ne[1], ne[0]), prediosCtx]).then(function (res) {
+        var g = res[0]; if (res[1] && res[1].length) prediosTerreno = res[1];
         // suavizado 3x3 (quita el escalonado del raster) y paso a metros locales
         var W = g.W, H = g.H, Zs = new Float32Array(W * H), X = new Float32Array(W * H), Y = new Float32Array(W * H), zmin = Infinity, zmax = -Infinity;
         for (var j = 0; j < H; j++) for (var i = 0; i < W; i++) {
