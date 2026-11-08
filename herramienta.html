@@ -1998,12 +1998,20 @@
     });
     var esPredioPublico = false;
     try {
-      var pPub = turf.pointOnFeature(featureReg).geometry.coordinates, dd = 0.00002;
-      var urlDatos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios_datos&outputFormat=application/json&srsName=EPSG:4326&propertyName=propietario,geom&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + [pPub[0] - dd, pPub[1] - dd, pPub[0] + dd, pPub[1] + dd].join(',') + ",'EPSG:4326')");
+      // la geometría de esta capa no siempre coincide con la de predios: se toma el registro que más
+      // se solapa con el lote (no el que contiene un punto)
+      var bbL = turf.bbox(featureReg);
+      var urlDatos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios_datos&outputFormat=application/json&srsName=EPSG:4326&propertyName=propietario,geom&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + bbL.join(',') + ",'EPSG:4326')");
       var dDatos = await (await fetch(urlDatos)).json();
+      var mejorSolape = 0, mejorPublico = false, areaL = turf.area(featureReg);
       (dDatos.features || []).forEach(function (f) {
-        try { if (turf.booleanPointInPolygon(pPub, f) && /GOBIERNO AUTONOMO|MUNICIPALIDAD|MUNICIPIO|MINISTERIO|EMPRESA PUBLICA|EMPRESA P[UÚ]BLICA|ETAPA EP|ESTADO ECUATORIANO|CONSEJO PROVINCIAL|PREFECTURA/i.test(String(f.properties.propietario || ''))) esPredioPublico = true; } catch (e) { }
+        try {
+          var it = turf.intersect(turf.feature(featureReg.geometry), turf.feature(f.geometry)); if (!it) return;
+          var a = turf.area(it);
+          if (a > mejorSolape) { mejorSolape = a; mejorPublico = /GOBIERNO AUTONOMO|MUNICIPALIDAD|MUNICIPIO|MINISTERIO|EMPRESA P[UÚ]BLICA|ETAPA EP|ESTADO ECUATORIANO|CONSEJO PROVINCIAL|PREFECTURA/i.test(String(f.properties.propietario || '')); }
+        } catch (e) { }
       });
+      esPredioPublico = mejorPublico && mejorSolape > 0.5 * areaL;
     } catch (e) { }
     var restriccionVolumen = null;
     if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
