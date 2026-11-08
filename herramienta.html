@@ -597,7 +597,7 @@
     <span class="hint">Cuenca, Ecuador</span>
   </div>
   <div class="buscar-maps">
-    <input type="text" id="buscar-maps-input" placeholder="Pega un link de Google Maps (o lat, lng)">
+    <input type="text" id="buscar-maps-input" placeholder="Clave catastral, link de Google Maps o lat, lng">
     <button type="button" id="buscar-maps-btn">Buscar</button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
@@ -982,9 +982,24 @@
     msg.className = 'buscar-maps-msg ' + (tipo || '');
     msg.textContent = texto;
   }
+  // Clave catastral: 13 dígitos en Cuenca; se aceptan con espacios, puntos o guiones.
+  async function buscarPorClave(clave) {
+    mostrarMsgBusqueda('Buscando la clave ' + clave + '…');
+    try {
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + clave + "'");
+      var data = await (await fetch(url)).json();
+      if (!data.features || !data.features.length) { mostrarMsgBusqueda('No encontramos la clave ' + clave + ' en el catastro de Cuenca. Revisa los dígitos (son 13).', 'err'); return; }
+      var c = turf.pointOnFeature(data.features[0]).geometry.coordinates;
+      mostrarMsgBusqueda('');
+      mapa.setView([c[1], c[0]], 18);
+      consultarPredio({ lat: c[1], lng: c[0] });
+    } catch (e) { mostrarMsgBusqueda('No se pudo consultar el catastro en este momento. Intenta de nuevo en unos segundos.', 'err'); }
+  }
   function buscarPorGoogleMaps() {
     var texto = document.getElementById('buscar-maps-input').value.trim();
     if (!texto) return;
+    var soloDigitos = texto.replace(/[\s.\-]/g, '');
+    if (/^\d{10,16}$/.test(soloDigitos)) { buscarPorClave(soloDigitos); return; }
     var coords = extraerLatLngDeGoogleMaps(texto);
     if (coords) {
       mostrarMsgBusqueda('');
