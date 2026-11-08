@@ -3474,7 +3474,7 @@
     var piezasVolumen = [];
     bloquesPB.forEach(function (ptsPB, bi) {
       if (!particionFrentes) { piezasVolumen.push({ pb: ptsPB, altas: bloquesAltasFinal[bi], patios: bloquesPatios[bi] || [], frente: null }); return; }
-      [-1, 1].forEach(function (sg, h) {
+      [1, -1].forEach(function (sg, h) { // sg = 1 conserva el lado del frente 1 (u va de f1 a f2)
         var pbH = mitad(ptsPB, sg); if (!pbH.length) return;
         var patiosH = (bloquesPatios[bi] || []).filter(function (pt) { return pt && pt.length && pt.every(function (q) { return sg * ((q[0] - particionFrentes.M[0]) * particionFrentes.u[0] + (q[1] - particionFrentes.M[1]) * particionFrentes.u[1]) <= 0; }); });
         piezasVolumen.push({ pb: pbH, altas: mitad(bloquesAltasFinal[bi], sg), patios: patiosH, frente: particionFrentes.frentes[h] });
