@@ -989,7 +989,7 @@
   (function () {
     var el = document.getElementById('mapaLupa'); if (!el) return;
     mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
-    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
     function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
     mapa.on('move zoom resize', sincronizar);
@@ -1204,7 +1204,7 @@
   }
   function empezarDibujo() {
     modoDibujo = true; verticesDibujo = []; desactivarModo3D();
-    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
+    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
     capaOrtoDibujo.addTo(mapa); mapa.doubleClickZoom.disable();
     if (mapa.getZoom() < 18) mapa.setZoom(18);
     ['tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = false; });
@@ -4578,7 +4578,7 @@
     function cargarFoto() {
       if (cargandoFoto) return cargandoFoto;
       var sw = estado.metrosALatLng([-R, -R]), ne = estado.metrosALatLng([R, R]);
-      var url = 'https://ide.cuenca.gob.ec/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent('dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos') +
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent('dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos') +
         '&styles=&srs=EPSG:4326&bbox=' + [sw[1], sw[0], ne[1], ne[0]].join(',') + '&width=' + LAMINA_PX + '&height=' + LAMINA_PX + '&format=image/jpeg';
       cargandoFoto = fetch(url).then(function (r) { return r.blob(); }).then(function (b) { return createImageBitmap(b); }).then(function (bm) { imgFoto = bm; return bm; })
         .catch(function (e) { console.warn('Foto aérea no disponible', e); cargandoFoto = null; return null; });
