@@ -1388,7 +1388,7 @@
     // inventado — por eso se usa para pintar estas zonas de verde Y para confirmar (cuando hay match)
     // si el predio sujeto mismo cae en una.
     var TAGS_AREA_VERDE = { leisure: ['park', 'garden', 'nature_reserve', 'pitch'], landuse: ['grass', 'recreation_ground', 'forest', 'allotments', 'meadow'] };
-    var rios = [], edificaciones = [], areasVerdes = [], viasOSM = [];
+    var rios = [], edificaciones = [], areasVerdes = [], viasOSM = [], puentes = [];
     xml.querySelectorAll('way').forEach(function (w) {
       var tags = {};
       w.querySelectorAll('tag').forEach(function (tag) { tags[tag.getAttribute('k')] = tag.getAttribute('v'); });
@@ -1411,8 +1411,9 @@
       // snapping real en las esquinas) y quería verlo al lado de lo demás antes de decidir si vale la
       // pena usarlo para algo más que comparar.
       if (tags.highway && coords.length >= 2) viasOSM.push({ coords: coords, tipo: tags.highway, nombre: tags.name });
+      if (tags.highway && tags.bridge && tags.bridge !== 'no' && coords.length >= 2) puentes.push({ coords: coords, tipo: tags.highway, nombre: tags.name || null, ancho: tags.width ? parseFloat(tags.width) : null });
     });
-    return { rios: rios, edificaciones: edificaciones, areasVerdes: areasVerdes, viasOSM: viasOSM };
+    return { rios: rios, edificaciones: edificaciones, areasVerdes: areasVerdes, viasOSM: viasOSM, puentes: puentes };
   }
 
   var ALTURA_EDIFICACION_SIN_DATO_M = 6; // ~2 pisos — municipal nunca trae altura, igual que el ~7% de OSM sin height/levels
@@ -2397,6 +2398,7 @@
       edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, patrimonioLote: patrimonioLote, riosFlat: riosFlat,
       areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote, restriccionVolumen: restriccionVolumen,
       viasDibujo: viasDibujo,
+      puentes: (datosOSM.puentes || []).map(function (pu) { return { pts: pu.coords.map(aMetros), tipo: pu.tipo, nombre: pu.nombre, ancho: pu.ancho }; }),
       arbolesDetectados: arbolesDetectados,
       frenteARio: frenteARio, ladosRio: ladosRio, usoSuelo: usoSuelo, maxPisosPech: maxPisosPech,
       // editables en vivo por el panel/editor — valores por defecto, se pisan en mostrarResultado()
@@ -4205,6 +4207,12 @@
         });
       });
       grupoArboles.children.forEach(function (o) { if (o.userData && o.userData.c) o.position.y = cota(o.userData.c); });
+      // tablero del puente al nivel de la calle en sus extremos (el más alto), apenas por encima
+      grupoPuentes.children.forEach(function (o) {
+        var e = o.userData && o.userData.extremos; if (!e) return;
+        var nivel = Math.max(cota(e[0]), cota(e[1]));
+        o.position.y = nivel - 0.6 + (o.userData.sobre || 0);
+      });
       var cLote = cota(estado.centroideLote);
       grupoVolumen.position.y = cLote; meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
       solicitarRender();
@@ -4300,6 +4308,35 @@
           grupoEdificios.add(aristaV);
         });
       } catch (e) { }
+    });
+
+    // Puentes (OSM bridge=yes): tablero blanco sobre el río, a la cota de sus extremos.
+    var grupoPuentes = new THREE.Group(); scene.add(grupoPuentes);
+    (estado.puentes || []).forEach(function (pu) {
+      recortarTramosVisibles(pu.pts).forEach(function (tramo) {
+        try {
+          if (tramo.length < 2) return;
+          var tn = String(pu.tipo || '').toUpperCase();
+          var ancho = pu.ancho || (TIPOS_PEATONALES_OSM.indexOf(tn) !== -1 ? 3 : refDeVia({ tipo: pu.tipo }).calzada + 2);
+          var anillo = cintaPoligono(tramo, ancho);
+          var g = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(anillo)), { depth: 0.8, bevelEnabled: false });
+          g.rotateX(-Math.PI / 2); g.computeVertexNormals();
+          var m = new THREE.Mesh(g, matVecino); m.castShadow = true; m.receiveShadow = true;
+          m.userData.extremos = [tramo[0], tramo[tramo.length - 1]];
+          m.position.y = 0.2;
+          grupoPuentes.add(m);
+          var ar = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), matAristaVecino); ar.userData.extremos = m.userData.extremos; ar.position.y = 0.2;
+          grupoPuentes.add(ar);
+          // barandas finas a cada lado
+          [ancho / 2 - 0.15, -(ancho / 2 - 0.15)].forEach(function (off) {
+            var lado = polilineaOffset(tramo, off);
+            var bg = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(cintaPoligono(lado, 0.25))), { depth: 1.0, bevelEnabled: false });
+            bg.rotateX(-Math.PI / 2);
+            var b = new THREE.Mesh(bg, matVecino); b.castShadow = true; b.userData.extremos = m.userData.extremos; b.userData.sobre = 0.8; b.position.y = 1.0;
+            grupoPuentes.add(b);
+          });
+        } catch (e) { }
+      });
     });
 
     // Lo construido hoy en el lote (catastro/OSM): se ve mientras el volumen normativo está apagado.
