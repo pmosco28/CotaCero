@@ -368,9 +368,29 @@
     var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
     return m;
   }
+  function mascaraOrilla(N, red) {
+    var segsRio = [];
+    red.rios.forEach(function (r) { for (var i = 0; i < r.pts.length - 1; i++) segsRio.push([r.pts[i], r.pts[i + 1], r.ancho]); });
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.strokeStyle = '#000'; x.lineCap = 'butt';
+    red.vias.forEach(function (v) {
+      var an = ANCHOS[v.tipo]; if (!an || v.puente || /^(steps|footway|path)$/.test(v.tipo)) return;
+      for (var i = 0; i < v.ids.length - 1; i++) {
+        var a = red.nodos[v.ids[i]], b = red.nodos[v.ids[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1) continue;
+        var mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], mejor = null, dmin = Infinity;
+        segsRio.forEach(function (sr) { var p = sr[0], q = sr[1], abx = q[0] - p[0], aby = q[1] - p[1], L2 = abx * abx + aby * aby, u = L2 ? Math.max(0, Math.min(1, ((mid[0] - p[0]) * abx + (mid[1] - p[1]) * aby) / L2)) : 0, d = Math.hypot(mid[0] - p[0] - abx * u, mid[1] - p[1] - aby * u); if (d < dmin) { dmin = d; mejor = sr; } });
+        if (!mejor || dmin > 60) continue;
+        var rx = mejor[1][0] - mejor[0][0], ry = mejor[1][1] - mejor[0][1], cosA = Math.abs(((b[0] - a[0]) * rx + (b[1] - a[1]) * ry) / (L * Math.hypot(rx, ry)));
+        if (cosA < 0.8) continue; // cruza o se aleja del río: no es vía de orilla
+        x.lineWidth = (an[0] + 2 * an[1]) / PASO; x.beginPath();
+        x.moveTo((a[0] + LADO / 2) / PASO, (LADO / 2 - a[1]) / PASO); x.lineTo((b[0] + LADO / 2) / PASO, (LADO / 2 - b[1]) / PASO); x.stroke();
+      }
+    });
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
+    return m;
+  }
   // nivel del agua por píxel cercano al río (cota del cauce más cercano, a ≤ 60 m)
   function nivelAgua(N, Z, red) {
-    var agua = new Float32Array(N * N).fill(NaN), dist = new Float32Array(N * N).fill(Infinity);
+    var agua = new Float32Array(N * N).fill(NaN), dist = new Float32Array(N * N).fill(Infinity), anchoR = new Float32Array(N * N);
     red.rios.forEach(function (r) {
       var m = []; for (var s = 0; s < r.pts.length - 1; s++) { var a = r.pts[s], b = r.pts[s + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 3)); for (var k = 0; k < n; k++) { var t = k / n; m.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
       var dentro = m.filter(function (p) { return Math.abs(p[0]) < LADO / 2 + 30 && Math.abs(p[1]) < LADO / 2 + 30; });
@@ -379,21 +399,24 @@
       for (var i = 1; i < zw.length; i++) zw[i] = Math.min(zw[i], zw[i - 1]);
       for (var j = 0; j < N; j++) for (var i2 = 0; i2 < N; i2++) {
         var x = -LADO / 2 + (i2 + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, k2 = j * N + i2;
-        for (var q = 0; q < dentro.length; q += 2) { var d = Math.hypot(dentro[q][0] - x, dentro[q][1] - y) - r.ancho / 2; if (d < dist[k2]) { dist[k2] = d; agua[k2] = zw[q]; } }
+        for (var q = 0; q < dentro.length; q += 2) { var d = Math.hypot(dentro[q][0] - x, dentro[q][1] - y) - r.ancho / 2; if (d < dist[k2]) { dist[k2] = d; agua[k2] = zw[q]; anchoR[k2] = r.ancho; } }
       }
     });
-    return { agua: agua, dist: dist };
+    return { agua: agua, dist: dist, anchoR: anchoR };
   }
   var BORDO_LIBRE = 2.5; // m — se reemplaza por el medido en la verdad cuando se calibra
   function metodoRios(N, C, red, opc) {
     opc = opc || {};
-    var D = C.slice(), NA = nivelAgua(N, C, red), proteger = opc.proteger ? mascaraCalles(N, red) : null, levantadas = 0;
+    var D = C.slice(), NA = nivelAgua(N, C, red), calles = opc.proteger ? mascaraCalles(N, red) : null, orilla = opc.proteger ? mascaraOrilla(N, red) : null, levantadas = 0;
+    var proteger = calles;
     for (var k = 0; k < N * N; k++) {
       if (isNaN(NA.agua[k]) || NA.dist[k] > 60) continue;
       var bz = NA.agua[k], d = Math.max(0, NA.dist[k]);
       if (proteger && proteger[k]) {
         // regla 2: la calle de orilla nunca baja de agua + bordo libre
-        if (D[k] < bz + opc.bordo) { D[k] = bz + opc.bordo; levantadas++; }
+        // bordo libre según el cauce: río (≥ 20 m de ancho) el medido; quebrada, 0,8 m. Solo vías de orilla.
+        var bordo = NA.anchoR[k] >= 20 ? opc.bordo : 0.8;
+        if (orilla[k] && D[k] < bz + bordo) { D[k] = bz + bordo; levantadas++; }
         continue; // regla 1: el cauce no se talla dentro de una calle
       }
       if (d > 20) continue;
@@ -409,8 +432,8 @@
   }
   // bordo libre real: en la verdad, cota de las calles a ≤ 60 m del río menos el nivel del agua
   function bordoLibreReal(N, T, red) {
-    var NA = nivelAgua(N, T, red), mc = mascaraCalles(N, red), v = [];
-    for (var k = 0; k < N * N; k++) if (mc[k] && !isNaN(NA.agua[k]) && NA.dist[k] <= 60 && NA.dist[k] > 2 && !isNaN(T[k])) v.push(T[k] - NA.agua[k]);
+    var NA = nivelAgua(N, T, red), mc = mascaraOrilla(N, red), v = [];
+    for (var k = 0; k < N * N; k++) if (mc[k] && NA.anchoR[k] >= 20 && !isNaN(NA.agua[k]) && NA.dist[k] <= 60 && NA.dist[k] > 2 && !isNaN(T[k])) v.push(T[k] - NA.agua[k]);
     if (!v.length) return null;
     v.sort(function (a, b) { return a - b; });
     return { p10: v[Math.floor(v.length * 0.1)], mediana: v[Math.floor(v.length / 2)], n: v.length };
@@ -459,7 +482,7 @@
       log('  OpenStreetMap…'); var red = await osm(P);
       var fb = fraccionConstruida(N, red.edif), fv = fraccionVegetacion(N, red), fr = fraccionRibera(N, red);
       var bl = red.rios.length ? bordoLibreReal(N, T, red) : null;
-      if (bl) { bordos.push({ zona: Z.nombre, p10: bl.p10, mediana: bl.mediana }); log('  bordo libre real de calles junto al río: p10 ' + bl.p10.toFixed(1) + ' m · mediana ' + bl.mediana.toFixed(1) + ' m'); }
+      if (bl) { bordos.push({ zona: Z.nombre, p10: bl.p10, mediana: bl.mediana }); log('  bordo libre real de vías de orilla (ríos grandes): p10 ' + bl.p10.toFixed(1) + ' m · mediana ' + bl.mediana.toFixed(1) + ' m'); }
       if (zi === 0 && bl) { BORDO_LIBRE = Math.max(1.5, +bl.p10.toFixed(1)); log('  bordo libre adoptado (p10 de El Ejido): ' + BORDO_LIBRE + ' m'); }
       var filasZona = [], copD = null, sesgoCop = 0, mapas = [];
       for (var bi = 0; bi < BASES.length; bi++) {
