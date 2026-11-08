@@ -581,7 +581,7 @@
           var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
           var mA = metricas(N, A, T), mD = metricas(N, D, T), mE = metricas(N, E, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles), cE = metricas(N, E, T, calles);
           filasZona.push({ base: BS.nombre, A: mA, D: mD, E: mE, cA: cA, cD: cD, cE: cE, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T), pE: pendienteRMSE(N, E, T), obj: FS.fraccionObjeto });
-          if (BS.id === 'cop') { var G = callesInterpretadas(N, metodoRios(N, metodoVias(N, FS.Z, red, { sinPuentes: true }).C, red, { proteger: true, bordo: BORDO_LIBRE }), red); copD = G; sesgoCop = metricas(N, G, T).sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
+          if (BS.id === 'cop') { var G = callesInterpretadas(N, suavizarManzanas(N, metodoRios(N, metodoVias(N, FS.Z, red, { sinPuentes: true }).C, red, { proteger: true, bordo: BORDO_LIBRE }), red, 0.6, 2, 1), red); copD = G; sesgoCop = metricas(N, G, T).sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
         } catch (e) { log('    ✗ ' + BS.nombre + ': ' + e); }
       }
       var todos = []; filasZona.forEach(function (f) { todos.push(f.A.rmse, f.D.rmse, f.E.rmse); });
