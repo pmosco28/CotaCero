@@ -89,6 +89,13 @@
   .mapa-stage:not(.modo-3d) .icono-3d-col { display: none; }
   .mapa-stage:not(.modo-3d) .mapa-col { flex: 1 1 100%; }
   .mapa-ventana { position: relative; width: 100%; height: min(76vh, 720px); }
+  /* Lupa: de cerca, un círculo difuminado alrededor del mouse deja ver la ortofoto y los predios */
+  .mapa-lupa { position: absolute; inset: 0; z-index: 450; pointer-events: none; opacity: 0; transition: opacity .25s; background: transparent;
+    -webkit-mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%);
+    mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%); }
+  .mapa-lupa.visible { opacity: 1; }
+  .mapa-lupa .leaflet-container, .mapa-lupa.leaflet-container { background: transparent; }
+  .lupa-predios { filter: brightness(0) invert(1); opacity: .85; }
   .capa-base-plano { filter: grayscale(1) contrast(1.25) brightness(1.02); }
   .leaflet-container .leaflet-control-attribution { background: transparent; color: #8a867e; font-size: 0.62rem; }
   #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
@@ -770,7 +777,7 @@
   </details>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
@@ -974,6 +981,29 @@
   // Fondo: ortofoto oficial del IGM servida por el IDE Cuenca (WMS), en vez de pedir mosaicos
   // directo a los servidores de Google (uso no permitido por sus términos).
   var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
+  // ---------- Lupa de ortofoto ----------
+  // Un segundo mapa (solo ortofoto municipal + predios en blanco), sincronizado con el principal y
+  // recortado por una máscara circular difuminada que sigue al mouse. Aparece de cerca (zoom ≥ 17),
+  // para que cualquier persona reconozca su casa antes de tocar el predio. Sin interacción propia.
+  var mapaLupa = null;
+  (function () {
+    var el = document.getElementById('mapaLupa'); if (!el) return;
+    mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
+    function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
+    mapa.on('move zoom resize', sincronizar);
+    mapa.on('resize', function () { mapaLupa.invalidateSize(false); });
+    sincronizar();
+    var cont = mapa.getContainer();
+    cont.addEventListener('mousemove', function (ev) {
+      var r = cont.getBoundingClientRect();
+      el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+      el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
+    });
+    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); });
+    mapa.on('zoomend', function () { if (mapa.getZoom() < 17) el.classList.remove('visible'); });
+  })();
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
   // Base: OpenFreeMap, estilo Positron (datos de OpenStreetMap): calles con nombre, parques y ríos,
   // claro y en grises. Gratis también para uso comercial, sin clave ni límite de vistas; exige citar
