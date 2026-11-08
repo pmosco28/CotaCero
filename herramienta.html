@@ -285,6 +285,10 @@
   .barra-union button { flex: none; }
   .barra-union button { font: inherit; font-weight: 600; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; cursor: pointer; }
   .barra-union .bu-listo { background: #B2502E; border-color: #B2502E; color: #fff; } .barra-union .bu-listo:disabled { opacity: .4; cursor: default; }
+  .maq-usos ul { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+  .maq-usos li { display: flex; justify-content: space-between; gap: 6px; font-size: 0.76rem; font-weight: 300; border-bottom: 1px solid rgba(28,26,22,.08); padding: 3px 0; }
+  .maq-usos li b { font-weight: 600; white-space: nowrap; } .maq-usos li.u0 { color: #9a968e; } .maq-usos li.u1 b { color: #8F3F23; }
+  @media (max-width: 640px) { .maq-usos ul { grid-template-columns: 1fr; } }
   .maq-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
   .maq-panel .maq-acc, .maq-panel .maq-acc span, .maq-panel .maq-acc small { text-transform: none; letter-spacing: 0; }
   .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 9px 6px; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
@@ -613,6 +617,9 @@
   .reporte-pdf .ubicacion-inset .plano-ubicacion { width: 100%; aspect-ratio: 1 / 1; display: block; border-radius: 6px; margin: 0; }
   .reporte-pdf .plano-ubicacion { width: 100%; max-width: 420px; display: block; margin: 12px auto; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 12px; }
   .reporte-pdf .notas-texto { font-size: 0.85rem; white-space: pre-wrap; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; }
+  .reporte-pdf .tabla-usos { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 8px; } .reporte-pdf .tabla-usos td { padding: 3px 6px; border-bottom: 1px solid var(--line-soft); } .reporte-pdf .tabla-usos td:last-child { font-weight: 600; text-align: right; }
+  .reporte-pdf .usos-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 0.68rem; }
+  .reporte-pdf .usos-tec { margin: 4px 0 0; padding-left: 12px; } .reporte-pdf .usos-tec li { margin-bottom: 2px; line-height: 1.3; }
   .reporte-pdf .uso-suelo { font-size: 0.85rem; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
   .reporte-pdf .uso-suelo strong { color: var(--ink-soft); font-weight: 600; }
   /* Croquis de sitio (trámite bancario) — recuadro de datos + firma, formato A4 vertical.
@@ -719,6 +726,34 @@
     body { padding-bottom: 76px; }
   }
   @media print { .btn-whatsapp { display: none !important; } }
+  .btn-carrito { position: fixed; bottom: 20px; right: 268px; z-index: 1500; display: inline-flex; align-items: center; gap: 8px; font: 600 0.92rem 'Inter Tight', sans-serif; padding: 12px 18px; border-radius: 999px; border: 0; background: #B2502E; color: #fff; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
+  .btn-carrito[hidden] { display: none; }
+  .btn-carrito svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 640px) {
+    .btn-carrito { left: 12px; right: auto; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 14px 16px; }
+    body.con-carrito .btn-whatsapp { left: auto; width: 56px; padding: 14px 0; } body.con-carrito .btn-whatsapp span { display: none; }
+    body.con-carrito .btn-carrito { right: 80px; justify-content: center; }
+  }
+  @media print { .btn-carrito, .checkout { display: none !important; } }
+  .checkout { position: fixed; inset: 0; z-index: 2000; background: rgba(28,26,22,.45); display: grid; place-items: center; padding: 16px; }
+  .checkout-caja { position: relative; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: #f6f5f2; border-radius: 14px; padding: 18px; display: grid; gap: 10px; font-size: 0.86rem; color: #1C1A16; }
+  .checkout-x { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 1.4rem; cursor: pointer; color: #5E5B55; }
+  .checkout ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .checkout li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(28,26,22,.08); padding: 4px 0; font-weight: 300; }
+  .checkout li b { font-weight: 600; white-space: nowrap; } .checkout li.tot { border-bottom: 0; font-weight: 600; }
+  .checkout-btns { display: grid; gap: 8px; margin-top: 6px; }
+  .checkout-btns a { display: block; text-align: center; text-decoration: none; font-weight: 700; padding: 12px; border-radius: 10px; }
+  .checkout-pagar { background: #B2502E; color: #fff; } .checkout-wa { background: #1C1A16; color: #fff; }
+  .ped-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: rgba(28,26,22,.06); padding: 3px; border-radius: 10px; }
+  .ped-tab { font: inherit; font-size: 0.74rem; font-weight: 500; padding: 7px 4px; border: 0; border-radius: 8px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; line-height: 1.2; }
+  .ped-tab.activo { background: #1C1A16; color: #f3f1ec; }
+  .ped-grupo { display: grid; gap: 8px; } .ped-grupo[hidden] { display: none; }
+  .ped-sub { font-size: 0.64rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #8a867e; margin-top: 4px; }
+  .maq-tramite.rec b u { text-decoration: none; font-size: 0.6rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #B2502E; margin-left: 4px; }
+  .ped-resumen { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
+  .ped-continuar { font: inherit; font-weight: 700; height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #B2502E; color: #fff; cursor: pointer; }
+  .maq-sol { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
+  .maq-sol-fila { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; } .maq-sol-fila input[type=range] { flex: 1; accent-color: #1C1A16; }
 
   /* ---------- privacidad (LOPDP) ---------- */
   .modal-overlay {
@@ -910,6 +945,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="datos/fichas_pit.js"></script>
+<script src="datos/usos_pit.js"></script>
 <script>
 (function () {
   // Responsable del tratamiento según la LOPDP (Ley Orgánica de Protección de Datos Personales de
@@ -975,6 +1011,49 @@
   // página (el texto del PDF viene de un escaneo y se come celdas). Clave = código normalizado
   // (O→0, I/L→1) porque el código del WFS y el del PDF no siempre coinciden letra a letra.
   var FICHAS_PIT = window.FICHAS_PIT || {}; // datos/fichas_pit.js
+  // Usos de suelo por PIT y ámbito (datos/usos_pit.js, PUGS 2025 Anexos 7.1, 7.3 y 7.4)
+  function usosDelPredio(usoSuelo) {
+    if (!usoSuelo || !usoSuelo.codPit || !window.USOS_PIT) return null;
+    var lista = null;
+    Object.keys(window.USOS_PIT).some(function (k) { if (normPit(k) === normPit(usoSuelo.codPit)) { lista = window.USOS_PIT[k]; return true; } return false; });
+    if (!lista || !lista.length) return null;
+    var amb = String(usoSuelo.ambitos || '').toLowerCase(), e = null;
+    lista.forEach(function (x) { if (!e && amb && x.a && (amb === x.a.toLowerCase() || amb.split(' ')[0] === x.a.toLowerCase().split(' ')[0])) e = x; });
+    e = e || lista[0];
+    var L = window.LISTAS_USOS || [], sp = function (i) { return (L[i] || '').split(';').filter(Boolean); };
+    return { ambito: e.a, principal: sp(e.p), complementario: sp(e.c), restringido: sp(e.r), prohibido: sp(e.x), variosAmbitos: lista.length > 1 && !amb };
+  }
+  // Para el cliente: actividades comunes en palabras simples. Estado = el mejor que tenga cualquiera
+  // de sus códigos (principal o complementario → Sí; restringido → con condiciones; si no → No).
+  var USOS_AMIGABLES = [
+    ['Vivienda', /^(RAD|RMD|RBD|BDR)$/],
+    ['Tiendas de barrio', /^(COM_1|COM_2A|COM_2B|SERV_31)$/],
+    ['Oficinas y servicios profesionales', /^(SERV_1[AB]|SERV_2[AB]|SERV_3[AB]|SERV_4[ABC])$/],
+    ['Restaurantes y cafeterías', /^(SERV_14[ABC]|SERV_15[AB])$/],
+    ['Hospedaje', /^(SERV_11[AB]|SERV_12)$/],
+    ['Consultorios y salud', /^(SERV_5[AB]|EQU_3)$/],
+    ['Educación', /^(SERV_7[AB]|EQU_1)$/],
+    ['Bares y venta de alcohol', /^(COM_5[AB]|SERV_16[AB])$/],
+    ['Talleres artesanales', /^(PA_T[12]|CONSERV_TRAD)$/],
+    ['Talleres mecánicos', /^(SERV_3[234])$/],
+    ['Bodegas y venta al por mayor', /^(COM_4[ABC]|SERV_27[ABC]|SERV_36)$/],
+    ['Gasolineras y gas', /^(COM_9[ABC]|COM_10[ABC])$/],
+    ['Industria', /^(I TIPO [A-D]|IAR)$/]
+  ];
+  function usosAmigables(u) {
+    if (!u) return [];
+    return USOS_AMIGABLES.map(function (d) {
+      var nivel = 0;
+      [['principal', 3], ['complementario', 2], ['restringido', 1]].forEach(function (t) { if (u[t[0]].some(function (c) { return d[1].test(c); })) nivel = Math.max(nivel, t[1]); });
+      return { nombre: d[0], nivel: nivel, texto: nivel >= 2 ? 'Sí' : nivel === 1 ? 'Con condiciones' : 'No' };
+    });
+  }
+  function htmlUsosCliente(u) {
+    var a = usosAmigables(u); if (!a.length) return '';
+    return '<div class="maq-usos"><div class="maq-estudio-tit">Qué puedes poner aquí</div><ul>' +
+      a.map(function (x) { return '<li class="u' + Math.min(x.nivel, 2) + '"><span>' + x.nombre + '</span><b>' + x.texto + '</b></li>'; }).join('') +
+      '</ul><div class="maq-nota">"Con condiciones" depende del tamaño, la vía y los requisitos del municipio para cada actividad. Detalle técnico con códigos en la ficha PDF.</div></div>';
+  }
   function normPit(c) { return String(c || '').toUpperCase().replace(/\s+/g, '').replace(/O/g, '0').replace(/[IL]/g, '1'); }
   function fichaDePit(cod) {
     var f = FICHAS_PIT[normPit(cod)];
@@ -3690,6 +3769,7 @@
     // Anexo 6.3 no traen números, remiten a la Ordenanza de Áreas Históricas y Patrimoniales.
     var esAreaHistorica = !esCentroHistorico && /^AH/.test(pitOficial);
     estado.pitOficial = pitOficial;
+    estado.usos = usosDelPredio(estado.usoSuelo);
     estado.esAreaHistorica = esAreaHistorica;
     regimenAreaHistorica = esAreaHistorica;
     fichaPITActual = (pitOficial && !esCentroHistorico && !esAreaHistorica) ? fichaDePit(pitOficial) : null;
@@ -5893,17 +5973,19 @@
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         '<div class="maq-acciones">' +
           (estado.restriccionVolumen ? '' : '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span><small>qué puedes construir</small></button>') +
-          '<button type="button" class="maq-acc" data-acc="lotes"><span>Unir o dividir</span><small>' + (estado.esUnion ? estado.claves.length + ' lotes unidos' : 'lotes vecinos') + '</small></button>' +
-          '<button type="button" class="maq-acc maq-acc-pedir" data-acc="pedir"><span>Solicitar</span><small class="maq-total">trámites y archivos</small></button>' +
+          '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis urbano</span><small>' + (estado.esUnion ? estado.claves.length + ' lotes unidos' : 'unir, dividir, sol') + '</small></button>' +
+          '<button type="button" class="maq-acc maq-acc-pedir" data-acc="pedir"><span>Solicitar</span><small>trámites, archivos, estudios</small></button>' +
         '</div>' +
         '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma && !estado.restriccionVolumen ? '' : ' hidden') + '>' +
           '<div class="maq-norma-detalle">' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
             '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>' +
+            htmlUsosCliente(estado.usos) +
           '</div>' +
         '</div>' +
         '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' +
+          '<div class="maq-estudio-tit">Unir o dividir lotes</div>' +
           (!estado.esUnion && !estado.division ? '<div class="maq-nota">Junta tu lote con los vecinos para ver cuánto más podrías construir, o mira en cuántos lotes mínimos se puede dividir.</div>' : '') +
           (estado.esUnion
             ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
@@ -5920,20 +6002,14 @@
             (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
               : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
           '</div>' +
+          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento</div>' +
+            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (sombrasActivas ? ' checked' : '') + '> Ver sombras</label>' +
+            '<div class="maq-sol-fila"><input type="range" class="maq-sol-hora" min="6" max="18" step="0.25" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
+            '<div class="maq-nota">Mueve la hora para ver cómo cae la sombra de tu volumen y de los vecinos. Un estudio completo (todo el año, horas de sol por fachada) está en Solicitar.</div>' +
+          '</div>' +
         '</div>' +
         '<div class="maq-sec maq-pedir" data-sec="pedir"' + (secAbierta.pedir ? '' : ' hidden') + '>' +
-        (function () {
-          var tr = tramitesRecomendados(estado);
-          if (!estado.tramitesSel || estado.tramitesSelPara !== tr.map(function (x) { return x.id; }).join(',')) {
-            estado.tramitesSel = {}; tr.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = tr.map(function (x) { return x.id; }).join(',');
-          }
-          return (tr.length ? '<div class="maq-tramites"><div class="maq-estudio-tit">Trámites recomendados</div>' + tr.map(function (x) {
-            var pr = precioDeProducto(x.id);
-            return '<label class="maq-tramite"><input type="checkbox" data-tramite="' + x.id + '"' + (estado.tramitesSel[x.id] ? ' checked' : '') + '><i></i><span><b>' + x.nombre + '</b><small>' + x.sub + '</small></span><em>' + (pr || 'a convenir') + '</em></label>';
-          }).join('') + '<button type="button" class="maq-solicitar">Solicitar</button><div class="maq-ficha-msg maq-tramites-msg" hidden></div></div>' : '') +
-            '<div class="maq-ficha"><div class="maq-estudio-tit">Gratis con tu correo</div><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><div class="maq-ficha-dos"><button type="button" class="maq-ficha-btn">Ficha PDF</button><button type="button" class="maq-3d-btn">Modelo 3D</button></div><div class="maq-ficha-msg" hidden></div>' +
-            '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
-        })() +
+        htmlSolicitar(estado) +
         '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
@@ -5975,14 +6051,6 @@
       });
       secAbierta.norma = mostrarVolumenNormativa && !estado.restriccionVolumen;
       pintarAcciones();
-      // Total de lo marcado, en vivo, en el botón de la sección y en el de la barra
-      function precioNum(id) { var t = precioDeProducto(id); var n = parseFloat(String(t).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; }
-      function actualizarTotal() {
-        var ids = Object.keys(estado.tramitesSel || {}).filter(function (k) { return estado.tramitesSel[k]; });
-        var tot = ids.reduce(function (a2, k) { return a2 + precioNum(k); }, 0);
-        var bS = p.querySelector('.maq-solicitar'); if (bS) bS.textContent = ids.length ? 'Solicitar ' + ids.length + (ids.length === 1 ? ' trámite' : ' trámites') + (tot ? ' · $' + tot.toLocaleString('es-EC') : '') : 'Solicitar';
-        var tA = p.querySelector('.maq-total'); if (tA) tA.textContent = ids.length ? (tot ? '$' + tot.toLocaleString('es-EC') : ids.length + ' marcados') : 'trámites y archivos';
-      }
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
       if (btnDiv) btnDiv.addEventListener('click', function () {
@@ -5991,8 +6059,14 @@
         recomputarYRenderizar(estado);
       });
       var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
-      p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; actualizarTotal(); }); });
-      actualizarTotal();
+      conectarSolicitar(p, estado);
+      // asoleamiento: usa los mismos controles (ocultos) de sombra y hora de la escena
+      var solChk = p.querySelector('.maq-sol-chk'), solHora = p.querySelector('.maq-sol-hora'), solTxt = p.querySelector('.maq-sol-txt');
+      if (solChk && chkSombras) solChk.addEventListener('change', function () { chkSombras.checked = solChk.checked; chkSombras.dispatchEvent(new Event('change')); });
+      if (solHora && rangoHora) solHora.addEventListener('input', function () {
+        if (chkSombras && !chkSombras.checked) { chkSombras.checked = true; chkSombras.dispatchEvent(new Event('change')); if (solChk) solChk.checked = true; }
+        rangoHora.value = solHora.value; rangoHora.dispatchEvent(new Event('input')); if (solTxt) solTxt.textContent = formatoHora(parseFloat(solHora.value));
+      });
       var b3d = p.querySelector('.maq-3d-btn');
       if (b3d) b3d.addEventListener('click', function () {
         var inC = p.querySelector('.maq-ficha-correo'), correo = (inC.value || '').trim(), msgF = p.querySelector('.maq-ficha-msg');
@@ -6003,16 +6077,6 @@
         if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Preparando el modelo 3D…'; }
         descargarModelo3D(estado).then(function (n) { if (msgF) msgF.textContent = 'Listo: ' + n + ' (metros, eje Y hacia arriba). Se abre en Blender, Rhino, SketchUp (con importador glTF) y visores web.'; })
           .catch(function (e) { console.warn(e); if (msgF) { msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'No se pudo generar el modelo. Intenta de nuevo.'; } });
-      });
-      var btnSol = p.querySelector('.maq-solicitar');
-      if (btnSol) btnSol.addEventListener('click', function () {
-        var ids = Object.keys(estado.tramitesSel || {}).filter(function (k) { return estado.tramitesSel[k]; });
-        var msgT = p.querySelector('.maq-tramites-msg');
-        if (!ids.length) { if (msgT) { msgT.hidden = false; msgT.className = 'maq-ficha-msg maq-tramites-msg alerta'; msgT.textContent = 'Marca al menos un trámite.'; } return; }
-        if (msgT) msgT.hidden = true;
-        var nombres = ids.map(function (k) { var x = tramitesRecomendados(estado).filter(function (y) { return y.id === k; })[0]; var pr = precioDeProducto(k); return (x ? x.nombre : k) + (pr ? ' (' + pr + ')' : ''); });
-        if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(ids[0]);
-        setTimeout(function () { var det = document.getElementById('sol-detalle'); if (det) det.value = 'Trámites solicitados: ' + nombres.join(', ') + (det.value ? '\n' + det.value : ''); }, 120);
       });
       var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
       try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
@@ -6867,7 +6931,19 @@
   // le sirve es saber qué puede hacer con el predio (vivienda/comercio/mixto/etc.), que es justo lo que
   // trae estado.usoSuelo (ver consultarUsoSuelo) — datos reales de la capa PDOT/PUGS vigente, no un
   // texto inventado.
-  function construirBloqueUsoSuelo(usoSuelo) {
+  function construirBloqueUsoSuelo(usoSuelo, usos) {
+    var base = construirBloqueUsoSueloBase(usoSuelo);
+    if (!usos) return base;
+    var G = window.GLOSARIO_USOS || {};
+    var lista = function (cs) { return cs.length ? '<ul class="usos-tec">' + cs.map(function (c) { var g = G[c]; return '<li><b>' + c + '</b> ' + (g ? g[1] : '') + '</li>'; }).join('') + '</ul>' : '<div>—</div>'; };
+    var amig = usosAmigables(usos).map(function (x) { return '<tr><td>' + x.nombre + '</td><td>' + x.texto + '</td></tr>'; }).join('');
+    return base +
+      '<div class="seccion-titulo">Qué se puede poner en el predio</div><table class="tabla-usos">' + amig + '</table>' +
+      '<div class="seccion-titulo">Usos de suelo · detalle técnico (' + (usoSuelo.codPit || '') + ', ámbito ' + (usos.ambito || '—') + ')</div>' +
+      '<div class="usos-col"><div><strong>Uso principal</strong>' + lista(usos.principal) + '</div><div><strong>Uso complementario</strong>' + lista(usos.complementario) + '</div><div><strong>Uso restringido</strong>' + lista(usos.restringido) + '</div></div>' +
+      '<div class="aviso-legal">Fuente: PUGS 2025, Anexo 7.4 (o 7.3 en expansión urbana), asignación de usos; descripciones del Anexo 7.1. Las actividades que no constan como principales, complementarias o restringidas se entienden prohibidas. Las restringidas deben cumplir las condiciones del Anexo 7.1.</div>';
+  }
+  function construirBloqueUsoSueloBase(usoSuelo) {
     if (!usoSuelo || (!usoSuelo.ambitos && !usoSuelo.distActividad && !usoSuelo.nombre && !usoSuelo.codPit)) {
       return '<div class="seccion-titulo">Uso de suelo</div><div class="aviso-legal">No encontramos información de uso de suelo para este punto en la capa pública del GAD Municipal (PDOT/PUGS vigente).</div>';
     }
@@ -6904,6 +6980,92 @@
     return lista.filter(Boolean);
   }
   // Lista de trámites recomendados según el predio y el estudio. sel = marcado por defecto.
+  // ---------- Solicitar: tres grupos (para construir / archivos y maquetas / análisis urbanos), cada
+  // uno separado en precio fijo y a convenir. Lo de precio fijo se suma al carrito (botón junto al de
+  // WhatsApp); lo a convenir se manda como pedido de cotización.
+  var GRUPOS_PEDIDO = [
+    { id: 'construir', tit: 'Para construir', sub: 'Documentación legal y municipal', ids: ['planimetrico-iprus', 'planimetrico', 'levantamiento', 'croquis', 'permiso-construccion', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
+    { id: 'archivos', tit: 'Archivos y maquetas', sub: 'Para estudiantes y estudios de arquitectura', ids: ['contexto-cad', 'entorno-mejorado'] },
+    { id: 'analisis', tit: 'Análisis urbanos', sub: 'Para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'asoleamiento', 'diseno-lotizacion'] }
+  ];
+  // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
+  // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
+  var CONFIG_PAGO = { url: '' };
+  var grupoPedidoAbierto = 'construir';
+  function productoPorId(id) { return (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0] || null; }
+  function precioNumero(id) { var p = productoPorId(id); var n = p ? parseFloat(String(p.precioBase || '').replace(/[^0-9.]/g, '')) : NaN; return isFinite(n) && n > 0 ? n : 0; }
+  function itemsSeleccionados(estado) {
+    var sel = estado && estado.tramitesSel || {};
+    return Object.keys(sel).filter(function (k) { return sel[k]; }).map(function (k) { var p = productoPorId(k); return { id: k, nombre: p ? p.nombre : k, precio: precioNumero(k) }; });
+  }
+  function htmlSolicitar(estado) {
+    var rec = tramitesRecomendados(estado), recIds = rec.map(function (x) { return x.id; });
+    if (!estado.tramitesSel || estado.tramitesSelPara !== recIds.join(',')) {
+      estado.tramitesSel = {}; rec.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = recIds.join(',');
+    }
+    var subRec = {}; rec.forEach(function (x) { subRec[x.id] = x.sub; });
+    function item(id) {
+      var p = productoPorId(id); if (!p) return '';
+      if (p.soloRecomendado && recIds.indexOf(id) < 0) return '';
+      var n = precioNumero(id), esRec = recIds.indexOf(id) >= 0;
+      return '<label class="maq-tramite' + (esRec ? ' rec' : '') + '"><input type="checkbox" data-tramite="' + id + '"' + (estado.tramitesSel[id] ? ' checked' : '') + '><i></i><span><b>' + p.nombre + (esRec ? ' <u>recomendado</u>' : '') + '</b><small>' + (subRec[id] || p.descripcion || '') + '</small></span><em>' + (n ? '$' + n : 'cotizar') + '</em></label>';
+    }
+    var tabs = GRUPOS_PEDIDO.map(function (g) { return '<button type="button" class="ped-tab' + (g.id === grupoPedidoAbierto ? ' activo' : '') + '" data-grupo="' + g.id + '">' + g.tit + '</button>'; }).join('');
+    var grupos = GRUPOS_PEDIDO.map(function (g) {
+      var orden = g.ids.slice().sort(function (a2, b2) { return (recIds.indexOf(a2) < 0) - (recIds.indexOf(b2) < 0); });
+      var fijos = orden.filter(function (id) { return precioNumero(id); }).map(item).join(''), conv = orden.filter(function (id) { return !precioNumero(id); }).map(item).join('');
+      return '<div class="ped-grupo" data-grupo="' + g.id + '"' + (g.id === grupoPedidoAbierto ? '' : ' hidden') + '><div class="maq-nota">' + g.sub + '</div>' +
+        (fijos ? '<div class="ped-sub">Precio fijo</div>' + fijos : '') + (conv ? '<div class="ped-sub">A convenir</div>' + conv : '') + '</div>';
+    }).join('');
+    return '<div class="maq-ficha"><div class="maq-estudio-tit">Gratis con tu correo</div><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><div class="maq-ficha-dos"><button type="button" class="maq-ficha-btn">Ficha PDF</button><button type="button" class="maq-3d-btn">Modelo 3D</button></div><div class="maq-ficha-msg" hidden></div>' +
+        '<div class="maq-ficha-nota">Al descargar aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>' +
+      '<div class="ped-tabs">' + tabs + '</div>' + grupos +
+      '<div class="ped-resumen"></div>';
+  }
+  function conectarSolicitar(p, estado) {
+    p.querySelectorAll('.ped-tab').forEach(function (t) {
+      t.addEventListener('click', function () {
+        grupoPedidoAbierto = t.getAttribute('data-grupo');
+        p.querySelectorAll('.ped-tab').forEach(function (x) { x.classList.toggle('activo', x === t); });
+        p.querySelectorAll('.ped-grupo').forEach(function (g) { g.hidden = g.getAttribute('data-grupo') !== grupoPedidoAbierto; });
+      });
+    });
+    p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; actualizarCarrito(estado, p); }); });
+    actualizarCarrito(estado, p);
+  }
+  // Carrito: botón junto al de WhatsApp con el total de lo de precio fijo marcado
+  function actualizarCarrito(estado, p) {
+    var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
+    var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
+    var res = p && p.querySelector('.ped-resumen');
+    if (res) res.innerHTML = it.length ? '<span>' + (fijos.length ? '<b>$' + tot.toLocaleString('es-EC') + '</b> en ' + fijos.length + (fijos.length === 1 ? ' servicio' : ' servicios') : '') + (fijos.length && conv.length ? ' + ' : '') + (conv.length ? conv.length + ' por cotizar' : '') + '</span><button type="button" class="ped-continuar">Continuar</button>' : '<span class="maq-nota">Marca lo que necesitas.</span>';
+    var bc = res && res.querySelector('.ped-continuar'); if (bc) bc.addEventListener('click', function () { abrirCheckout(estado); });
+    var b = document.getElementById('btn-carrito');
+    if (!b) {
+      b = document.createElement('button'); b.type = 'button'; b.id = 'btn-carrito'; b.className = 'btn-carrito';
+      document.body.appendChild(b);
+      b.addEventListener('click', function () { abrirCheckout(estadoSeleccionado); });
+    }
+    b.hidden = !it.length;
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>' + (fijos.length ? 'Pagar $' + tot.toLocaleString('es-EC') : 'Cotizar') + (it.length > 1 ? ' · ' + it.length : '') + '</span>';
+    document.body.classList.toggle('con-carrito', !!it.length);
+  }
+  function abrirCheckout(estado) {
+    if (!estado) return;
+    var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
+    var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
+    var id = estado.esUnion ? estado.claves.join(', ') : (estado.clave || '');
+    var txt = 'Hola Cota Cero, quiero solicitar para el predio ' + id + ':\n' + fijos.map(function (x) { return '- ' + x.nombre + ' ($' + x.precio + ')'; }).join('\n') + (fijos.length ? '\nTotal: $' + tot : '') + (conv.length ? '\nPara cotizar:\n' + conv.map(function (x) { return '- ' + x.nombre; }).join('\n') : '');
+    var m = document.getElementById('checkout'); if (m) m.remove();
+    m = document.createElement('div'); m.id = 'checkout'; m.className = 'checkout';
+    m.innerHTML = '<div class="checkout-caja" role="dialog" aria-label="Tu pedido"><button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">Tu pedido · predio ' + id + '</div>' +
+      (fijos.length ? '<div class="ped-sub">Precio fijo</div><ul>' + fijos.map(function (x) { return '<li><span>' + x.nombre + '</span><b>$' + x.precio + '</b></li>'; }).join('') + '<li class="tot"><span>Total</span><b>$' + tot.toLocaleString('es-EC') + '</b></li></ul>' : '') +
+      (conv.length ? '<div class="ped-sub">A convenir</div><ul>' + conv.map(function (x) { return '<li><span>' + x.nombre + '</span><b>cotizar</b></li>'; }).join('') + '</ul><div class="maq-nota">Te enviamos la cotización por WhatsApp o correo.</div>' : '') +
+      '<div class="checkout-btns">' + (fijos.length && CONFIG_PAGO.url ? '<a class="checkout-pagar" target="_blank" rel="noopener" href="' + CONFIG_PAGO.url + '">Pagar $' + tot.toLocaleString('es-EC') + ' con tarjeta</a>' : '') +
+      '<a class="checkout-wa" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent(txt) + '">' + (fijos.length && !CONFIG_PAGO.url ? 'Confirmar y pagar por WhatsApp' : conv.length && !fijos.length ? 'Pedir cotización por WhatsApp' : 'Enviar pedido por WhatsApp') + '</a></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
+  }
   function tramitesRecomendados(estado) {
     var r = estado.restriccionVolumen || '', L = [];
     function t(id, nombre, sub, sel) { L.push({ id: id, nombre: nombre, sub: sub, sel: !!sel }); }
@@ -7095,7 +7257,7 @@
       '</div>') +
       notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio +
       (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
-      construirBloqueUsoSuelo(estado.usoSuelo) +
+      construirBloqueUsoSuelo(estado.usoSuelo, estado.usos) +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
       (notasTexto ? '<div class="seccion-titulo">Particularidades encontradas</div><div class="notas-texto">' + escapar(notasTexto) + '</div>' : '') +
@@ -7587,6 +7749,16 @@
       descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
     { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
       descripcion: 'Levantamiento georreferenciado y gestión ante Avalúos y Catastros para oficializar el predio: regularización de excedentes o diferencias de superficie (error de cabida), actualización catastral de superficie o rectificación de datos del terreno; y, si no tiene acceso, la servidumbre de paso. Frecuente en zonas periurbanas y rurales.' },
+    { id: 'permiso-construccion', nombre: 'Permiso de construcción', precioBase: '', nota: 'según el proyecto',
+      descripcion: 'Planos arquitectónicos y gestión del permiso de construcción ante el GAD Municipal de Cuenca.' },
+    { id: 'contexto-cad', nombre: 'Maqueta de contexto editable (DWG / SKP)', precioBase: '', nota: 'según el área',
+      descripcion: 'Terreno, curvas, lotes, vías y edificios del entorno en DWG y SketchUp, listos para empezar un proyecto o una entrega académica.' },
+    { id: 'entorno-mejorado', nombre: 'Entorno mejorado', precioBase: '', nota: 'según el área',
+      descripcion: 'La maqueta del entorno levantada elemento por elemento (fachadas, alturas, vanos, cubiertas, árboles y mobiliario) a partir de fotografías de calle tomadas en sitio.' },
+    { id: 'asoleamiento', nombre: 'Estudio de asoleamiento', precioBase: '', nota: 'según el proyecto',
+      descripcion: 'Sombras y horas de sol por fachada a lo largo del año, sobre tu volumen y los vecinos.' },
+    { id: 'cabida', nombre: 'Estudio de cabida y factibilidad', precioBase: '', nota: 'según el terreno',
+      descripcion: 'Qué y cuánto conviene construir: alternativas de altura, unión o división de lotes y su rendimiento en m².' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
