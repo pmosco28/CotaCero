@@ -122,8 +122,8 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
-  .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #b0532f; background: #b0532f; color: #fff; cursor: pointer; }
-  .maq-normativa.activo { background: transparent; color: #b0532f; }
+  .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #b0532f; background: #b0532f; color: #fff; cursor: pointer; }
+  .maq-panel .maq-normativa.activo { background: transparent; color: #b0532f; }
   .maq-nota { font-size: 0.72rem; color: #6d6a63; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
@@ -4037,15 +4037,17 @@
           }
           // girar 35° para ver también la esquina/profundidad, no solo la fachada plana
           var g = 0.6, rx = nx * Math.cos(g) - ny * Math.sin(g), ry = nx * Math.sin(g) + ny * Math.cos(g);
-          theta = Math.atan2(rx, -ry); phi = 0.82;
+          theta = Math.atan2(rx, -ry); phi = 0.62;
           var c = estado.centroideLote;
-          radius = Math.max(maxDim * 2.4, 70); target.set(c[0], 4, -c[1]);
+          radius = Math.max(maxDim * 2.6, 95); target.set(c[0], 4, -c[1]);
         },
         planta: function () { theta = 0; phi = 0.2; radius = R * 2.9; target.set(0, 0, 0); }
       };
       p.querySelectorAll('button[data-vista]').forEach(function (b) {
         b.addEventListener('click', function () { VISTAS[b.getAttribute('data-vista')](); actualizarCamara(); solicitarRender(); });
       });
+      // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
+      VISTAS.lote(); actualizarCamara(); solicitarRender();
       var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
       var cont = p.querySelector('.maq-colores');
       function aplicar(id, v) {
