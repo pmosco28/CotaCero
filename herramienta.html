@@ -2859,8 +2859,8 @@
     } else {
       var nivelesRef = determinantesActivos();
       var tituloTabla = estado.esAreaHistorica
-        ? 'Determinantes de aprovechamiento — área histórica (Ordenanza 2024), referenciales'
-        : 'Determinantes de aprovechamiento — tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
+        ? 'Área histórica (Ordenanza 2024), valores referenciales'
+        : 'Tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
       filasTablaHtml = '<div>' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">' + tituloTabla + '</div>' +
         '<table class="determ"><thead><tr><th>Altura</th><th>Lote mín.</th><th>Implantación</th><th>Retiros F/L/P</th><th>Densidad</th></tr></thead><tbody>' +
@@ -5102,7 +5102,7 @@
     // tilde acá por las dudas de cómo lo maneje el navegador en el diálogo de guardar) + clave
     // catastral — pedido explícito, mismo criterio en los tres descargables de la herramienta.
     var tituloOriginal = document.title;
-    document.title = 'Volumetria de referencia ' + estado.clave;
+    document.title = (estado.restriccionVolumen ? 'Informe de sitio ' : 'Volumetria de referencia ') + estado.clave;
     function restaurarTitulo() {
       document.title = tituloOriginal;
       window.removeEventListener('afterprint', restaurarTitulo);
