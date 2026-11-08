@@ -399,8 +399,8 @@
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(canvas.clientWidth || 450, (canvas.clientWidth || 450) * 0.75, false);
     renderer.shadowMap.enabled = true; renderer.outputEncoding = THREE.sRGBEncoding;
     var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(35, 4 / 3, 5, 5000);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xbfb8aa, 0.85));
-    var sol = new THREE.DirectionalLight(0xffffff, 0.9); sol.position.set(-300, 500, 250); sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xa79e8c, 0.5));
+    var sol = new THREE.DirectionalLight(0xfff6ea, 1.35); sol.position.set(-300, 500, 250); sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048);
     var sc = sol.shadow.camera; sc.left = -300; sc.right = 300; sc.top = 300; sc.bottom = -300; sc.far = 2000; sol.shadow.bias = -0.0005; scene.add(sol);
     var grupo = new THREE.Group(); scene.add(grupo);
     return { renderer: renderer, scene: scene, cam: cam, grupo: grupo };
@@ -414,8 +414,9 @@
   }
   function armar(v, Z, N, base, red) {
     while (v.grupo.children.length) { var o = v.grupo.children.pop(); if (o.geometry) o.geometry.dispose(); }
-    var matTop = new THREE.MeshStandardMaterial({ color: 0xf1efe9, roughness: 0.95 }), matLado = new THREE.MeshStandardMaterial({ color: 0xd8d1c3, roughness: 0.95 });
+    var matTop = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.95 }), matLado = new THREE.MeshStandardMaterial({ color: 0xc9bea9, roughness: 0.95 });
     var matEd = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    var matArista = new THREE.LineBasicMaterial({ color: 0xb9b0a0 });
     var zmin = Infinity, zmax = -Infinity; for (var k = 0; k < N * N; k++) if (!isNaN(Z[k])) { zmin = Math.min(zmin, Z[k]); zmax = Math.max(zmax, Z[k]); }
     // zócalo
     var zo = new THREE.Mesh(new THREE.BoxGeometry(LADO, 6, LADO), matLado); zo.position.y = -3; zo.receiveShadow = true; v.grupo.add(zo);
@@ -434,8 +435,13 @@
         e.h.forEach(function (h) { sh.holes.push(new THREE.Path(h.map(function (p) { return new THREE.Vector2(p[0], p[1]); }))); });
         return sh;
       });
-      var g = new THREE.ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.translate(0, L - 1 - base, 0);
-      var m = new THREE.Mesh(g, [matTop, matLado]); m.castShadow = true; m.receiveShadow = true; v.grupo.add(m);
+      shapes.forEach(function (sh) {
+        try {
+          var g = new THREE.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.translate(0, L - 1 - base, 0);
+          var m = new THREE.Mesh(g, [matTop, matLado]); m.castShadow = true; m.receiveShadow = true; v.grupo.add(m);
+          var ar = new THREE.LineSegments(new THREE.EdgesGeometry(g, 40), matArista); v.grupo.add(ar);
+        } catch (e) { }
+      });
     }
     // edificios de OSM apoyados en su terraza más baja
     function cota(p) { var i = Math.floor((p[0] + LADO / 2) / PASO), j = Math.floor((LADO / 2 - p[1]) / PASO); if (i < 0 || j < 0 || i >= N || j >= N) return null; var z = Z[j * N + i]; return isNaN(z) ? null : Math.max(0, Math.floor(z) - base); }
