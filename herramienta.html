@@ -15,7 +15,7 @@
 </style>
 <style>
   :root {
-    --paper: #F7F4EC;
+    --paper: #ECEBE7;
     --paper-raised: #FFFDF8;
     --ink: #1C1A16;
     --ink-soft: #5B5546;
@@ -117,11 +117,11 @@
     /* Degradado sutil desde la derecha (donde antes quedaba un tercio de fondo plano vacío sobre los
        edificios) — vuelve a var(--paper) antes de la mitad, así sigue fundiéndose con el resto de la
        página y no se nota como una franja de color aparte. */
-    background: radial-gradient(120% 90% at 50% 35%, #eceded 0%, #d9dad8 70%);
+    background: radial-gradient(110% 85% at 50% 40%, #F6F5F2 0%, var(--paper) 72%);
     cursor: grab; display: block;
   }
   @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
-  .maq-panel { position: absolute; top: 12px; right: 12px; z-index: 5; width: min(250px, calc(100% - 24px)); background: rgba(250,249,246,.93); border: 1px solid #c9c6bf; border-radius: 6px; padding: 10px 12px; display: grid; gap: 8px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 6px 24px rgba(40,38,34,.08); }
+  .maq-panel { position: absolute; top: 14px; right: 14px; z-index: 5; width: min(258px, calc(100% - 28px)); background: rgba(246,245,242,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(43,42,39,.10); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 10px 30px rgba(40,38,34,.10); }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
   .maq-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -129,6 +129,19 @@
   .maq-panel input[type=color] { width: 24px; height: 18px; padding: 0; border: 1px solid #c9c6bf; border-radius: 3px; background: none; }
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
   .maq-terreno { display: flex; margin: 8px 0 4px; }
+  .maq-barra { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .maq-sep { width: 1px; height: 22px; background: #d6d2ca; margin: 0 3px; }
+  .maq-panel .ico, .maq-vistas-flot button { position: relative; width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #d6d2ca; border-radius: 7px; background: rgba(255,255,255,.75); color: #5f5c55; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  .maq-panel .ico svg, .maq-vistas-flot button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .maq-panel label.ico input { position: absolute; opacity: 0; pointer-events: none; }
+  .maq-panel .ico:hover { border-color: #2b2a27; color: #2b2a27; }
+  .maq-panel .ico.activa, .maq-panel label.ico:has(input:checked) { background: #2b2a27; border-color: #2b2a27; color: #f3f1ec; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); background: #2b2a27; color: #f3f1ec; font: 500 0.7rem/1.3 inherit; letter-spacing: 0; text-transform: none; padding: 4px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 30; }
+  [data-tip-largo]:hover::after { white-space: normal; width: 190px; text-align: center; }
+  .maq-panel .maq-barra .ico:first-child:hover::after { left: 0; transform: none; }
+  .maq-col > summary { cursor: pointer; font-size: 0.72rem; color: #8a867e; list-style: none; }
+  .maq-col > summary::-webkit-details-marker { display: none; }
+  .maq-col[open] > .maq-colores { margin-top: 6px; }
   .maq-unir, .maq-deshacer { font: inherit; font-size: 0.78rem; padding: 7px 10px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; border-radius: 4px; cursor: pointer; }
   .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
   .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
@@ -139,9 +152,9 @@
   .maq-terreno button:first-child { border-radius: 4px 0 0 4px; } .maq-terreno button:last-child { border-radius: 0 4px 4px 0; }
   .maq-terreno button.activa { background: #2b2a27; color: #f3f1ec; }
   .maq-vistas-flot { position: relative; z-index: 6; height: 52px; margin-top: -52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
-  .maq-vistas-flot button { pointer-events: auto; font: inherit; font-size: 0.74rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: rgba(250,249,246,.94); color: #2b2a27; border: 1px solid #2b2a27; border-left-width: 0; padding: 7px 14px; cursor: pointer; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
-  .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 4px 0 0 4px; }
-  .maq-vistas-flot button:last-child { border-radius: 0 4px 4px 0; }
+  .maq-vistas-flot button { pointer-events: auto; width: 42px; height: 38px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #2b2a27; border: 1px solid rgba(43,42,39,.18); border-left-width: 0; border-radius: 0; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
+  .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 10px 0 0 10px; }
+  .maq-vistas-flot button:last-child { border-radius: 0 10px 10px 0; }
   .maq-vistas-flot button.activa, .maq-vistas-flot button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel button { font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 1px solid #2b2a27; color: #2b2a27; border-radius: 3px; padding: 4px 8px; cursor: pointer; }
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
@@ -2964,6 +2977,33 @@
   }
   if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
+  // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
+  // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
+  var ICONOS_MAQ = {arboles: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>', rio: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c3-2 5 2 9 0s6 2 9 0M3 15c3-2 5 2 9 0s6 2 9 0"/></svg>', lineas: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/></svg>', edificios: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-3v14M10 20V4l8 3v13M3 20h18"/></svg>', curvas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4-5 14-5 18 0M5 13c4-5 10-5 14 0M8 8c2-3 6-3 8 0"/></svg>', foto: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>', tin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l6-9 4 5 3-4 5 8z"/></svg>', terrazas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15h12M8 11h8M10 7h4"/></svg>', unir: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10"/><rect x="13" y="7" width="8" height="10"/><path d="M10 12h4"/></svg>', avisar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v3.5M12 13.5v.3"/></svg>', conjunto: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>', lote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M9 11l3-1.5 3 1.5v3l-3 1.5-3-1.5z"/></svg>', planta: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 11h7v9M11 4v4"/></svg>', info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.4"/></svg>'};
+  async function ejeIPRUSDelPredio(estado) {
+    var bb = turf.bbox(turf.buffer(estado.featureReg, 0.03, { units: 'kilometers' }));
+    var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iprus:ejes_unificados&outputFormat=application/json&srsName=EPSG:4326&bbox=' + bb.join(',') + ',EPSG:4326';
+    var d = await (await fetch(url)).json();
+    var frentes = [];
+    for (var i = 0; i < estado.nLados; i++) {
+      if (estado.tipoLado[i] !== 'frente') continue;
+      var a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados], ll = estado.metrosALatLng([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+      frentes.push(turf.point([ll[1], ll[0]]));
+    }
+    if (!frentes.length) return null;
+    var mejor = null;
+    (d.features || []).forEach(function (f) {
+      if (!f.geometry) return;
+      var lineas = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : f.geometry.type === 'LineString' ? [f.geometry.coordinates] : [];
+      var dmin = Infinity;
+      lineas.forEach(function (ln) { frentes.forEach(function (pt) { try { dmin = Math.min(dmin, turf.pointToLineDistance(pt, turf.lineString(ln), { units: 'meters' })); } catch (e) { } }); });
+      if (dmin > 15) return;
+      var pr = f.properties || {}, pisos = parseInt(pr.pisos_max_ || pr.pisos_max, 10);
+      if (!isFinite(pisos)) return;
+      if (!mejor || pisos > mejor.pisos) mejor = { codigo: pr.codigo_eje, nombre: pr.nombre, tramo: pr.tramo, pisos: pisos, loteMin: pr['lote_míni'] || pr.lote_minimo || null };
+    });
+    return mejor;
+  }
   async function mostrarResultado(feature, desdeUnion) {
     capaVertices.clearLayers(); capaManzana.clearLayers();
     capaVias.clearLayers(); capaVecinos.clearLayers();
@@ -3014,6 +3054,8 @@
     mapa.fitBounds(capaPredio.getBounds(), { padding: [40, 40], maxZoom: 19 });
 
     var maxPisosLote;
+    estado.ejeIPRUS = null;
+    if (!esCentroHistorico) { try { estado.ejeIPRUS = await ejeIPRUSDelPredio(estado); } catch (e) { console.warn('Ejes IPRUS no disponibles', e); } }
     if (esCentroHistorico) {
       estado.retiros = { frente: 0, lateral: 0, posterior: 0 };
       estado.retirosPB = { frente: 0, lateral: 0, posterior: 0 };
@@ -3029,6 +3071,18 @@
       estado.pisos = Math.min(2, maxPisosLote);
     } else {
       var maxPisosPorArea = maxPisosDisponibles(areaM2);
+      // Fuente de la altura: 1) eje IPRUS con frente; 2) zonas sin tabla verificada (cabeceras
+      // parroquiales UP-*): tope conservador de 3 pisos; 3) tabla de referencia por área del lote.
+      if (estado.ejeIPRUS) {
+        var lmE = parseFloat(estado.ejeIPRUS.loteMin);
+        maxPisosPorArea = (!isFinite(lmE) || areaM2 >= lmE) ? estado.ejeIPRUS.pisos : Math.min(estado.ejeIPRUS.pisos, maxPisosPorArea);
+        estado.fuenteAltura = 'Altura del eje ' + estado.ejeIPRUS.codigo + ' (' + estado.ejeIPRUS.nombre + '): ' + estado.ejeIPRUS.pisos + ' pisos' + (isFinite(lmE) ? ', lote mínimo ' + lmE + ' m²' : '') + '.';
+      } else if (/^UP-/i.test(pitOficial)) {
+        maxPisosPorArea = Math.min(maxPisosPorArea, 3);
+        estado.fuenteAltura = 'Zona ' + pitOficial + ': sin tabla verificada, se usa un tope conservador de 3 pisos. Confírmalo con el IPRUS.';
+      } else {
+        estado.fuenteAltura = 'Altura según el área del lote (tabla de referencia' + (pitOficial ? ', zona ' + pitOficial : '') + ').';
+      }
       maxPisosLote = calcularMaxPisosReal(estado, maxPisosPorArea);
       estado.maxPisosPorArea = maxPisosPorArea;
       estado.limitadoPorRetiros = maxPisosLote < maxPisosPorArea;
@@ -3647,6 +3701,8 @@
     var radioMaxLote = estado.pts.reduce(function (m, p) { return Math.max(m, Math.abs(p[0]), Math.abs(p[1])); }, 0);
     var radioContexto = Math.max(RADIO_CONTEXTO_M, radioMaxLote + MARGEN_SOBRE_LOTE_M);
     var R = radioContexto;
+    // niebla del color de la página: el borde lejano de la maqueta se funde con el fondo
+    scene.fog = new THREE.Fog(new THREE.Color('#ECEBE7').convertSRGBToLinear(), R * 3.2, R * 8);
     var ptsContexto = [[-R, -R], [R, -R], [R, R], [-R, R]];
     function dentroDelDisco(p) { return Math.abs(p[0]) <= R && Math.abs(p[1]) <= R; }
     // Recorte de polilínea contra el cuadrado (Liang–Barsky por tramo), devolviendo tramos continuos.
@@ -4981,7 +5037,6 @@
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
       p.innerHTML =
-        '<div class="maq-tit">Maqueta</div>' +
 
         (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
         (function () {
@@ -4995,34 +5050,32 @@
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
-            '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
-            (particionFrentes ? '<div class="maq-nota">Lote con dos frentes: el volumen se parte en dos bloques y cada uno cuenta sus pisos desde su propia calle.</div>' : '') +
-
+            '<div class="maq-aprox">Aproximado. ' + (estado.fuenteAltura || '') + (particionFrentes ? ' Lote con dos frentes: dos bloques, cada uno con sus pisos desde su propia calle.' : '') + '</div>' +
           '</div>' +
         '</div>' +
-        ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
         (estado.esUnion
           ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
               (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
               '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div>' +
               '<div class="maq-union-btns"><button type="button" class="maq-unir">Unir otro lote</button><button type="button" class="maq-deshacer">Volver a mi lote</button></div></div>'
-          : '<button type="button" class="maq-unir maq-unir-solo">Unir con un lote vecino</button>') +
-        '<div class="maq-nota"><a class="maq-avisar" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a></div>' +
-        '<details class="maq-mas"' + (window.innerWidth > 640 ? ' open' : '') + '><summary>Capas, vistas y colores</summary><div>' +
-        '<div class="maq-grid">' +
-        '<label><input type="checkbox" data-capa="arboles" checked>Árboles</label>' +
-        '<label><input type="checkbox" data-capa="rio" checked>Río</label>' +
-        '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
-        '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
-        '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
-        '<label><input type="checkbox" data-capa="foto">Foto aérea</label>' +
+          : '') +
+        '<div class="maq-barra">' +
+          '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
+          '<label class="ico" data-tip="Río"><input type="checkbox" data-capa="rio" checked>' + ICONOS_MAQ.rio + '</label>' +
+          '<label class="ico" data-tip="Predios y vías"><input type="checkbox" data-capa="lineas" checked>' + ICONOS_MAQ.lineas + '</label>' +
+          '<label class="ico" data-tip="Edificios"><input type="checkbox" data-capa="edificios" checked>' + ICONOS_MAQ.edificios + '</label>' +
+          '<label class="ico" data-tip="Curvas de nivel cada 1 m, referenciales (no reemplazan un levantamiento)" data-tip-largo><input type="checkbox" data-capa="curvas" checked>' + ICONOS_MAQ.curvas + '</label>' +
+          '<label class="ico" data-tip="Foto aérea (ortofoto GAD Municipal de Cuenca)" data-tip-largo><input type="checkbox" data-capa="foto">' + ICONOS_MAQ.foto + '</label>' +
         '</div>' +
-        '<div class="maq-nota maq-nota-foto" hidden>Ortofoto: GAD Municipal de Cuenca (IDE), 2018 y vuelos de dron 2023-2026 donde existen.</div>' +
-        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
-        '<div class="maq-terreno"><button type="button" data-terreno="tin"' + (modoTerreno === 'tin' ? ' class="activa"' : '') + '>Terreno</button><button type="button" data-terreno="terrazas"' + (modoTerreno !== 'tin' ? ' class="activa"' : '') + '>Maqueta en capas</button></div>' +
-        '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
-        '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>' +
-        '</div></details>';
+        '<div class="maq-barra">' +
+          '<button type="button" class="ico' + (modoTerreno === 'tin' ? ' activa' : '') + '" data-terreno="tin" data-tip="Terreno">' + ICONOS_MAQ.tin + '</button>' +
+          '<button type="button" class="ico' + (modoTerreno !== 'tin' ? ' activa' : '') + '" data-terreno="terrazas" data-tip="Maqueta en capas">' + ICONOS_MAQ.terrazas + '</button>' +
+          '<span class="maq-sep"></span>' +
+          (estado.esUnion ? '' : '<button type="button" class="ico maq-unir" data-tip="Unir con un lote vecino">' + ICONOS_MAQ.unir + '</button>') +
+          '<a class="ico maq-avisar" data-tip="¿Falta una construcción? Avísanos" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">' + ICONOS_MAQ.avisar + '</a>' +
+        '</div>' +
+        '<div class="maq-vistas"><button type="button" data-vista="conjunto" data-tip="Conjunto">' + ICONOS_MAQ.conjunto + '</button><button type="button" data-vista="lote" data-tip="Lote">' + ICONOS_MAQ.lote + '</button><button type="button" data-vista="planta" data-tip="Planta">' + ICONOS_MAQ.planta + '</button></div>' +
+        '<details class="maq-col"><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
       var btnNorm = p.querySelector('.maq-normativa'), detalleNorm = p.querySelector('.maq-norma-detalle');
