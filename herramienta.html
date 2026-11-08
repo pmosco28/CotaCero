@@ -1754,29 +1754,23 @@
   // corresponde, el volado de 1,2 m y el escalonamiento frente a río. Solo sirve para comparar
   // alturas entre sí; el número que se muestra lo calcula el volumen dibujado.
   function mejorAlturaPorArea(estado, maxPisos) {
-    var vol = estado.esAreaHistorica ? 0 : 1.2, tabla = {}, mejor = { pisos: maxPisos, m2: -1, tabla: tabla };
-    var maxM2 = fichaPITActual && fichaPITActual.maxM2Piso;
-    function A(pts) { if (!pts || pts.length < 3) return 0; var a = areaPoligonoM(pts); return maxM2 ? Math.min(a, maxM2) : a; }
-    for (var p = 1; p <= maxPisos; p++) {
-      var nv = nivelParaPisos(p), ret = { frente: nv.rf, lateral: nv.rl, posterior: nv.rp };
-      var pb = recortarConRetiros(estado, estado.retirosPB || ret), total = A(pb);
-      if (p > 1) {
-        var altas = recortarConRetiros(estado, { frente: Math.max(0, nv.rf - vol), lateral: nv.rl, posterior: nv.rp });
-        var base = estado.esAreaHistorica ? 2 : 4;
-        for (var q = 2; q <= p; q++) {
-          var z = altas;
-          if (estado.frenteARio && q > base && z && z.length >= 3) {
-            var extra = 3 * (q - base);
-            (estado.ladosRio || []).forEach(function (idx) {
-              var r = ({ frente: Math.max(0, nv.rf - vol), lateral: nv.rl, posterior: nv.rp })[estado.tipoLado[idx]] || 0;
-              z = recortarSemiplano(z, estado.pts[idx], estado.pts[(idx + 1) % estado.nLados], r + extra, estado.centroideLote);
-            });
-          }
-          total += A(z);
-        }
+    var tabla = {}, mejor = { pisos: maxPisos, m2: -1, tabla: tabla };
+    var guard = { pisos: estado.pisos, retiros: estado.retiros, voladizo: estado.voladizo, pa: estado.puntosAltasActuales, nb: estado.numBloques, pf: estado.particionFrentes, fb: estado.frentesBloques };
+    if (estado.voladizo == null) estado.voladizo = estado.esAreaHistorica ? 0 : 1.2;
+    try {
+      modoMedicion = true;
+      for (var p = 1; p <= maxPisos; p++) {
+        var nv = nivelParaPisos(p);
+        estado.pisos = p; estado.retiros = { frente: nv.rf, lateral: nv.rl, posterior: nv.rp };
+        var m2 = 0;
+        try { m2 = recomputarYRenderizar(estado) || 0; } catch (e) { m2 = 0; }
+        tabla[p] = Math.round(m2);
+        if (m2 > mejor.m2 * 1.01) { mejor.m2 = m2; mejor.pisos = p; }
       }
-      tabla[p] = Math.round(total);
-      if (total > mejor.m2 * 1.01) { mejor.m2 = total; mejor.pisos = p; }
+    } finally {
+      modoMedicion = false;
+      estado.pisos = guard.pisos; estado.retiros = guard.retiros; estado.voladizo = guard.voladizo; estado.puntosAltasActuales = guard.pa;
+      estado.numBloques = guard.nb; estado.particionFrentes = guard.pf; estado.frentesBloques = guard.fb;
     }
     return mejor;
   }
@@ -3944,7 +3938,7 @@
     // probablemente ni siquiera es un lote destinado a edificación (franja de protección, área verde,
     // parque — el catastro abierto de Cuenca no trae esa clasificación, así que no se puede confirmar
     // solo). Mostrar esto explícito, no un 3D vacío sin explicación.
-    var avisoVacio = document.getElementById('aviso-volumen-vacio');
+    var avisoVacio = modoMedicion ? null : document.getElementById('aviso-volumen-vacio');
     if (avisoVacio) {
       if (puntosPBm.length < 3) {
         avisoVacio.style.display = 'block';
@@ -4016,7 +4010,7 @@
       }
     });
 
-    var infoPatio = document.getElementById('info-patio');
+    var infoPatio = modoMedicion ? null : document.getElementById('info-patio');
     if (infoPatio) {
       infoPatio.textContent = patiosColocadosTotal
         ? Math.round(areaPatioTotal) + ' m² en ' + patiosColocadosTotal + (patiosColocadosTotal === 1 ? ' patio' : ' patios') + ' (automático)'
@@ -4028,7 +4022,7 @@
     // Lotes que se reparten en varios bloques (tablero de edificios/patios grandes) admiten MUCHAS
     // distribuciones válidas — ésta es una entre muchas, no "la" solución. Aviso explícito a pedido
     // del usuario, para que no se lea como un partido arquitectónico definitivo.
-    var avisoVers = document.getElementById('aviso-versatilidad');
+    var avisoVers = modoMedicion ? null : document.getElementById('aviso-versatilidad');
     if (avisoVers) {
       if (estado.numBloques > 1) {
         avisoVers.style.display = 'block';
@@ -4038,7 +4032,34 @@
       }
     }
 
+    if (modoMedicion) return areaDePiezas(estado, bloquesPB, bloquesAltasFinal, bloquesPatios);
     dibujarVolumetria(estado, bloquesPB, bloquesAltasFinal, bloquesPatios);
+  }
+  // Mismo cómputo de m² que dibujarVolumetria (PB + plantas altas − patios, con el escalonamiento
+  // frente a río), sin armar la escena 3D: lo usa mejorAlturaPorArea para comparar alturas.
+  var modoMedicion = false;
+  function areaDePiezas(estado, bloquesPB, bloquesAltasFinal, bloquesPatios) {
+    var pisos = estado.pisos, total = 0;
+    function ar(r) { return (r && r.length >= 3) ? areaPoligonoM(r) : 0; }
+    function patiosEn(patios, poli) { return (patios || []).reduce(function (acc, p) { return acc + ((p && p.length && p.every(function (q) { return puntoDentroDePoligono(q, poli); })) ? ar(p) : 0); }, 0); }
+    bloquesPB.forEach(function (pb, bi) {
+      if (!pb || pb.length < 3) return;
+      var patios = bloquesPatios[bi] || [], altas = bloquesAltasFinal[bi];
+      if (pisos <= 1) { total += ar(pb); return; }
+      total += ar(pb) - patiosEn(patios, pb);
+      if (!altas || altas.length < 3) return;
+      var base = estado.esAreaHistorica ? 2 : 4, finBase = (estado.frenteARio && pisos > base) ? base : pisos;
+      total += (ar(altas) - patiosEn(patios, altas)) * (finBase - 1);
+      if (estado.frenteARio) {
+        var rv = { frente: Math.max(0, estado.retiros.frente - estado.voladizo), lateral: estado.retiros.lateral, posterior: estado.retiros.posterior };
+        for (var p = base + 1; p <= pisos; p++) {
+          var z = altas.slice(), extra = 3 * (p - base);
+          (estado.ladosRio || []).forEach(function (idx) { if (z.length >= 3) z = recortarSemiplano(z, estado.pts[idx], estado.pts[(idx + 1) % estado.nLados], (rv[estado.tipoLado[idx]] || 0) + extra, estado.centroideLote); });
+          total += ar(z) - patiosEn(patios, z);
+        }
+      }
+    });
+    return total;
   }
 
   // `bloquesPB`/`bloquesAltasFinal`/`bloquesPatios`: arrays, uno por bloque (ver dividirEnBloques) —
