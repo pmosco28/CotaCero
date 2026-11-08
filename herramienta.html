@@ -999,7 +999,10 @@
     mapa.on('resize', function () { mapaLupa.invalidateSize(false); });
     sincronizar();
     var cont = mapa.getContainer();
-    cont.addEventListener('mousemove', function (ev) {
+    // solo mouse real: en iPad/iPhone el sistema simula un "mousemove" al levantar el dedo, y eso
+    // encendía la lupa justo cuando ya no se estaba tocando
+    cont.addEventListener('pointermove', function (ev) {
+      if (ev.pointerType !== 'mouse') return;
       var r = cont.getBoundingClientRect();
       el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
       el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
@@ -1025,7 +1028,7 @@
     }, { passive: true });
     cont.addEventListener('touchmove', function (ev) {
       var t = ev.touches[0];
-      if (!lupaTactil) { if (Math.hypot(t.clientX - x0, t.clientY - y0) > 8) clearTimeout(tLupa); return; }
+      if (!lupaTactil) { if (Math.hypot(t.clientX - x0, t.clientY - y0) > 16) clearTimeout(tLupa); return; } // el dedo siempre tiembla un poco
       ev.preventDefault(); ponerLupa(t);
     }, { passive: false });
     function finTactil() {
@@ -4756,7 +4759,6 @@
     }
     var estadisticaPlataformas = [], prediosTerreno = null;
     function interpretarSuperficie(X0, Y0, Z0, W0, H0) {
-      var __m = performance.now(), __T = (window.__tiempos = window.__tiempos || {}); function __marca(n) { var t = performance.now(); __T[n] = Math.round(t - __m); __m = t; }
       var x0 = X0[0], dx = X0[1] - X0[0], y0 = Y0[0], dy = Y0[W0] - Y0[0];
       function zMDT(x, y) {
         var fi = (x - x0) / dx, fj = (y - y0) / dy, i = Math.floor(fi), j = Math.floor(fj);
@@ -4817,7 +4819,6 @@
         var f = (mejor.s - S[k - 1]) / ((S[k] - S[k - 1]) || 1);
         return Zr[k - 1] + (Zr[k] - Zr[k - 1]) * f;
       }
-      __marca('s1_rasantes');
       // 2) máscaras de calzada y vereda en raster de 1 m (canvas)
       var Rm = R + 12, N = Math.ceil(2 * Rm), cv = document.createElement('canvas'); cv.width = cv.height = N;
       var cx = cv.getContext('2d', { willReadFrequently: true }); // se lee con getImageData: en CPU es mucho más rápido
@@ -4829,7 +4830,6 @@
         cx.globalCompositeOperation = 'destination-out';
         cx.beginPath(); prediosM.concat([estado.pts]).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) cx.lineTo(u, v); else cx.moveTo(u, v); }); cx.closePath(); }); cx.fill('nonzero');
       });
-      __marca('s2_mascaras');
       // 3) grilla 1 m con la corrección
       var W = N, H = N, X = new Float32Array(W * H), Y = new Float32Array(W * H), Z = new Float32Array(W * H), D = new Float32Array(W * H).fill(NaN);
       for (var j = 0; j < H; j++) for (var i = 0; i < W; i++) {
@@ -4842,7 +4842,6 @@
           if (!isNaN(zr)) { var dd = (zr + (esV ? 0.2 : 0)) - zt; if (Math.abs(dd) <= 3) D[k] = dd; }
         }
       }
-      __marca('s3_grilla');
       // 4) la corrección se desvanece ~6 m hacia los predios (anillos de 1 m)
       for (var paso = 1; paso <= 6; paso++) {
         var nuevos = [];
@@ -4854,7 +4853,6 @@
         }
         nuevos.forEach(function (e) { D[e[0]] = e[1]; });
       }
-      __marca('s4_fade');
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
       // 5) plataformas: el terreno se acomoda a predios y edificios (bases planas a la cota de su acceso)
       var __tP = performance.now(); window.__tiempos = window.__tiempos || {}; try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); window.__tiempos.plataformas = Math.round(performance.now() - __tP); } catch (e) { console.warn('Plataformas: se omiten', e); }
