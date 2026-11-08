@@ -126,6 +126,8 @@
   .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
   .maq-panel .maq-norma-detalle { display: grid; gap: 6px; }
+  .maq-panel .maq-norma[hidden] { display: none; }
+  .maq-panel .maq-restriccion { font-size: 0.78rem; color: #2b2a27; line-height: 1.35; }
   .maq-panel .maq-norma-detalle[hidden] { display: none; }
   .maq-panel .maq-pisos-slot .editor-flotante { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; width: auto; }
   .maq-panel .maq-pisos-slot .editor-flotante summary { list-style: none; display: flex; justify-content: space-between; font-weight: 600; cursor: default; pointer-events: none; }
@@ -1475,6 +1477,11 @@
     return [];
   }
 
+  function areaPlanaPts(f) {
+    var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, A = 0;
+    polys.forEach(function (pc) { pc.forEach(function (r, k) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; A += (k ? -1 : 1) * Math.abs(a) / 2; }); });
+    return A;
+  }
   function bboxDePts(pts) {
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     pts.forEach(function (p) { if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; });
@@ -1979,6 +1986,38 @@
       } catch (e) { /* seguir con la próxima */ }
     }
 
+    // ¿Es un predio donde NO corresponde mostrar volumen? Tres casos, todos con dato, sin adivinar:
+    //  1) más de la mitad del lote es parque/área verde según OSM;
+    //  2) el propietario en el catastro es una entidad pública (GAD, ministerio, empresa pública) —
+    //     solo se usa para esta marca, el nombre no se guarda ni se muestra;
+    //  3) lote mayor a 1 ha: ahí no se edifica directo, primero va un proceso de urbanización o
+    //     plan, y una sola masa de "lo que permite la norma" no significa nada.
+    var areaLoteM2 = turf.area(featureReg), fraccionVerde = 0;
+    areasVerdesOSM.forEach(function (av) {
+      try { var it = turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), poligonoLotePlano); if (it) fraccionVerde = Math.max(fraccionVerde, Math.abs(areaPlanaPts(it)) / Math.max(1, Math.abs(areaPlanaPts(poligonoLotePlano)))); } catch (e) { }
+    });
+    var esPredioPublico = false;
+    try {
+      // la geometría de esta capa no siempre coincide con la de predios: se toma el registro que más
+      // se solapa con el lote (no el que contiene un punto)
+      var bbL = turf.bbox(featureReg);
+      var urlDatos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios_datos&outputFormat=application/json&srsName=EPSG:4326&propertyName=propietario,geom&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + bbL.join(',') + ",'EPSG:4326')");
+      var dDatos = await (await fetch(urlDatos)).json();
+      var mejorSolape = 0, mejorPublico = false, areaL = turf.area(featureReg);
+      (dDatos.features || []).forEach(function (f) {
+        try {
+          var it = turf.intersect(turf.feature(featureReg.geometry), turf.feature(f.geometry)); if (!it) return;
+          var a = turf.area(it);
+          if (a > mejorSolape) { mejorSolape = a; mejorPublico = /GOBIERNO AUTONOMO|MUNICIPALIDAD|MUNICIPIO|MINISTERIO|EMPRESA P[UÚ]BLICA|ETAPA EP|ESTADO ECUATORIANO|CONSEJO PROVINCIAL|PREFECTURA/i.test(String(f.properties.propietario || '')); }
+        } catch (e) { }
+      });
+      esPredioPublico = mejorPublico && mejorSolape > 0.5 * areaL;
+    } catch (e) { }
+    var restriccionVolumen = null;
+    if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
+    else if (fraccionVerde > 0.5) restriccionVolumen = 'Más de la mitad de este predio es parque o área verde (' + (nombreAreaVerdeDelLote || 'OpenStreetMap') + '): no se muestra volumen edificable.';
+    else if (areaLoteM2 > 10000) restriccionVolumen = 'Lote de ' + Math.round(areaLoteM2 / 10000 * 10) / 10 + ' ha: en un predio de este tamaño se edifica a través de un proceso de urbanización o plan, no con un volumen directo. Escríbenos para un estudio específico.';
+
     var margenVecinos = 40;
     var mLngVec = margenVecinos / mPerDegLng, mLatVec = margenVecinos / mPerDegLat;
     var bboxVecinos = [bboxPredio[0] - mLngVec, bboxPredio[1] - mLatVec, bboxPredio[2] + mLngVec, bboxPredio[3] + mLatVec];
@@ -2236,7 +2275,7 @@
       viasFlat: viasFlat, viasFeatures: dataVia.features || [],
       vecinosFeatures: dataVecinos.features || [],
       edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, patrimonioLote: patrimonioLote, riosFlat: riosFlat,
-      areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote,
+      areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote, restriccionVolumen: restriccionVolumen,
       viasDibujo: viasDibujo,
       arbolesDetectados: arbolesDetectados,
       frenteARio: frenteARio, ladosRio: ladosRio, usoSuelo: usoSuelo, maxPisosPech: maxPisosPech,
@@ -2790,6 +2829,9 @@
     var notaTopeReal = (!esCentroHistorico && estado.limitadoPorRetiros)
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
+    if (estado.restriccionVolumen) {
+      notaTopeReal = '<div style="font-size:0.8rem; color:var(--ink); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🚫 ' + estado.restriccionVolumen + '</div>' + notaTopeReal;
+    }
     if (estado.patrimonioLote && estado.patrimonioLote.length) {
       var pl = estado.patrimonioLote[0];
       notaTopeReal = '<div style="font-size:0.8rem; color:#7a2e12; background:#fbeee6; border:1px solid #e6b9a3; border-radius:10px; padding:10px 12px;">⚠️ Lo construido en este lote está registrado por el municipio como <strong>' + String(pl.clasificacion || '').toLowerCase() + '</strong> (valoración ' + (pl.valor || '—') + ', ' + (pl.pisos || '?') + ' pisos, ' + (pl.altura || '?') + ' m). Una edificación con valor patrimonial no se puede reemplazar libremente: el volumen de abajo es solo lo que la normativa permitiría en un lote libre. Confirmar con la Dirección General de Áreas Históricas qué intervención se admite.</div>' + notaTopeReal;
@@ -2884,7 +2926,7 @@
             tr.classList.toggle('tier-chosen', estado.pisos >= lo && estado.pisos <= hi);
           });
         }
-        mostrarVolumenNormativa = true;
+        mostrarVolumenNormativa = !estado.restriccionVolumen;
         recomputarYRenderizar(estado);
       };
       sliderPisos.addEventListener('change', onSliderPisosInput);
@@ -3286,6 +3328,7 @@
       }
     });
     scene.add(grupoVolumen);
+    if (estado.restriccionVolumen) mostrarVolumenNormativa = false;
     grupoVolumen.visible = mostrarVolumenNormativa;
     // Densidad → referencia de m²: en Cuenca el IPRUS ya no trae COS/CUS; trae altura, lote mínimo,
     // retiros y Densidad Neta de Vivienda (viv/ha). Viviendas = densidad × área del lote (ha). Se
@@ -4232,7 +4275,8 @@
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
-        '<div class="maq-norma">' +
+        (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
+        '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
           '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
@@ -4405,7 +4449,8 @@
     // el informe trata de lo que permite la normativa: se captura siempre con el volumen visible
     var gv = ultimoRender3D.grupoVolumen, ge = ultimoRender3D.grupoExistente;
     var antesV = gv ? gv.visible : true, antesE = ge ? ge.visible : false;
-    if (gv) gv.visible = true; if (ge) ge.visible = false;
+    var forzar = !(estadoSeleccionado && estadoSeleccionado.restriccionVolumen);
+    if (gv && forzar) gv.visible = true; if (ge && forzar) ge.visible = false;
     if (ultimoRender3D.renderer) ultimoRender3D.renderer.render(ultimoRender3D.scene, ultimoRender3D.camera);
     var url = capturarViaRenderTarget() || capturarViaCanvasDirecto();
     if (gv) gv.visible = antesV; if (ge) ge.visible = antesE;
