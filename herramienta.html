@@ -122,6 +122,9 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
+  .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #b0532f; background: #b0532f; color: #fff; cursor: pointer; }
+  .maq-normativa.activo { background: transparent; color: #b0532f; }
+  .maq-nota { font-size: 0.72rem; color: #6d6a63; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
   /* Catálogo de productos: barra horizontal scrolleable DEBAJO del área de mapa/3D (ya no flotando
@@ -839,6 +842,9 @@
   // volver a renderizar un cuadro a mayor resolución al generar el informe PDF (ver
   // capturarImagen3D()/generarInformePDF()). Se reescribe entero cada vez que se redibuja la escena.
   var ultimoRender3D = null;
+  // El predio se abre "como está": sin volumen normativo hasta que el usuario lo pide (botón en el
+  // panel de la maqueta, o mover el control de pisos). Se reinicia al elegir otro predio.
+  var mostrarVolumenNormativa = false;
   // Estado del predio clasificado en edición — ver construirEstadoPredio(). Se reinicia a null en
   // cada clic nuevo del mapa; lo usan recomputarYRenderizar() y los editores de vértices/patio.
   var estadoEdicion = null;
@@ -1722,8 +1728,21 @@
     // propio lote y se descarta acá, porque el volumen de estudio (lo que SE PODRÍA construir) ya ocupa
     // ese mismo lugar y las dos masas se superpondrían/confundirían. `booleanIntersects` (no solo el
     // centroide) para no dejar pasar un edificio que solo pisa una esquina del lote.
-    var edificacionesContexto = fusionarEdificaciones(municipalesLocal, osmCrudo).filter(function (ed) {
+    var todasEdificaciones = fusionarEdificaciones(municipalesLocal, osmCrudo);
+    var edificacionesContexto = todasEdificaciones.filter(function (ed) {
       try { return !turf.booleanIntersects(turf.polygon([ed.pts.concat([ed.pts[0]])]), poligonoLotePlano); } catch (e) { return true; }
+    });
+    // Lo que YA está construido en el lote (catastro u OSM), recortado al lindero: es lo que se ve
+    // al abrir el predio. El volumen normativo se muestra solo cuando el usuario lo pide.
+    var edificacionesLote = [];
+    todasEdificaciones.forEach(function (ed) {
+      try {
+        var f = turf.polygon([ed.pts.concat([ed.pts[0]])]);
+        if (!turf.booleanIntersects(f, poligonoLotePlano)) return;
+        var r = turf.intersect(f, poligonoLotePlano); if (!r) return;
+        var polys = r.geometry.type === 'Polygon' ? [r.geometry.coordinates] : r.geometry.coordinates;
+        polys.forEach(function (pc) { var anillo = pc[0].slice(0, -1); if (anillo.length >= 3 && turf.area(turf.polygon([pc[0]])) > 0) edificacionesLote.push({ pts: anillo, altura: ed.altura, fuente: ed.fuente }); });
+      } catch (e) { }
     });
 
     // Un árbol detectado por la imagen que cae sobre (o toca) una edificación real es casi seguro un
@@ -2087,7 +2106,7 @@
       aMetros: aMetros, metrosALatLng: metrosALatLng, poligonoMetrosAFeature: poligonoMetrosAFeature,
       viasFlat: viasFlat, viasFeatures: dataVia.features || [],
       vecinosFeatures: dataVecinos.features || [],
-      edificacionesContexto: edificacionesContexto, riosFlat: riosFlat,
+      edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, riosFlat: riosFlat,
       areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote,
       viasDibujo: viasDibujo,
       arbolesDetectados: arbolesDetectados,
@@ -2670,6 +2689,7 @@
     // encuentra el canvas ya visible y mide bien). Leer clientWidth fuerza un reflow síncrono, así que
     // alcanza con que la clase ya esté puesta ANTES de esa lectura.
     activarModo3D(estado, areaM2);
+    mostrarVolumenNormativa = false; // predio nuevo: se abre sin volumen
     recomputarYRenderizar(estado);
     construirEditorPerimetro(estado);
 
@@ -2694,6 +2714,7 @@
             tr.classList.toggle('tier-chosen', estado.pisos >= lo && estado.pisos <= hi);
           });
         }
+        mostrarVolumenNormativa = true;
         recomputarYRenderizar(estado);
       };
       sliderPisos.addEventListener('input', onSliderPisosInput);
@@ -3095,6 +3116,7 @@
       }
     });
     scene.add(grupoVolumen);
+    grupoVolumen.visible = mostrarVolumenNormativa;
     // Densidad → referencia de m²: en Cuenca el IPRUS ya no trae COS/CUS; trae altura, lote mínimo,
     // retiros y Densidad Neta de Vivienda (viv/ha). Viviendas = densidad × área del lote (ha). Se
     // muestra cuántas viviendas permite y cuánto toca por vivienda con el volumen dibujado.
@@ -3425,26 +3447,92 @@
       anillo.push(anillo[0]); return turf.polygon([anillo]);
     }
     var cuadradoAmplio = turf.polygon([[[-R - 6, -R - 6], [R + 6, -R - 6], [R + 6, R + 6], [-R - 6, R + 6], [-R - 6, -R - 6]]]);
-    var calzadaUnion = null;
+    // Calzada desde los PREDIOS (base legal fija): la vereda va de la línea de fábrica al bordillo,
+    // así que el bordillo es el contorno de los predios desplazado el ancho de vereda hacia la calle.
+    // Por cada tramo y cada lado de la vía:
+    //  - si hay predios de ese lado, la calzada llega hasta "predios + vereda" (el bordillo se adapta
+    //    a la manzana real, con esquinas redondeadas del radio de la vereda);
+    //  - si no hay (parque, río, parterre), se usa el ancho de referencia.
+    var calzadaUnion = null, prediosU = null, veredasPorAncho = {}, corredoresRef = [];
     (function () {
+      prediosU = unirTodos(prediosM.map(function (r) { try { return turf.polygon([r.concat([r[0]])]); } catch (e) { return null; } }).concat([(function () { try { return turf.polygon([estado.pts.concat([estado.pts[0]])]); } catch (e) { return null; } })()]));
+      // buffer en metros: se hace en coordenadas geográficas (turf.buffer) y se vuelve a metros
+      var prediosGeo = unirTodos((estado.vecinosFeatures || []).concat(estado.featureLote ? [estado.featureLote] : []).map(function (f) { try { return turf.feature(f.geometry); } catch (e) { return null; } }));
+      function aMetrosFeature(f) {
+        if (!f) return null;
+        var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+        var out = polys.map(function (pc) { return pc.map(function (r) { return r.map(function (c) { return estado.aMetros(c); }); }); });
+        try { return out.length === 1 ? turf.polygon(out[0]) : turf.multiPolygon(out); } catch (e) { return null; }
+      }
+      function bufferPredios(v) {
+        var k = String(v);
+        if (!(k in veredasPorAncho)) {
+          try { veredasPorAncho[k] = prediosGeo ? aMetrosFeature(turf.buffer(prediosGeo, v, { units: 'meters', steps: 4 })) : null; } catch (e) { veredasPorAncho[k] = null; }
+        }
+        return veredasPorAncho[k];
+      }
+      function quad(a, b, n1, n2) {
+        return turf.polygon([[[a[0] + n1[0], a[1] + n1[1]], [b[0] + n1[0], b[1] + n1[1]], [b[0] + n2[0], b[1] + n2[1]], [a[0] + n2[0], a[1] + n2[1]], [a[0] + n1[0], a[1] + n1[1]]]]);
+      }
+      function recorteLocal(f, caja) { try { return f ? turf.bboxClip(f, caja) : null; } catch (e) { return null; } }
       var porVia = [];
       viasSnapeadas.forEach(function (via) {
         if (!esVehicular(via) || via.pts.length < 2) return;
-        var h = refDeVia(via).calzada / 2, piezas = [];
+        var ref = refDeVia(via), h = ref.calzada / 2, W = h + ref.vereda + 8, piezas = [];
+        var buf = bufferPredios(ref.vereda);
         for (var i = 0; i < via.pts.length - 1; i++) {
           var a = via.pts[i], b = via.pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
           if (L < 0.05) continue;
-          var nx = -dy / L * h, ny = dx / L * h;
-          try { piezas.push(turf.polygon([[[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny], [a[0] + nx, a[1] + ny]]])); } catch (e) { }
+          var ux = -dy / L, uy = dx / L;
+          try { corredoresRef.push(quad(a, b, [ux * (h + ref.vereda), uy * (h + ref.vereda)], [-ux * (h + ref.vereda), -uy * (h + ref.vereda)])); } catch (e) { }
+          [1, -1].forEach(function (sg) {
+            try {
+              var ancho = quad(a, b, [0, 0], [sg * ux * W, sg * uy * W]);
+              var caja = turf.bbox(ancho);
+              var pLoc = recorteLocal(prediosU, caja);
+              var conPredios = false;
+              if (pLoc) { var inter = turf.intersect(ancho, pLoc); conPredios = !!inter && areaPlana(inter) > 0.1 * L * W; }
+              if (conPredios) {
+                var bLoc = recorteLocal(buf, caja);
+                var pieza = bLoc ? turf.difference(ancho, bLoc) : ancho;
+                if (pieza) piezas.push(pieza);
+              } else {
+                piezas.push(quad(a, b, [0, 0], [sg * ux * h, sg * uy * h]));
+              }
+            } catch (e) { piezas.push(quad(a, b, [0, 0], [sg * ux * h, sg * uy * h])); }
+          });
         }
         via.pts.forEach(function (p) { piezas.push(juntaRedonda(p, h)); });
         var u = unirTodos(piezas);
         if (u) { try { u = turf.intersect(u, cuadradoAmplio); } catch (e) { } if (u) porVia.push(u); }
       });
       calzadaUnion = unirTodos(porVia);
-      var prediosU = unirTodos(prediosM.map(function (r) { try { return turf.polygon([r.concat([r[0]])]); } catch (e) { return null; } }));
-      if (calzadaUnion && prediosU) { try { calzadaUnion = turf.difference(calzadaUnion, prediosU) || calzadaUnion; } catch (e) { } }
+      // nunca dentro de un predio ni de su vereda
+      var bufMin = bufferPredios(Math.min.apply(null, viasSnapeadas.filter(esVehicular).map(function (v) { return refDeVia(v).vereda; }).concat([1.8])));
+      if (calzadaUnion && bufMin) { try { calzadaUnion = turf.difference(calzadaUnion, bufMin) || calzadaUnion; } catch (e) { } }
+      else if (calzadaUnion && prediosU) { try { calzadaUnion = turf.difference(calzadaUnion, prediosU) || calzadaUnion; } catch (e) { } }
     })();
+    function areaPlana(f) {
+      var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, A = 0;
+      polys.forEach(function (pc) { pc.forEach(function (r, k) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; A += (k ? -1 : 1) * Math.abs(a) / 2; }); });
+      return A;
+    }
+    // Parterres seguros: el espacio entre las dos calzadas de una avenida doble (OSM las trae como dos
+    // vías con el mismo nombre, marcadas como par en construirEstadoPredio). Eso sí se pinta de verde.
+    var parterres = [];
+    for (var ip = 0; ip < viasSnapeadas.length - 1; ip++) {
+      var va = viasSnapeadas[ip], vb = viasSnapeadas[ip + 1];
+      if (!va.ladoCompañero || !vb.ladoCompañero || va.nombre !== vb.nombre || va.pts.length < 2 || vb.pts.length < 2) continue;
+      var B = vb.pts.slice();
+      if (Math.hypot(va.pts[0][0] - B[0][0], va.pts[0][1] - B[0][1]) > Math.hypot(va.pts[0][0] - B[B.length - 1][0], va.pts[0][1] - B[B.length - 1][1])) B.reverse();
+      try {
+        var tira = turf.polygon([va.pts.concat(B.slice().reverse()).concat([va.pts[0]])]);
+        if (turf.kinks(tira).features.length) continue;
+        var par = calzadaUnion ? turf.difference(tira, calzadaUnion) : tira;
+        if (par) parterres.push(par);
+      } catch (e) { }
+      ip++;
+    }
     function anillosDe(f) {
       if (!f) return [];
       var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
@@ -3465,6 +3553,20 @@
         verdeEnLamina.forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
         c.fillStyle = colorMaqueta('cSand'); c.fill('nonzero');
         c.fillStyle = granoPintura; c.fill('nonzero');
+        // Las calles mandan: calzada y veredas borran el verde de OSM que las pisa (se dibuja una
+        // máscara aparte y se le restan los predios, para no borrar parques que sí son predio).
+        var mk = document.createElement('canvas'); mk.width = mk.height = LAMINA_PX;
+        var mx = mk.getContext('2d');
+        function caminoEn(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); ctx.closePath(); }); }
+        mx.fillStyle = '#ffffff';
+        mx.beginPath(); if (calzadaUnion) caminoEn(mx, calzadaUnion); mx.fill('evenodd');
+        Object.keys(veredasPorAncho).forEach(function (k) { if (veredasPorAncho[k]) { mx.beginPath(); caminoEn(mx, veredasPorAncho[k]); mx.fill('nonzero'); } });
+        corredoresRef.forEach(function (f) { mx.beginPath(); caminoEn(mx, f); mx.fill(); });
+        mx.globalCompositeOperation = 'destination-out';
+        mx.beginPath(); prediosM.concat([estado.pts]).forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) mx.lineTo(q[0], q[1]); else mx.moveTo(q[0], q[1]); }); mx.closePath(); }); mx.fill('nonzero');
+        c.drawImage(mk, 0, 0);
+        // parterres de avenidas dobles: verde seguro
+        parterres.forEach(function (f) { c.beginPath(); caminoEn(c, f); c.fillStyle = colorMaqueta('cSand'); c.fill('evenodd'); c.fillStyle = granoPintura; c.fill('evenodd'); });
         // río: trazo ancho con juntas redondas (ancho real de la cinta)
         if (rioVisible) {
           (estado.riosFlat || []).forEach(function (rio) {
@@ -3600,6 +3702,20 @@
         });
       } catch (e) { }
     });
+
+    // Lo construido hoy en el lote (catastro/OSM): se ve mientras el volumen normativo está apagado.
+    var grupoExistente = new THREE.Group(); scene.add(grupoExistente);
+    (estado.edificacionesLote || []).forEach(function (ed) {
+      try {
+        var geo = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(ed.pts)), { depth: ed.altura || 6, bevelEnabled: false });
+        geo.rotateX(-Math.PI / 2); geo.computeVertexNormals();
+        var m = new THREE.Mesh(geo, matVecino); m.castShadow = true; m.receiveShadow = true;
+        grupoExistente.add(m);
+        grupoExistente.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matAristaVecino));
+        huellasEdificios.push(ed.pts);
+      } catch (e) { }
+    });
+    grupoExistente.visible = !mostrarVolumenNormativa;
 
     // Árboles abstractos de maqueta; nunca sobre la calzada (en vereda sí).
     var matTronco = new THREE.MeshStandardMaterial({ color: cLin(0xB8B1A6), roughness: 0.9 });
@@ -3881,10 +3997,21 @@
         '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
         '</div>' +
+        '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar volumen normativo' : 'Ver lo que permite la normativa (aprox.)') + '</button>' +
+        ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
         '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
+      var btnNorm = p.querySelector('.maq-normativa');
+      btnNorm.addEventListener('click', function () {
+        mostrarVolumenNormativa = !mostrarVolumenNormativa;
+        grupoVolumen.visible = mostrarVolumenNormativa;
+        grupoExistente.visible = !mostrarVolumenNormativa;
+        btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
+        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar volumen normativo' : 'Ver lo que permite la normativa (aprox.)';
+        solicitarRender();
+      });
       p.querySelectorAll('input[data-capa]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
@@ -3896,7 +4023,24 @@
       });
       var VISTAS = {
         conjunto: function () { theta = Math.PI / 4; phi = Math.PI / 3.1; radius = R * 2.6; target.set(0, 0, 0); },
-        lote: function () { theta = Math.PI / 4; phi = Math.PI / 2.6; radius = Math.max(maxDim * 2.3, 45); target.set(0, size.y / 2, 0); },
+        lote: function () {
+          // mirar desde afuera del frente principal (el lado 'frente' más largo), alto, para no quedar
+          // dentro de un edificio vecino
+          var mejor = -1, nx = 0, ny = -1;
+          for (var i = 0; i < estado.nLados; i++) {
+            if (estado.tipoLado[i] !== 'frente') continue;
+            var a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (L <= mejor) continue;
+            mejor = L; var tx = (b[0] - a[0]) / L, ty = (b[1] - a[1]) / L, m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            nx = -ty; ny = tx;
+            if ((estado.centroideLote[0] - m[0]) * nx + (estado.centroideLote[1] - m[1]) * ny > 0) { nx = -nx; ny = -ny; }
+          }
+          // girar 35° para ver también la esquina/profundidad, no solo la fachada plana
+          var g = 0.6, rx = nx * Math.cos(g) - ny * Math.sin(g), ry = nx * Math.sin(g) + ny * Math.cos(g);
+          theta = Math.atan2(rx, -ry); phi = 0.82;
+          var c = estado.centroideLote;
+          radius = Math.max(maxDim * 2.4, 70); target.set(c[0], 4, -c[1]);
+        },
         planta: function () { theta = 0; phi = 0.2; radius = R * 2.9; target.set(0, 0, 0); }
       };
       p.querySelectorAll('button[data-vista]').forEach(function (b) {
@@ -3931,7 +4075,7 @@
     renderer.render(scene, camera);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { dibujarLamina(); solicitarRender(); });
 
-    ultimoRender3D = { renderer: renderer, scene: scene, camera: camera, grupoVolumen: grupoVolumen };
+    ultimoRender3D = { renderer: renderer, scene: scene, camera: camera, grupoVolumen: grupoVolumen, grupoExistente: grupoExistente };
   }
 
   // Captura un cuadro de la escena 3D para el informe PDF. VERSIÓN ANTERIOR (no repetir): creaba un
@@ -4009,7 +4153,15 @@
   }
   function capturarImagen3D() {
     if (!ultimoRender3D) return '';
-    return capturarViaRenderTarget() || capturarViaCanvasDirecto();
+    // el informe trata de lo que permite la normativa: se captura siempre con el volumen visible
+    var gv = ultimoRender3D.grupoVolumen, ge = ultimoRender3D.grupoExistente;
+    var antesV = gv ? gv.visible : true, antesE = ge ? ge.visible : false;
+    if (gv) gv.visible = true; if (ge) ge.visible = false;
+    if (ultimoRender3D.renderer) ultimoRender3D.renderer.render(ultimoRender3D.scene, ultimoRender3D.camera);
+    var url = capturarViaRenderTarget() || capturarViaCanvasDirecto();
+    if (gv) gv.visible = antesV; if (ge) ge.visible = antesE;
+    if (ultimoRender3D.renderer) ultimoRender3D.renderer.render(ultimoRender3D.scene, ultimoRender3D.camera);
+    return url;
   }
 
   // Exportador OBJ propio, sin librería externa — three.js r128 no trae THREE.OBJExporter en el
