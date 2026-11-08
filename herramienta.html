@@ -128,6 +128,11 @@
   .maq-panel input[type=checkbox] { accent-color: #2b2a27; margin: 0; }
   .maq-panel input[type=color] { width: 24px; height: 18px; padding: 0; border: 1px solid #c9c6bf; border-radius: 3px; background: none; }
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
+  .maq-vistas-flot { position: relative; z-index: 6; height: 52px; margin-top: -52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
+  .maq-vistas-flot button { pointer-events: auto; font: inherit; font-size: 0.74rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: rgba(250,249,246,.94); color: #2b2a27; border: 1px solid #2b2a27; border-left-width: 0; padding: 7px 14px; cursor: pointer; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
+  .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 4px 0 0 4px; }
+  .maq-vistas-flot button:last-child { border-radius: 0 4px 4px 0; }
+  .maq-vistas-flot button.activa, .maq-vistas-flot button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel button { font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 1px solid #2b2a27; color: #2b2a27; border-radius: 3px; padding: 4px 8px; cursor: pointer; }
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
@@ -4718,9 +4723,17 @@
         },
         planta: function () { theta = 0; phi = 0.2; radius = R * 2.9; target.set(0, 0, 0); }
       };
-      p.querySelectorAll('button[data-vista]').forEach(function (b) {
-        b.addEventListener('click', function () { VISTAS[b.getAttribute('data-vista')](); actualizarCamara(); solicitarRender(); });
+      // Vistas: barra flotante sobre el 3D, abajo al centro (fuera del panel).
+      var barraVieja = wrap.querySelector('.maq-vistas-flot'); if (barraVieja) barraVieja.remove();
+      var barraV = document.createElement('div'); barraV.className = 'maq-vistas-flot';
+      var vistasPanel = p.querySelector('.maq-vistas');
+      if (vistasPanel) { while (vistasPanel.firstChild) barraV.appendChild(vistasPanel.firstChild); vistasPanel.remove(); }
+      canvas.insertAdjacentElement('afterend', barraV);
+      function marcarVista(nombre) { barraV.querySelectorAll('button').forEach(function (x) { x.classList.toggle('activa', x.getAttribute('data-vista') === nombre); }); }
+      barraV.querySelectorAll('button[data-vista]').forEach(function (b) {
+        b.addEventListener('click', function () { VISTAS[b.getAttribute('data-vista')](); actualizarCamara(); solicitarRender(); marcarVista(b.getAttribute('data-vista')); });
       });
+      marcarVista('lote');
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
       VISTAS.lote(); actualizarCamara(); solicitarRender();
       var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
