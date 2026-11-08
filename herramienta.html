@@ -355,6 +355,18 @@
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
+  .terreno-manual { margin: -4px 0 14px; font-size: 0.82rem; }
+  .terreno-manual > summary { cursor: pointer; list-style: none; font-weight: 300; color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px; }
+  .terreno-manual > summary::-webkit-details-marker { display: none; }
+  .tm-cuerpo { margin-top: 10px; border: 1px solid var(--ink); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; max-width: 640px; }
+  .tm-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tm-tabs button, .tm-acciones button { font: inherit; font-size: 0.78rem; font-weight: 500; padding: 7px 11px; border: 1px solid var(--ink); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; }
+  .tm-tabs button.activa, .tm-acciones button:hover:not(:disabled) { background: var(--ink); color: #f3f1ec; }
+  .tm-acciones { display: flex; gap: 6px; flex-wrap: wrap; } .tm-acciones button:disabled { opacity: .35; cursor: default; }
+  .tm-pane p { margin: 0 0 8px; font-weight: 300; }
+  .tm-pane textarea { width: 100%; font: 300 0.8rem 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; padding: 8px 10px; border: 1px solid rgba(28,26,22,.3); border-radius: 8px; background: transparent; }
+  .tm-msg { font-size: 0.76rem; font-weight: 300; } .tm-msg.alerta { color: var(--terracotta); font-weight: 500; }
+  .tm-vertice { width: 10px; height: 10px; border-radius: 50%; background: #B2502E; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.5); }
   .buscar-maps input {
     flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
     background: var(--line-soft); color: var(--ink); font-family: 'Inter Tight'; font-size: 0.85rem;
@@ -729,6 +741,30 @@
     <button type="button" id="buscar-maps-btn">Buscar</button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
+  <details class="terreno-manual" id="terrenoManual">
+    <summary>¿Tu terreno no aparece o está mal dibujado? Ingrésalo tú</summary>
+    <div class="tm-cuerpo">
+      <div class="tm-tabs">
+        <button type="button" data-tm="dibujar" class="activa">Dibujar sobre foto aérea</button>
+        <button type="button" data-tm="puntos">Por coordenadas</button>
+        <button type="button" data-tm="archivo">Desde archivo</button>
+      </div>
+      <div class="tm-pane" data-pane="dibujar">
+        <p>El mapa cambia a la ortofoto oficial del municipio. Toca cada vértice del terreno en orden y pulsa <b>Terminar</b>.</p>
+        <div class="tm-acciones"><button type="button" id="tmEmpezar">Empezar a dibujar</button><button type="button" id="tmDeshacer" disabled>Deshacer punto</button><button type="button" id="tmTerminar" disabled>Terminar</button><button type="button" id="tmCancelar" disabled>Cancelar</button></div>
+      </div>
+      <div class="tm-pane" data-pane="puntos" hidden>
+        <p>Un vértice por línea, en orden. UTM WGS84 zona 17 Sur (<i>este norte</i>) o geográficas (<i>latitud, longitud</i>).</p>
+        <textarea id="tmTexto" rows="5" placeholder="722150.32 9679820.15&#10;722168.90 9679815.40&#10;722172.10 9679790.02&#10;722153.75 9679794.60"></textarea>
+        <div class="tm-acciones"><button type="button" id="tmCrear">Crear terreno</button></div>
+      </div>
+      <div class="tm-pane" data-pane="archivo" hidden>
+        <p>CSV o TXT de un levantamiento (punto, este, norte), GeoJSON o KML de Google Earth.</p>
+        <input type="file" id="tmArchivo" accept=".csv,.txt,.geojson,.json,.kml">
+      </div>
+      <div class="tm-msg" id="tmMsg" hidden></div>
+    </div>
+  </details>
 </div>
 <div class="mapa-stage" id="mapaStage">
   <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
@@ -973,7 +1009,7 @@
   // (Leaflet apila por orden de inserción) — son contexto, el predio sujeto sigue siendo lo prominente.
   var capaVias = L.geoJSON(null, { style: { color: '#6B6B63', weight: 5, opacity: 0.45 } }).addTo(mapa);
   var capaVecinos = L.geoJSON(null, { style: { color: '#8C8C84', weight: 1, fillColor: '#8C8C84', fillOpacity: 0.12 } }).addTo(mapa);
-  var capaPredio = L.geoJSON(null, { style: { color: '#B2502E', weight: 3, fillColor: '#B2502E', fillOpacity: 0.16 } }).addTo(mapa);
+  var capaPredio = L.geoJSON(null, { style: { color: '#B2502E', weight: 2.2, fillColor: '#B2502E', fillOpacity: 0.06 } }).addTo(mapa);
   var capaVolumetria = L.geoJSON(null, { style: { color: '#B2502E', weight: 2, dashArray: '4,3', fillOpacity: 0 } }).addTo(mapa);
   var capaManzana = L.geoJSON(null, { style: { color: '#6E6A62', weight: 1.5, dashArray: '6,4', fillOpacity: 0 } }).addTo(mapa);
   var capaVertices = L.layerGroup().addTo(mapa);
@@ -1119,7 +1155,107 @@
   // cada clic nuevo del mapa; lo usan recomputarYRenderizar() y los editores de vértices/patio.
   var estadoEdicion = null;
 
-  mapa.on('click', function (e) { if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
+  mapa.on('click', function (e) { if (modoDibujo) agregarVerticeDibujo(e.latlng); else if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
+  // ---------- Terreno ingresado por el usuario (dibujo, coordenadas o archivo) ----------
+  // Para predios que no están en el catastro o están mal representados. Se calca sobre la ortofoto
+  // OFICIAL del municipio (2018 + vuelos de dron 2023-2026), no sobre Google: sus términos prohíben
+  // extraer geometría de sus imágenes, y la ortofoto municipal es la referencia del catastro.
+  var modoDibujo = false, verticesDibujo = [], capaDibujo = L.layerGroup().addTo(mapa), capaOrtoDibujo = null;
+  function msgTM(t, alerta) { var m = document.getElementById('tmMsg'); if (!m) return; m.hidden = !t; m.textContent = t || ''; m.className = 'tm-msg' + (alerta ? ' alerta' : ''); }
+  function redibujarDibujo() {
+    capaDibujo.clearLayers();
+    if (verticesDibujo.length > 1) L.polygon(verticesDibujo, { color: '#B2502E', weight: 2, fillOpacity: 0.08, dashArray: verticesDibujo.length < 3 ? '4,4' : null }).addTo(capaDibujo);
+    verticesDibujo.forEach(function (v) { L.marker(v, { icon: L.divIcon({ className: '', iconSize: [10, 10], iconAnchor: [5, 5], html: '<div class="tm-vertice"></div>' }), interactive: false }).addTo(capaDibujo); });
+    var bD = document.getElementById('tmDeshacer'), bT = document.getElementById('tmTerminar');
+    if (bD) bD.disabled = !verticesDibujo.length; if (bT) bT.disabled = verticesDibujo.length < 3;
+  }
+  function empezarDibujo() {
+    modoDibujo = true; verticesDibujo = []; desactivarModo3D();
+    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
+    capaOrtoDibujo.addTo(mapa); mapa.doubleClickZoom.disable();
+    if (mapa.getZoom() < 18) mapa.setZoom(18);
+    ['tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = false; });
+    redibujarDibujo(); msgTM('Toca los vértices del terreno en orden. Acércate con el pellizco para más precisión.');
+  }
+  function salirDibujo() {
+    modoDibujo = false; verticesDibujo = []; capaDibujo.clearLayers();
+    if (capaOrtoDibujo) mapa.removeLayer(capaOrtoDibujo); mapa.doubleClickZoom.enable();
+    ['tmDeshacer', 'tmTerminar', 'tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = true; });
+  }
+  function agregarVerticeDibujo(ll) { verticesDibujo.push([ll.lat, ll.lng]); redibujarDibujo(); }
+  // UTM WGS84 zona 17 Sur → lat/lng (fórmulas estándar de Snyder)
+  function utm17SALatLng(E, N) {
+    var a = 6378137, f = 1 / 298.257223563, e2 = f * (2 - f), ep2 = e2 / (1 - e2), k0 = 0.9996;
+    var x = E - 500000, y = N - 10000000, M = y / k0, mu = M / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 * e2 * e2 / 256));
+    var e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    var p1 = mu + (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32) * Math.sin(2 * mu) + (21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32) * Math.sin(4 * mu) + (151 * Math.pow(e1, 3) / 96) * Math.sin(6 * mu) + (1097 * Math.pow(e1, 4) / 512) * Math.sin(8 * mu);
+    var C1 = ep2 * Math.cos(p1) * Math.cos(p1), T1 = Math.tan(p1) * Math.tan(p1), N1 = a / Math.sqrt(1 - e2 * Math.sin(p1) * Math.sin(p1)), R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(p1) * Math.sin(p1), 1.5), D = x / (N1 * k0);
+    var lat = p1 - (N1 * Math.tan(p1) / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * Math.pow(D, 4) / 24 + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
+    var lng = (D - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * Math.pow(D, 5) / 120) / Math.cos(p1);
+    return [lat * 180 / Math.PI, -81 + lng * 180 / Math.PI];
+  }
+  function puntosDeTexto(txt) {
+    var out = [];
+    txt.split(/\r?\n/).forEach(function (ln) {
+      // separadores: si hay punto decimal, las comas separan; con ";" las comas son decimales
+      ln = /\./.test(ln) ? ln.replace(/,/g, ' ') : /;/.test(ln) ? ln.replace(/,/g, '.').replace(/;/g, ' ') : ln.replace(/,/g, ' ');
+      var nums = (ln.match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat);
+      if (nums.length < 2) return;
+      // CSV de levantamiento: "punto, este, norte[, cota]" → tomar el par que parece UTM
+      var par = null;
+      for (var i = 0; i < nums.length - 1; i++) { if (nums[i] > 100000 && nums[i] < 1000000 && nums[i + 1] > 9000000 && nums[i + 1] < 10000000) { par = utm17SALatLng(nums[i], nums[i + 1]); break; } }
+      if (!par) for (var j = 0; j < nums.length - 1; j++) { if (Math.abs(nums[j]) <= 5 && Math.abs(nums[j + 1]) >= 77 && Math.abs(nums[j + 1]) <= 82) { par = [nums[j], nums[j + 1]]; break; } }
+      if (par) out.push(par);
+    });
+    return out;
+  }
+  async function usarTerrenoIngresado(latlngs, origen) {
+    if (latlngs.length < 3) { msgTM('Hacen falta al menos 3 vértices.', true); return; }
+    var anillo = latlngs.map(function (p) { return [p[1], p[0]]; }); anillo.push(anillo[0]);
+    var f;
+    try { f = turf.polygon([anillo]); if (turf.kinks(f).features.length) { msgTM('El contorno se cruza consigo mismo: revisa el orden de los vértices.', true); return; } } catch (e) { msgTM('No se pudo formar el polígono con esos puntos.', true); return; }
+    var area = turf.area(f); if (area < 20 || area > 500000) { msgTM('El área (' + Math.round(area) + ' m²) no parece la de un terreno. Revisa las coordenadas.', true); return; }
+    f.properties = { clave: 'Terreno ingresado (' + origen + ')', manual: true };
+    salirDibujo(); msgTM('Terreno de ' + Math.round(area).toLocaleString('es-EC') + ' m². Calculando…');
+    prediosUnion = [f]; resumenAntesDeUnir = null; modoUnir = false;
+    var c = turf.centroid(f).geometry.coordinates; mapa.setView([c[1], c[0]], 18);
+    await mostrarResultado(f);
+    msgTM('');
+  }
+  (function () {
+    var cont = document.getElementById('terrenoManual'); if (!cont) return;
+    cont.querySelectorAll('[data-tm]').forEach(function (b) { b.addEventListener('click', function () {
+      cont.querySelectorAll('[data-tm]').forEach(function (o) { o.classList.toggle('activa', o === b); });
+      cont.querySelectorAll('[data-pane]').forEach(function (pn) { pn.hidden = pn.getAttribute('data-pane') !== b.getAttribute('data-tm'); });
+      if (b.getAttribute('data-tm') !== 'dibujar' && modoDibujo) salirDibujo();
+    }); });
+    document.getElementById('tmEmpezar').addEventListener('click', empezarDibujo);
+    document.getElementById('tmDeshacer').addEventListener('click', function () { verticesDibujo.pop(); redibujarDibujo(); });
+    document.getElementById('tmCancelar').addEventListener('click', function () { salirDibujo(); msgTM(''); });
+    document.getElementById('tmTerminar').addEventListener('click', function () { usarTerrenoIngresado(verticesDibujo.slice(), 'dibujado'); });
+    document.getElementById('tmCrear').addEventListener('click', function () { usarTerrenoIngresado(puntosDeTexto(document.getElementById('tmTexto').value), 'coordenadas'); });
+    document.getElementById('tmArchivo').addEventListener('change', function (ev) {
+      var file = ev.target.files && ev.target.files[0]; if (!file) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var txt = String(rd.result || ''), pts = [];
+        try {
+          if (/\.(geo)?json$/i.test(file.name)) {
+            var g = JSON.parse(txt), geom = g.type === 'FeatureCollection' ? g.features[0].geometry : g.type === 'Feature' ? g.geometry : g;
+            var ring = geom.type === 'Polygon' ? geom.coordinates[0] : geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : [];
+            pts = ring.slice(0, -1).map(function (c) { return c[0] > 1000 ? utm17SALatLng(c[0], c[1]) : [c[1], c[0]]; });
+          } else if (/\.kml$/i.test(file.name)) {
+            var m = txt.match(/<coordinates>([\s\S]*?)<\/coordinates>/i);
+            if (m) pts = m[1].trim().split(/\s+/).map(function (t) { var v = t.split(','); return [parseFloat(v[1]), parseFloat(v[0])]; }).filter(function (p) { return isFinite(p[0]); });
+            if (pts.length > 1 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1]) pts.pop();
+          } else pts = puntosDeTexto(txt);
+        } catch (e) { pts = []; }
+        if (!pts.length) { msgTM('No encontré coordenadas en ese archivo.', true); return; }
+        usarTerrenoIngresado(pts, 'archivo');
+      };
+      rd.readAsText(file);
+    });
+  })();
   // ---------- Unir lotes (estudio gratuito → trámite de unificación) ----------
   // El cliente parte de su lote y toca predios vecinos que se TOCAN con él; la herramienta recalcula
   // todo (normativa, volumen, m², viviendas) sobre el lote unido. Unificar requiere trámite municipal.
@@ -3232,11 +3368,11 @@
 
     capaPredio.clearLayers();
     capaPredio.addData(estado.featureReg);
-    capaManzana.addData(estado.featureManzana);
+    // mapa limpio: solo el contorno del predio (manzana, vías, vecinos y huella quedan como datos)
     capaVias.clearLayers();
-    if (estado.viasFeatures.length) capaVias.addData({ type: 'FeatureCollection', features: estado.viasFeatures });
+
     capaVecinos.clearLayers();
-    if (estado.vecinosFeatures.length) capaVecinos.addData({ type: 'FeatureCollection', features: estado.vecinosFeatures });
+
     mapa.fitBounds(capaPredio.getBounds(), { padding: [40, 40], maxZoom: 19 });
 
     var maxPisosLote;
@@ -3393,7 +3529,7 @@
     activarModo3D(estado, areaM2);
     mostrarVolumenNormativa = false; // predio nuevo: se abre sin volumen
     recomputarYRenderizar(estado);
-    construirEditorPerimetro(estado);
+    if (estado.editarPerimetro) construirEditorPerimetro(estado); else capaVertices.clearLayers();
 
     // slider-pisos vive en .panel-flotante AHORA FIJO en el HTML (antes se recreaba con
     // panel.innerHTML cada vez, así que un addEventListener nuevo por selección no se acumulaba
@@ -3625,9 +3761,9 @@
     var featuresHuellaAltas = bloquesAltasFinal.map(function (pts) { return estado.poligonoMetrosAFeature(pts); }).filter(Boolean);
     capaVolumetria.clearLayers();
     if (featuresHuellaAltas.length) {
-      capaVolumetria.addData(featuresHuellaAltas.length === 1 ? featuresHuellaAltas[0] : { type: 'FeatureCollection', features: featuresHuellaAltas });
+      if (estado.editarPerimetro) capaVolumetria.addData(featuresHuellaAltas.length === 1 ? featuresHuellaAltas[0] : { type: 'FeatureCollection', features: featuresHuellaAltas });
     } else {
-      capaVolumetria.addData(featureLimpio);
+      if (estado.editarPerimetro) capaVolumetria.addData(featureLimpio);
     }
 
     // --- Three.js: extrusión sobre un plano local en metros, mismo origen para todas las huellas ---
@@ -6156,6 +6292,12 @@
   function tramitesRecomendados(estado) {
     var r = estado.restriccionVolumen || '', L = [];
     function t(id, nombre, sub, sel) { L.push({ id: id, nombre: nombre, sub: sub, sel: !!sel }); }
+    if (estado.featureCrudo && estado.featureCrudo.properties && estado.featureCrudo.properties.manual) {
+      t('regularizacion', 'Regularización del predio', 'Oficializar el terreno en el catastro municipal', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio con linderos y curvas', true);
+      t('planimetrico-iprus', 'IPRUS', 'Planimétrico + trámite ante el municipio');
+      return L;
+    }
     if (/propiedad pública/.test(r)) {
       t('regularizacion', 'Regularización del predio', 'Si tienes escritura y el catastro lo registra como público', true);
       t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio, base de la regularización', true);
