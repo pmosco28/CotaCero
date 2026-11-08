@@ -2628,7 +2628,7 @@
   // que nunca es una foto). Clic en la tarjeta vuelve al mapa grande — ver listener más abajo.
   var mapaStage = document.getElementById('mapaStage');
   var ubicacionMini = document.getElementById('ubicacionMini');
-  var onSliderPisosInput = null;
+  var onSliderPisosInput = null, onSliderPisosEtiqueta = null;
   function activarModo3D(estado, areaM2) {
     if (ubicacionMini) {
       var svgMini = '';
@@ -2835,7 +2835,15 @@
     if (sliderPisos) {
       sliderPisos.min = 1; sliderPisos.max = maxPisosLote; sliderPisos.value = estado.pisos;
       if (labelPisos) labelPisos.textContent = estado.pisos + ' / ' + maxPisosLote;
-      if (onSliderPisosInput) sliderPisos.removeEventListener('input', onSliderPisosInput);
+      if (onSliderPisosInput) sliderPisos.removeEventListener('change', onSliderPisosInput);
+      if (onSliderPisosEtiqueta) sliderPisos.removeEventListener('input', onSliderPisosEtiqueta);
+      // Mientras se arrastra solo cambia el número; el 3D se rearma al soltar. (El control vive dentro
+      // del panel de la maqueta, que se rehace en cada render: rearmar durante el arrastre lo cortaba.)
+      onSliderPisosEtiqueta = function () {
+        var v = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
+        if (labelPisos) labelPisos.textContent = v + ' / ' + estado.maxPisosLote;
+      };
+      sliderPisos.addEventListener('input', onSliderPisosEtiqueta);
       onSliderPisosInput = function () {
         estado.pisos = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
         labelPisos.textContent = estado.pisos + ' / ' + estado.maxPisosLote;
@@ -2850,7 +2858,7 @@
         mostrarVolumenNormativa = true;
         recomputarYRenderizar(estado);
       };
-      sliderPisos.addEventListener('input', onSliderPisosInput);
+      sliderPisos.addEventListener('change', onSliderPisosInput);
     }
 
     // Mismo código de acceso fijo que el croquis (pedido explícito: "para todos los productos") — la
