@@ -4392,6 +4392,7 @@
       var cLote = cota(estado.centroideLote);
       grupoVolumen.position.y = cLote;
       grupoVolumen.children.forEach(function (sub) { if (sub.userData && sub.userData.cotaRef) sub.position.y = cota(sub.userData.cotaRef) - cLote; });
+      if (/debug=lamina/.test(location.search)) window.__vol = { cLote: cLote, subs: grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; }).map(function (o) { return { y: o.position.y, ref: o.userData.cotaRef, n: o.children.length }; }) };
       meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
       solicitarRender();
     }
