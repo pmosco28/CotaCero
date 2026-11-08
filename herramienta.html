@@ -156,10 +156,10 @@
   .maq-col > summary { cursor: pointer; font-size: 0.72rem; color: #8a867e; list-style: none; }
   .maq-col > summary::-webkit-details-marker { display: none; }
   .maq-col[open] > .maq-colores { margin-top: 6px; }
-  .maq-unir, .maq-deshacer { font: inherit; font-size: 0.78rem; padding: 7px 10px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; border-radius: 4px; cursor: pointer; }
+  .maq-unir, .maq-deshacer { font: inherit; font-size: 0.76rem; font-weight: 500; text-transform: none; letter-spacing: 0; padding: 7px 8px; background: transparent; color: #1C1A16; border: 1px solid #1C1A16; border-radius: 8px; cursor: pointer; }
   .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
   .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
-  .maq-union { font-size: 0.78rem; line-height: 1.45; border: 1px solid #d9d2c4; border-radius: 4px; padding: 8px 10px; margin: 6px 0; }
+  .maq-union { font-size: 0.78rem; line-height: 1.45; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; background: transparent; }
   .maq-union-btns { display: flex; gap: 6px; margin-top: 6px; } .maq-union-btns button { flex: 1; }
   .maq-terreno button { flex: 1; font: inherit; font-size: 0.72rem; padding: 6px 8px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; cursor: pointer; }
   .maq-terreno button + button { border-left-width: 0; }
@@ -193,17 +193,22 @@
   .reporte-pdf.ficha-gratis .ficha-cta-url { font-size: 0.62rem; color: #6d6a63; margin-top: 6px; word-break: break-all; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr { width: 30mm; text-align: center; font-size: 0.65rem; color: #6d6a63; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr svg { width: 30mm; height: 30mm; }
-  .maq-panel .maq-comprar { text-transform: none; letter-spacing: 0; font: inherit; font-weight: 700; font-size: 0.86rem; padding: 10px 10px; border-radius: 6px; border: 0; background: #b0532f; color: #fff; cursor: pointer; text-align: left; line-height: 1.25; }
-  .maq-panel .maq-comprar small { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.9; margin-top: 2px; }
-  .maq-panel .maq-comprar:hover { background: #8f3f22; }
-  .maq-panel .maq-ficha { display: grid; gap: 5px; }
-  .maq-panel .maq-ficha-fila { display: flex; gap: 6px; }
-  .maq-panel .maq-ficha input { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 6px 7px; border: 1px solid #c9c6bf; border-radius: 4px; }
-  .maq-panel .maq-ficha button { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 6px 9px; border: 1px solid #2b2a27; background: #fff; border-radius: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
-  .maq-panel .maq-ficha-nota { font-size: 0.66rem; color: #6d6a63; }
-  .maq-panel .maq-norma { border: 1px solid #c9c6bf; border-radius: 5px; padding: 8px; display: grid; gap: 8px; background: #fff; }
-  .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
-  .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
+  .maq-panel .maq-comprar { position: relative; display: flex; align-items: center; justify-content: space-between; text-transform: none; letter-spacing: 0.02em; font: inherit; font-weight: 700; font-size: 0.86rem; height: 36px; padding: 0 12px; border-radius: 8px; border: 0; background: #B2502E; color: #fff; cursor: pointer; }
+  .maq-panel .maq-comprar em { font-style: normal; font-weight: 300; }
+  .maq-panel .maq-comprar:hover { background: #8F3F23; }
+  .maq-panel .maq-comprar[data-tip]:hover::after { bottom: auto; top: calc(100% + 7px); }
+  .maq-panel .maq-ficha { display: grid; gap: 6px; }
+  .maq-panel .maq-ficha input { width: 100%; min-width: 0; font: inherit; font-size: 0.8rem; font-weight: 300; padding: 8px 10px; border: 1px solid rgba(28,26,22,.25); border-radius: 8px; background: transparent; color: #1C1A16; }
+  .maq-panel .maq-ficha input:focus { outline: none; border-color: #1C1A16; }
+  .maq-panel .maq-ficha input.falta { border-color: #B2502E; }
+  .maq-panel .maq-ficha button { font: inherit; font-size: 0.8rem; font-weight: 600; height: 34px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; border-radius: 8px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-ficha button:hover { background: #1C1A16; color: #f3f1ec; }
+  .maq-panel .maq-ficha-msg { font-size: 0.7rem; font-weight: 300; line-height: 1.35; color: #1C1A16; }
+  .maq-panel .maq-ficha-msg.alerta { color: #B2502E; font-weight: 500; }
+  .maq-panel .maq-ficha-nota { font-size: 0.64rem; font-weight: 300; color: #6d6a63; }
+  .maq-panel .maq-norma { border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; display: grid; gap: 8px; background: transparent; }
+  .maq-panel .maq-normativa { font: inherit; font-weight: 600; height: 34px; border-radius: 8px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-normativa.activo { background: transparent; color: #1C1A16; }
   .maq-panel .maq-norma-detalle { display: grid; gap: 6px; }
   .maq-panel .maq-norma[hidden] { display: none; }
   .maq-panel .maq-restriccion { font-size: 0.78rem; color: #2b2a27; line-height: 1.35; }
@@ -5105,8 +5110,8 @@
         (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
         (function () {
           var sg = productoSugerido(estado);
-          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '">' + sg.titulo + (precioDeProducto(sg.id) ? ' — ' + precioDeProducto(sg.id) : '') + '<small>' + sg.sub + '</small></button>' : '') +
-            '<div class="maq-ficha"><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Ficha gratis (PDF)</button></div>' +
+          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '" data-tip="' + (sg.titulo + ': ' + sg.sub).replace(/"/g, '&quot;') + '" data-tip-largo><span>' + (sg.corto || sg.titulo) + '</span>' + (precioDeProducto(sg.id) ? '<em>' + precioDeProducto(sg.id) + '</em>' : '') + '</button>' : '') +
+            '<div class="maq-ficha"><input type="email" class="maq-ficha-correo" placeholder="Tu correo para la ficha gratis" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar ficha PDF</button><div class="maq-ficha-msg" hidden></div>' +
             '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
         })() +
         '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
@@ -5163,7 +5168,10 @@
       try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
       btnFicha.addEventListener('click', function () {
         var correo = (inCorreo.value || '').trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.style.borderColor = '#b0532f'; inCorreo.placeholder = 'Escribe tu correo'; return; }
+        var msgF = p.querySelector('.maq-ficha-msg');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.classList.add('falta'); if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'Escribe tu correo para descargar la ficha.'; } return; }
+        inCorreo.classList.remove('falta');
+        if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Listo. En la ventana que se abre elige «Guardar como PDF». Te escribiremos a ' + correo + ' sobre este predio.'; }
         try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
         registrarInteresado(estado, correo);
         generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)));
@@ -5943,11 +5951,11 @@
   function productoSugerido(estado) {
     var r = estado.restriccionVolumen || '';
     if (/propiedad pública|parque o área verde/.test(r)) return null;
-    if (estado.esUnion) return { id: 'unificacion', titulo: 'Unifica tus lotes con nosotros', sub: 'Planimetría + trámite de unificación ante el municipio' };
-    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
-    if (/ ha:/.test(r)) return { id: 'analisis-sitio', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
-    if (estado.frenteARio) return { id: 'planimetrico-iprus', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
-    return { id: 'planimetrico-iprus', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
+    if (estado.esUnion) return { id: 'unificacion', corto: 'Unificación', titulo: 'Unifica tus lotes con nosotros', sub: 'Planimetría + trámite de unificación ante el municipio' };
+    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
+    if (/ ha:/.test(r)) return { id: 'analisis-sitio', corto: 'Factibilidad', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
+    if (estado.frenteARio) return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
+    return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
   }
   function urlProductoPredio(estado, idProducto) {
     var base = location.origin + location.pathname;
