@@ -3955,7 +3955,91 @@
       if (borde) { c.strokeStyle = borde; c.lineWidth = 1.2; c.stroke(); }
     }
     // Curvas de nivel (referenciales): MDT municipal ~3 m, suavizado leve, cada 1 m y maestras cada 5 m.
-    var curvasLamina = null, curvasVisibles = true, cotaMinMaxLamina = null;
+    var curvasLamina = null, curvasVisibles = true, cotaMinMaxLamina = null, curvasInterpretadas = false;
+    // ---------- Superficie interpretada (criterio de Trama Urbana, versión liviana) ----------
+    // Sobre una grilla de 1 m:
+    //  - calzada: rasante a lo largo del eje de cada vía (perfil del MDT suavizado ~20 m) y sección
+    //    transversal PLANA → las curvas cruzan la calle rectas y perpendiculares;
+    //  - vereda: rasante + 20 cm (el salto gráfico del bordillo);
+    //  - predios: terreno del MDT, con la corrección de la calle desvaneciéndose en ~6 m hacia adentro
+    //    para que las curvas empalmen sin escalones.
+    function interpretarSuperficie(X0, Y0, Z0, W0, H0) {
+      var x0 = X0[0], dx = X0[1] - X0[0], y0 = Y0[0], dy = Y0[W0] - Y0[0];
+      function zMDT(x, y) {
+        var fi = (x - x0) / dx, fj = (y - y0) / dy, i = Math.floor(fi), j = Math.floor(fj);
+        if (i < 0 || j < 0 || i >= W0 - 1 || j >= H0 - 1) return NaN;
+        var tx = fi - i, ty = fj - j, k = j * W0 + i;
+        var a = Z0[k], b = Z0[k + 1], c = Z0[k + W0], d = Z0[k + W0 + 1];
+        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+      }
+      // 1) rasantes por vía
+      var vias = viasSnapeadas.filter(function (v) { return esVehicular(v) && v.pts.length >= 2; }).map(function (v) {
+        var mues = [], acc = 0;
+        for (var i = 0; i < v.pts.length - 1; i++) {
+          var a = v.pts[i], b = v.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 2));
+          for (var k = 0; k < n; k++) { var t = k / n; mues.push({ s: acc + L * t, p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] }); }
+          acc += L;
+        }
+        mues.push({ s: acc, p: v.pts[v.pts.length - 1] });
+        var z = mues.map(function (m) { return zMDT(m.p[0], m.p[1]); });
+        var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - 5); k <= Math.min(z.length - 1, i + 5); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
+        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs };
+      });
+      if (!vias.length) return null;
+      function rasante(p) {
+        var mejor = null, dmin = Infinity;
+        vias.forEach(function (v) {
+          var acc = 0;
+          for (var i = 0; i < v.pts.length - 1; i++) {
+            var a = v.pts[i], b = v.pts[i + 1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, L = Math.sqrt(L2);
+            var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
+            var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
+            if (d < dmin) { dmin = d; mejor = { v: v, s: acc + L * t }; }
+            acc += L;
+          }
+        });
+        if (!mejor) return NaN;
+        var S = mejor.v.s, Zr = mejor.v.z, k = 1; while (k < S.length - 1 && S[k] < mejor.s) k++;
+        var f = (mejor.s - S[k - 1]) / ((S[k] - S[k - 1]) || 1);
+        return Zr[k - 1] + (Zr[k] - Zr[k - 1]) * f;
+      }
+      // 2) máscaras de calzada y vereda en raster de 1 m (canvas)
+      var Rm = R + 12, N = Math.ceil(2 * Rm), cv = document.createElement('canvas'); cv.width = cv.height = N;
+      var cx = cv.getContext('2d');
+      function camino(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) ctx.lineTo(u, v); else ctx.moveTo(u, v); }); ctx.closePath(); }); }
+      function mascara(dibujar) { cx.clearRect(0, 0, N, N); cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; dibujar(); return cx.getImageData(0, 0, N, N).data; }
+      var mCalz = mascara(function () { if (calzadaUnion) { cx.beginPath(); camino(cx, calzadaUnion); cx.fill('evenodd'); } });
+      var mVer = mascara(function () {
+        Object.keys(veredasPorAncho).forEach(function (k) { if (veredasPorAncho[k]) { cx.beginPath(); camino(cx, veredasPorAncho[k]); cx.fill('nonzero'); } });
+        cx.globalCompositeOperation = 'destination-out';
+        cx.beginPath(); prediosM.concat([estado.pts]).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) cx.lineTo(u, v); else cx.moveTo(u, v); }); cx.closePath(); }); cx.fill('nonzero');
+      });
+      // 3) grilla 1 m con la corrección
+      var W = N, H = N, X = new Float32Array(W * H), Y = new Float32Array(W * H), Z = new Float32Array(W * H), D = new Float32Array(W * H).fill(NaN);
+      for (var j = 0; j < H; j++) for (var i = 0; i < W; i++) {
+        var k = j * W + i, x = i + 0.5 - Rm, y = Rm - (j + 0.5);
+        X[k] = x; Y[k] = y;
+        var zt = zMDT(x, y); Z[k] = zt;
+        var esC = mCalz[k * 4 + 3] > 128, esV = !esC && mVer[k * 4 + 3] > 128;
+        if ((esC || esV) && !isNaN(zt)) {
+          var zr = rasante([x, y]);
+          if (!isNaN(zr)) D[k] = (zr + (esV ? 0.2 : 0)) - zt;
+        }
+      }
+      // 4) la corrección se desvanece ~6 m hacia los predios (anillos de 1 m)
+      for (var paso = 1; paso <= 6; paso++) {
+        var nuevos = [];
+        for (var j2 = 1; j2 < H - 1; j2++) for (var i2 = 1; i2 < W - 1; i2++) {
+          var k2 = j2 * W + i2; if (!isNaN(D[k2])) continue;
+          var s = 0, n = 0;
+          [k2 - 1, k2 + 1, k2 - W, k2 + W].forEach(function (q) { if (!isNaN(D[q])) { s += D[q]; n++; } });
+          if (n) nuevos.push([k2, (s / n) * (1 - paso / 7)]);
+        }
+        nuevos.forEach(function (e) { D[e[0]] = e[1]; });
+      }
+      for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
+      return { X: X, Y: Y, Z: Z, W: W, H: H };
+    }
     (function () {
       var sw = estado.metrosALatLng([-R - 12, -R - 12]), ne = estado.metrosALatLng([R + 12, R + 12]);
       cargarMDT(sw[1], sw[0], ne[1], ne[0]).then(function (g) {
@@ -3970,7 +4054,10 @@
         }
         if (!isFinite(zmin)) return;
         var niveles = []; for (var L = Math.ceil(zmin); L <= Math.floor(zmax); L++) niveles.push(L);
-        curvasLamina = curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        var interp = null;
+        try { interp = interpretarSuperficie(X, Y, Zs, W, H); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
+        curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        curvasInterpretadas = !!interp;
         cotaMinMaxLamina = [zmin, zmax];
         dibujarLamina(); solicitarRender();
       }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
@@ -4379,7 +4466,7 @@
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
-        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
+        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
         '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>' +
         '</div></details>';
