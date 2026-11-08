@@ -4841,7 +4841,7 @@
       }
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
       // 5) plataformas: el terreno se acomoda a predios y edificios (bases planas a la cota de su acceso)
-      var __tP = performance.now(); try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); } finally { window.__tiempos = window.__tiempos || {}; window.__tiempos.plataformas = Math.round(performance.now() - __tP); } catch (e) { console.warn('Plataformas: se omiten', e); }
+      try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); } catch (e) { console.warn('Plataformas: se omiten', e); }
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
     // El terreno se rearma (MDT y predios ya en caché) al mostrar u ocultar el volumen normativo: las
@@ -4871,10 +4871,10 @@
         if (!isFinite(zmin)) return;
         var niveles = []; for (var L = Math.ceil(zmin); L <= Math.floor(zmax); L++) niveles.push(L);
         var interp = null;
-        var __t0 = performance.now(); window.__tiempos = window.__tiempos || {}; try { interp = interpretarSuperficie(X, Y, Zs, W, H); } finally { window.__tiempos.superficie = Math.round(performance.now() - __t0); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
-        var __t1 = performance.now(); curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles); window.__tiempos.curvas = Math.round(performance.now() - __t1);
+        try { interp = interpretarSuperficie(X, Y, Zs, W, H); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
+        curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles);
         curvasInterpretadas = !!interp;
-        var __t2 = performance.now(); try { construirTerrazas(interp || { X: X, Y: Y, Z: Zs, W: W, H: H }, zmin, zmax); } finally { window.__tiempos.terrazas = Math.round(performance.now() - __t2); } catch (e) { console.warn('Terrazas: no se pudieron armar', e); }
+        try { construirTerrazas(interp || { X: X, Y: Y, Z: Zs, W: W, H: H }, zmin, zmax); } catch (e) { console.warn('Terrazas: no se pudieron armar', e); }
         cotaMinMaxLamina = [zmin, zmax];
         dibujarLamina(); solicitarRender();
       }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
