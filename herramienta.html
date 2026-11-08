@@ -717,7 +717,11 @@
   var regimenAreaHistorica = false;
   var NORMATIVA_AREA_HISTORICA = {
     determinantes: [
-      { altura: '1 a 4 pisos', lote_min: 0, frente_min: 0, implantacion: 'Continua con retiros (PPEAHP)', rf: 3, rl: 0, rp: 3, densidad_viv_ha: '—' }
+      // "De los retiros para nuevas edificaciones": mínimo 3 m frontal, lateral y posterior, sujeto a
+      // la implantación predominante del tramo (la fija el IPRUS). Densidad: la ordenanza la remite a
+      // la ficha del PIT (Anexo 5, no publicado); se usa 320 viv/ha, el valor de las fichas IPRUS de
+      // Cuenca para el tramo de 4 pisos, solo como referencia.
+      { altura: '1 a 4 pisos', lote_min: 300, frente_min: 12, implantacion: 'Aislada con retiros (PPEAHP)', rf: 3, rl: 3, rp: 3, densidad_viv_ha: '320 (ref.)' }
     ]
   };
   function determinantesActivos() { return regimenAreaHistorica ? NORMATIVA_AREA_HISTORICA.determinantes : NORMATIVA_REFERENCIA.determinantes; }
@@ -1953,8 +1957,36 @@
     // En áreas históricas (PIT AHP-*) el escalonamiento hacia el río aplica al predio frentista a la
     // margen aunque entre el lote y el cauce haya una avenida — umbral más amplio.
     var UMBRAL_RIO_M = (usoSuelo && /^AHP/i.test(usoSuelo.codPit || '')) ? 60 : 30;
+    // Ordenanza de Áreas Históricas (2024), "Retiros en predios con frente a márgenes de protección
+    // de ríos": el retranqueo de 3 m por piso se aplica SOLO a la fachada que da al río. Antes bastaba
+    // con que un lado estuviera a menos del umbral — en un lote esquinero el lado de la otra calle
+    // también toca esa distancia en su extremo y se escalonaba por error. Ahora el lado tiene que
+    // MIRAR al río: la normal exterior desde su punto medio apunta al cauce/margen más cercano
+    // (ángulo < ~45°), y no puede ser un lindero con vecino.
+    var centroLadoRio = pts.reduce(function (acc, p) { return [acc[0] + p[0] / pts.length, acc[1] + p[1] / pts.length]; }, [0, 0]);
+    function puntoMasCercano(p, lineas) {
+      var mejor = null, dMin = Infinity;
+      lineas.forEach(function (L) {
+        for (var k = 0; k < L.length - 1; k++) {
+          var a = L[k], b = L[k + 1], abx = b[0] - a[0], aby = b[1] - a[1], l2 = abx * abx + aby * aby;
+          var t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / l2)) : 0;
+          var q = [a[0] + t * abx, a[1] + t * aby], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+          if (d < dMin) { dMin = d; mejor = q; }
+        }
+      });
+      return { q: mejor, d: dMin };
+    }
+    var lineasAgua = riosFlat.map(function (r) { return r.pts; }).concat(margenRiosFlat);
     var ladosRio = ladosInfo.filter(function (l) {
-      return (l.distRio != null && l.distRio <= UMBRAL_RIO_M) || (l.distMargen != null && l.distMargen <= UMBRAL_RIO_M);
+      var cercano = (l.distRio != null && l.distRio <= UMBRAL_RIO_M) || (l.distMargen != null && l.distMargen <= UMBRAL_RIO_M);
+      if (!cercano || l.esColindante || l.largo < 2) return false;
+      var mid = [(l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2];
+      var tx = (l.p2[0] - l.p1[0]) / l.largo, ty = (l.p2[1] - l.p1[1]) / l.largo, nx = -ty, ny = tx;
+      if ((centroLadoRio[0] - mid[0]) * nx + (centroLadoRio[1] - mid[1]) * ny > 0) { nx = -nx; ny = -ny; }
+      var pc = puntoMasCercano(mid, lineasAgua);
+      if (!pc.q || pc.d > UMBRAL_RIO_M + l.largo / 2) return false;
+      var vx = (pc.q[0] - mid[0]) / (pc.d || 1), vy = (pc.q[1] - mid[1]) / (pc.d || 1);
+      return vx * nx + vy * ny >= 0.7;
     }).map(function (l) { return l.i; });
     var frenteARio = ladosRio.length > 0;
 
@@ -2337,122 +2369,77 @@
   // Recibe `puntosEnvolvente` (planta alta, en metros locales) y devuelve { final, patios, numPatios }
   // — la cantidad de patios YA NO es un parámetro: se calcula sola, la mínima que cumple la regla de
   // profundidad de luz de arriba ("de la forma más eficiente", como pidió el usuario).
-  function calcularPatioInterno(estado, puntosEnvolvente, retiros, posteriorLibre, pisos) {
-    var featureActual = estado.poligonoMetrosAFeature(puntosEnvolvente);
-    if (!featureActual) return { final: puntosEnvolvente, patios: [], numPatios: 0 };
-
-    var alturaActual = pisos * 3;
-    var patioMinimo = Math.max(PATIO_MINIMO_BASE_M, alturaActual / 3);
-
-    // Profundidad REAL del edificio (no de la zona permitida — esta regla es sobre la masa construida
-    // entera), medida en el eje perpendicular al frente (eje Y del marco rotado por anguloRef).
-    var ptsEnvRot = puntosEnvolvente.map(function (p) { return rotarPunto(p, -estado.anguloRef); });
-    var profundidadTotal = Math.max.apply(null, ptsEnvRot.map(function (p) { return p[1]; })) - Math.min.apply(null, ptsEnvRot.map(function (p) { return p[1]; }));
-    var numPatios = profundidadTotal > (posteriorLibre ? PROFUNDIDAD_DOBLE_LADO_M : PROFUNDIDAD_UN_LADO_M)
-      ? Math.max(1, calcularNumPatiosRequerido(profundidadTotal, posteriorLibre, patioMinimo))
-      : 0;
-    if (numPatios === 0) return { final: puntosEnvolvente, patios: [], numPatios: 0 };
-
-    var zonaPts = puntosEnvolvente.slice();
-    for (var iz = 0; iz < estado.nLados; iz++) {
-      var tipo = estado.tipoLado[iz];
-      var cortaAca = tipo === 'frente' || (tipo === 'posterior' && posteriorLibre);
-      if (!cortaAca) continue;
-      var retiroDeEseLado = tipo === 'frente' ? retiros.frente : retiros.posterior;
-      var distanciaCorte = PROFUNDIDAD_UN_LADO_M + (retiroDeEseLado || 0);
-      zonaPts = recortarSemiplano(zonaPts, estado.pts[iz], estado.pts[(iz + 1) % estado.nLados], distanciaCorte, estado.centroideLote);
-    }
-
-    function recortarPorEjeRotado(poligono, corte, quedarseMayor, eje) {
-      var pts = poligono.map(function (p) { return rotarPunto(p, -estado.anguloRef); });
-      var n = pts.length, salida = [];
-      for (var i = 0; i < n; i++) {
-        var a = pts[i], s = pts[(i + 1) % n];
-        var va = quedarseMayor ? a[eje] - corte : corte - a[eje];
-        var vs = quedarseMayor ? s[eje] - corte : corte - s[eje];
-        if (va >= 0) salida.push(a);
-        if ((va >= 0) !== (vs >= 0)) {
-          var t = va / (va - vs);
-          salida.push([a[0] + t * (s[0] - a[0]), a[1] + t * (s[1] - a[1])]);
-        }
-      }
-      return salida.map(function (p) { return rotarPunto(p, estado.anguloRef); });
-    }
-
-    var featureFinal = featureActual;
-    var featurePatios = [];
-    var patiosColocados = 0;
-    var areaZona = zonaPts.length >= 3 ? turf.area(estado.poligonoMetrosAFeature(zonaPts)) : 0;
-
-    if (zonaPts.length >= 3 && areaZona > patioMinimo * patioMinimo * 0.5) {
-      {
-        // Un solo camino para 1 o más patios: cada uno mide exactamente patioMinimo (nunca "toda la
-        // zona permitida" — ese fue el bug real reportado: con 1 patio llenaba hasta el 88% del
-        // predio, porque "zona permitida" ≠ "tamaño del patio". La zona es solo DÓNDE puede ir un
-        // patio (a más de 6m del frente); su tamaño lo sigue fijando la norma de luces (patioMinimo),
-        // nunca el espacio disponible. Con 1 patio no hay huecos sólidos que repartir (gap se calcula
-        // igual pero queda simétrico a los costados); con 2+ sí, a propósito, para que quede masa
-        // sólida real entre ellos.
-        var ptsZonaRot = zonaPts.map(function (p) { return rotarPunto(p, -estado.anguloRef); });
-        var minXz = Math.min.apply(null, ptsZonaRot.map(function (p) { return p[0]; }));
-        var maxXz = Math.max.apply(null, ptsZonaRot.map(function (p) { return p[0]; }));
-        var minYz = Math.min.apply(null, ptsZonaRot.map(function (p) { return p[1]; }));
-        var maxYz = Math.max.apply(null, ptsZonaRot.map(function (p) { return p[1]; }));
-        // Eje de reparto SIEMPRE la profundidad (Y, perpendicular al frente) — la regla de luces es
-        // sobre profundidad, no sobre ancho; antes se elegía "el eje más largo" de la zona, lo cual
-        // no tiene relación con qué eje es el que de verdad necesita luz.
-        var eje = 1;
-        var ejeCruzado = 1 - eje;
-        // Centro del eje cruzado (el que NO se reparte entre patios) — cada patio queda acotado a
-        // patioMinimo TAMBIÉN ahí, centrado. Sin este acote, en un edificio angosto y profundo una
-        // franja que cruza todo el ancho corta el edificio en dos piezas separadas (turf.difference
-        // devuelve MultiPolygon, se rechaza, y el patio termina sin poder colocarse en ningún lado) —
-        // bug real encontrado al probar un lote de 13.9m de frente por 52m de fondo.
-        var centroCruzado = eje === 0 ? (minYz + maxYz) / 2 : (minXz + maxXz) / 2;
-        var minZ = eje === 0 ? minXz : minYz, maxZ = eje === 0 ? maxXz : maxYz;
-        var anchoZona = maxZ - minZ;
-        var gap = Math.max(0, (anchoZona - numPatios * patioMinimo) / (numPatios + 1));
-        // Posiciones siempre calculadas, nunca recordadas: cuando existía el mango de arrastre en
-        // planta, esto guardaba la posición elegida a mano entre renders (patioState.patiosX), con un
-        // paso extra de ordenar y acotar cada patio contra sus vecinos para que no se superpusieran al
-        // arrastrar. Sin arrastre, el resultado es siempre esta misma distribución pareja (gap igual a
-        // los costados y entre patios), así que alcanza con un cursor que avanza en orden — no hace
-        // falta ordenar nada porque ya se generan en orden creciente.
-        var baseActual = featureActual;
-        var cursor = minZ;
-        for (var idx = 0; idx < numPatios; idx++) {
-          cursor += gap;
-          var x0 = cursor;
-          cursor += patioMinimo;
-          var tira = recortarPorEjeRotado(zonaPts, x0, true, eje);
-          tira = recortarPorEjeRotado(tira, x0 + patioMinimo, false, eje);
-          tira = recortarPorEjeRotado(tira, centroCruzado - patioMinimo / 2, true, ejeCruzado);
-          tira = recortarPorEjeRotado(tira, centroCruzado + patioMinimo / 2, false, ejeCruzado);
-          if (tira.length < 3) continue;
-          try {
-            var featureTira = estado.poligonoMetrosAFeature(tira);
-            if (turf.area(featureTira) <= 1) continue;
-            var rec = turf.difference(baseActual, featureTira);
-            if (rec && rec.geometry.type === 'Polygon' && turf.kinks(rec).features.length === 0) {
-              baseActual = rec; featurePatios[idx] = featureTira; patiosColocados++;
-            }
-          } catch (err) { /* franja inválida, se sigue con las demás */ }
-        }
-        featureFinal = baseActual;
-      }
-    }
-
-    var ptsFinal = featureFinal.geometry.coordinates[0].slice(0, -1).map(estado.aMetros);
-    // Sparse a propósito (índice = posición del patio 0..numPatios-1, puede haber huecos si alguno no
-    // entró) — así el índice de cada patio en `patios` se mantiene estable aunque otro patio del grupo
-    // haya fallado en colocarse.
-    var patios = [];
-    for (var pi = 0; pi < numPatios; pi++) {
-      if (!featurePatios[pi]) continue;
-      patios[pi] = featurePatios[pi].geometry.coordinates[0].slice(0, -1).map(estado.aMetros);
-    }
-    return { final: ptsFinal, patios: patios, patiosColocados: patiosColocados, areaZona: areaZona, patioMinimo: patioMinimo, numPatios: numPatios };
+  // Patios por LUZ, no por profundidad hacia un "frente":
+  //  1) Fachadas que reciben luz = bordes de la planta que NO están adosados a un vecino (dan a calle,
+  //     a un retiro ≥ 3 m o, después, a un patio).
+  //  2) Zona oscura = partes de la planta a más de PROF_LUZ_M de cualquier fachada con luz.
+  //  3) Mientras haya zona oscura se pone un patio centrado en el punto más oscuro, del tamaño que
+  //     exige el Anexo 8 de Normas de Arquitectura y Urbanismo (Cuenca 2022) para locales habitables:
+  //     lado ≥ 3 m y ≥ 1/3 de la altura del paramento; área ≥ 9 m² (1 planta), 12 m² (2), 15 m² (>2).
+  //     El patio nuevo pasa a ser fachada con luz y se recalcula.
+  // PROF_LUZ_M (6 m desde la ventana) es criterio de diseño, no un artículo: la norma fija tamaño de
+  // patio y % de ventana (15 % del piso), no la profundidad de los locales. Ajustable.
+  var PROF_LUZ_M = 6;
+  function ladoMinimoPatio(pisos) {
+    var altura = pisos * 3;
+    var areaMin = pisos <= 1 ? 9 : (pisos === 2 ? 12 : 15);
+    return Math.max(3, altura / 3, Math.sqrt(areaMin));
   }
+  function calcularPatioInterno(estado, puntosEnvolvente, retiros, posteriorLibre, pisos) {
+    var sinPatio = { final: puntosEnvolvente, patios: [], patiosColocados: 0, numPatios: 0, patioMinimo: ladoMinimoPatio(pisos) };
+    if (!puntosEnvolvente || puntosEnvolvente.length < 3) return sinPatio;
+    var lado = ladoMinimoPatio(pisos);
+    var n = puntosEnvolvente.length;
+    // ¿Este borde está pegado a un lindero sin retiro real (adosado)? Entonces no da luz.
+    function bordeAdosado(a, b) {
+      var m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      for (var i = 0; i < estado.nLados; i++) {
+        var tipo = estado.tipoLado[i];
+        if (tipo === 'frente') continue;
+        var ret = tipo === 'posterior' ? retiros.posterior : retiros.lateral;
+        if ((ret || 0) >= UMBRAL_RETIRO_LIBRE_M) continue;
+        if (distPuntoSegmento(m, estado.pts[i], estado.pts[(i + 1) % estado.nLados]) < 0.5) return true;
+      }
+      return false;
+    }
+    var fachadas = [];
+    for (var i = 0; i < n; i++) { var a = puntosEnvolvente[i], b = puntosEnvolvente[(i + 1) % n]; if (!bordeAdosado(a, b)) fachadas.push([a, b]); }
+    // Grilla de 0,5 m sobre la planta.
+    var xs = puntosEnvolvente.map(function (p) { return p[0]; }), ys = puntosEnvolvente.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var paso = Math.max(0.5, Math.sqrt((x1 - x0) * (y1 - y0) / 20000));
+    var celdas = [];
+    for (var x = x0 + paso / 2; x < x1; x += paso) for (var y = y0 + paso / 2; y < y1; y += paso) if (puntoDentroDePoligono([x, y], puntosEnvolvente)) celdas.push([x, y]);
+    function distLuz(p, extra) {
+      var d = Infinity;
+      fachadas.forEach(function (f) { d = Math.min(d, distPuntoSegmento(p, f[0], f[1])); });
+      extra.forEach(function (pt) { for (var k = 0; k < pt.length; k++) d = Math.min(d, distPuntoSegmento(p, pt[k], pt[(k + 1) % pt.length])); });
+      return d;
+    }
+    var cosA = Math.cos(estado.anguloRef || 0), sinA = Math.sin(estado.anguloRef || 0);
+    var patios = [];
+    for (var it = 0; it < 6; it++) {
+      var peor = null, dPeor = PROF_LUZ_M;
+      celdas.forEach(function (c) {
+        if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return;
+        var d = distLuz(c, patios);
+        if (d > dPeor) { dPeor = d; peor = c; }
+      });
+      if (!peor) break;
+      var h = lado / 2;
+      var patio = [[-h, -h], [h, -h], [h, h], [-h, h]].map(function (q) { return [peor[0] + q[0] * cosA - q[1] * sinA, peor[1] + q[0] * sinA + q[1] * cosA]; });
+      // el patio tiene que quedar dentro de la planta (cerrado), si no, se descarta el intento
+      if (!patio.every(function (q) { return puntoDentroDePoligono(q, puntosEnvolvente); })) {
+        celdas = celdas.filter(function (c) { return c !== peor; });
+        it--; if (!celdas.length) break; continue;
+      }
+      patios.push(patio);
+    }
+    var area = 0;
+    patios.forEach(function (pt) { area += lado * lado; });
+    return { final: puntosEnvolvente, patios: patios, patiosColocados: patios.length, numPatios: patios.length, patioMinimo: lado, areaZona: area };
+  }
+
 
   function rotarPunto(p, ang) {
     var c = Math.cos(ang), s = Math.sin(ang);
@@ -2616,6 +2603,7 @@
           var r = rangoPisos(n);
           return '<tr data-pisos-lo="' + r[0] + '" data-pisos-hi="' + r[1] + '" class="' + (n.rf === estado.retiros.frente && n.rl === estado.retiros.lateral && n.rp === estado.retiros.posterior ? 'tier-chosen' : '') + '">' +
             '<td>' + n.altura + '</td><td>' + n.lote_min + ' m²</td><td>' + n.implantacion + '</td><td>' + n.rf + ' / ' + n.rl + ' / ' + n.rp + ' m</td><td>' + (n.densidad_viv_ha || '—') + ' viv/ha</td></tr>';
+
         }).join('') + '</tbody></table></div>';
     }
     // Nota del tope real de pisos — solo cuando el área del lote daría para más pisos de los que en
@@ -2648,8 +2636,12 @@
           '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
           '<div class="stat"><div class="label">Patio interno</div><div class="value" id="info-patio" style="font-size:0.8rem;">—</div></div>' +
         '</div>' +
+        '<div class="stat-row">' +
+          '<div class="stat"><div class="label">Construcción del volumen</div><div class="value" id="info-construccion" style="font-size:0.85rem;">—</div></div>' +
+          '<div class="stat"><div class="label">Densidad (viviendas)</div><div class="value" id="info-densidad" style="font-size:0.8rem;">—</div></div>' +
+        '</div>' +
         notaCentro + filasTablaHtml + notaTopeReal +
-        (estado.frenteARio ? '<div style="font-size:0.8rem; color:var(--terracotta); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏞️ Frente a río/quebrada detectado (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — del piso 4 en adelante, cada piso retrocede ' + 3 + 'm adicionales sobre ese lado.</div>' : '') +
+        (estado.frenteARio ? '<div style="font-size:0.8rem; color:var(--terracotta); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏞️ Frente a río/quebrada detectado (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — ' + (estado.esAreaHistorica ? 'desde el piso 3' : 'del piso 5 en adelante') + ', cada piso retrocede 3 m adicionales solo sobre la fachada que da al río.</div>' : '') +
         '<div>' +
           '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Clasificación de lados (manzana real, vecinos y vías de Cuenca)</div>' +
           '<div>' + filasLados + '</div>' +
@@ -2657,7 +2649,7 @@
         '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
           '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Editor en vivo</div>' +
           '<div style="font-size:0.82rem;">🎚️ El control de <strong>pisos</strong> (y sombras) está junto a la ubicación, arriba, sobre el modelo 3D.</div>' +
-          '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola). La cantidad y posición de los patios se calcula sola (la mínima que respeta la profundidad de luz — 6m con un solo lado, 10m con dos). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
+          '<div style="font-size:0.74rem;color:var(--ink-soft);margin-top:8px;">Los retiros cambian según el piso (la tabla de arriba se resalta sola). Los patios aparecen solo donde una parte de la planta queda a más de 6 m de una fachada con luz; su tamaño sale del Anexo 8 de Normas de Arquitectura (lado ≥ 3 m y ≥ 1/3 de la altura, 15 m² desde 3 plantas). Arrastra los puntos naranjas para achicar el perímetro.</div>' +
         '</div>' +
         '<div style="border-top:1px solid var(--line-soft); padding-top:12px;">' +
           '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:8px;font-weight:600;">Informe para el cliente</div>' +
@@ -2822,7 +2814,7 @@
     // la otra tipología que ya existe — patio(s) central(es) recortados de un único volumen perimetral
     // que llega hasta el lindero en lateral/posterior (calcularPatioInterno, más abajo) — en vez de
     // pabellones sueltos con vacíos alrededor, que no tiene sentido si el edificio real va adosado.
-    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico;
+    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico && !estado.esAreaHistorica;
     var bloquesAltas = (dividirEnPavellones && estado.puntosAltasActuales.length >= 3)
       ? dividirEnBloques(estado, estado.puntosAltasActuales)
       : [estado.puntosAltasActuales];
@@ -3067,6 +3059,8 @@
 
     // Un cuerpo (PB + Altas + patios) por bloque — el caso normal (sin partir) es un solo bloque, así
     // que este loop corre una sola vez y se comporta igual que antes de soportar varios.
+    function areaAnillo(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+    var areaConstruida = 0;
     bloquesPB.forEach(function (ptsPBBloqueM, bi) {
       var ptsPBBloque = metrosArrAVec2(ptsPBBloqueM);
       var ptsAltasBloqueM = bloquesAltasFinal[bi];
@@ -3074,13 +3068,17 @@
       var patiosBloquePts = patiosBloqueM.map(function (p) { return (p && p.length) ? metrosArrAVec2(p) : null; });
 
       if (pisos > 1) {
-        agregarCuerpo(ptsPBBloque, 3, 0, null);
+        areaConstruida += areaAnillo(ptsPBBloqueM) - patiosBloqueM.reduce(function (acc, p) { return acc + ((p && p.length && p.every(function (q) { return puntoDentroDePoligono(q, ptsPBBloqueM); })) ? areaAnillo(p) : 0); }, 0);
+        agregarCuerpo(ptsPBBloque, 3, 0, patiosBloqueM.map(function (p, k) { return (p && p.length && p.every(function (q) { return puntoDentroDePoligono(q, ptsPBBloqueM); })) ? patiosBloquePts[k] : null; }));
         var topFootprintM = ptsPBBloqueM, topOffsetY = 3, topHolesPts = null;
         construirZonasAltasBloque(ptsAltasBloqueM).forEach(function (zona, zi) {
           if (!zona.puntos || zona.puntos.length < 3) return; // ese piso no cabe (ver agregarCuerpo)
           var alturaZona = (zona.fin - zona.inicio + 1) * 3;
           var offsetY = 3 + (zona.inicio - 2) * 3;
-          var holesZona = zi === 0 ? patiosBloquePts : null;
+          // el patio atraviesa todos los pisos donde queda adentro de la planta (también los escalonados)
+          var areaPatiosZona = patiosBloqueM.reduce(function (acc, p) { return acc + ((p && p.length && p.every(function (q) { return puntoDentroDePoligono(q, zona.puntos); })) ? areaAnillo(p) : 0); }, 0);
+          areaConstruida += (areaAnillo(zona.puntos) - areaPatiosZona) * (zona.fin - zona.inicio + 1);
+          var holesZona = patiosBloqueM.map(function (p, k) { return (p && p.length && p.every(function (q) { return puntoDentroDePoligono(q, zona.puntos); })) ? patiosBloquePts[k] : null; });
           agregarCuerpo(metrosArrAVec2(zona.puntos), alturaZona, offsetY, holesZona);
           // Una línea por losa (no una por zona): una zona puede abarcar varios pisos de una sola
           // extrusión (sin escalón de río), y igual queremos ver cada piso marcado.
@@ -3093,9 +3091,23 @@
       } else {
         agregarCuerpo(ptsPBBloque, alturaTotal, 0, null);
         agregarBordillo(ptsPBBloqueM, alturaTotal);
+        areaConstruida += areaAnillo(ptsPBBloqueM);
       }
     });
     scene.add(grupoVolumen);
+    // Densidad → referencia de m²: en Cuenca el IPRUS ya no trae COS/CUS; trae altura, lote mínimo,
+    // retiros y Densidad Neta de Vivienda (viv/ha). Viviendas = densidad × área del lote (ha). Se
+    // muestra cuántas viviendas permite y cuánto toca por vivienda con el volumen dibujado.
+    (function () {
+      var elC = document.getElementById('info-construccion'), elD = document.getElementById('info-densidad');
+      if (elC) elC.textContent = Math.round(areaConstruida).toLocaleString('es-EC') + ' m² (bruto, ' + pisos + (pisos === 1 ? ' piso)' : ' pisos)');
+      if (!elD) return;
+      var nivel = nivelParaPisos(pisos), dv = nivel ? parseFloat(String(nivel.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
+      var areaLote = areaAnillo(estado.pts);
+      if (!isFinite(dv) || !areaLote) { elD.textContent = 'sin dato de densidad para este PIT'; return; }
+      var viv = Math.max(1, Math.floor(dv * areaLote / 10000));
+      elD.textContent = dv + ' viv/ha → hasta ' + viv + ' vivienda' + (viv === 1 ? '' : 's') + ' (≈ ' + Math.round(areaConstruida / viv) + ' m² c/u)';
+    })();
 
     // Predio: superficie llena gris clara en el piso (convención de plano de sitio, no verde — el
     // verde se leía como "área verde/jardín" cuando es solo la trama del lote) + borde propio más
@@ -3443,6 +3455,10 @@
       var c = laminaCtx;
       c.save();
       c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX);
+      if (typeof verdeEnLamina !== 'undefined') {
+        pintarPoligono(verdeEnLamina, colorMaqueta('cSand'), null);
+        if (rioVisible) pintarPoligono(rioEnLamina, colorMaqueta('cRes'), 'rgba(40,80,120,0.45)');
+      }
       if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; return; }
       // Linderos de predios: línea gris fina.
       c.strokeStyle = '#A9A399'; c.lineWidth = 1.4;
@@ -3486,65 +3502,42 @@
       c.restore();
       texLamina.needsUpdate = true;
     }
-    dibujarLamina();
-
-    // Áreas verdes: relieve leve con textura arenada (la del modelo de referencia).
-    function texturaArena() {
-      var n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
-      var x = cv.getContext('2d'); x.fillStyle = '#e4e4e4'; x.fillRect(0, 0, n, n);
-      var im = x.getImageData(0, 0, n, n), d = im.data;
-      for (var i = 0; i < d.length; i += 4) {
-        var r = (Math.random() - 0.5) * 46, k = Math.random() < 0.06 ? 28 : 0;
-        d[i] = Math.max(0, Math.min(255, d[i] + r + k)); d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + r + k)); d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + r * 0.8 + k));
-      }
-      x.putImageData(im, 0, 0);
-      var t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t;
-    }
-    var arena = texturaArena();
-    var matArena = new THREE.MeshStandardMaterial({ map: arena, bumpMap: arena, bumpScale: 0.6, roughness: 1, color: cLin(colorMaqueta('cSand')) });
+    // Áreas verdes y río PINTADOS en la lámina (no mallas encima): antes eran superficies 3D apoyadas
+    // a 3 cm del terreno, y donde se montaban entre sí o con el terreno parpadeaban (z-fighting) y
+    // dejaban manchas. Mientras no haya curvas de nivel todo lo plano es pintura sobre una sola lámina.
     var cuadradoTurf = turf.polygon([ptsContexto.concat([ptsContexto[0]])]);
-    var grupoVerde = new THREE.Group(); scene.add(grupoVerde);
-    // OSM superpone parques, jardines y césped del mismo lugar: se unen en una sola superficie (antes
-    // cada polígono era una malla y se montaban unas sobre otras), y se les resta el río y la calzada.
+    var grupoVerde = new THREE.Group(); scene.add(grupoVerde);   // vacío: se conserva por compatibilidad
+    var grupoResina = new THREE.Group(); scene.add(grupoResina); // idem
+    var matArena = null, matResina = null;
     var verdeUnion = unirTodos((estado.areasVerdesOSM || []).map(function (av) {
-      try { return turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), cuadradoTurf); } catch (e) { return null; }
+      try { return turf.intersect(turf.polygon([av.pts.concat([av.pts[0]])]), cuadradoAmplio); } catch (e) { return null; }
     }));
+    var riosPoligonos = [];
     (estado.riosFlat || []).forEach(function (rio) {
-      if (!verdeUnion || rio.pts.length < 2) return;
-      try { var cinta = cintaPoligono(rio.pts, (rio.ancho || 12) + 1); verdeUnion = turf.difference(verdeUnion, turf.polygon([cinta.concat([cinta[0]])])) || null; } catch (e) { }
+      if (rio.pts.length < 2) return;
+      try { var cinta = cintaPoligono(rio.pts, rio.ancho || 12); riosPoligonos.push(turf.polygon([cinta.concat([cinta[0]])])); } catch (e) { }
     });
+    var rioUnion = unirTodos(riosPoligonos);
+    if (verdeUnion && rioUnion) { try { verdeUnion = turf.difference(verdeUnion, rioUnion) || null; } catch (e) { } }
     if (verdeUnion && calzadaUnion) { try { verdeUnion = turf.difference(verdeUnion, calzadaUnion) || null; } catch (e) { } }
-    [verdeUnion].forEach(function (rec) {
-      try {
-        if (!rec) return;
-        var partes = rec.geometry.type === 'Polygon' ? [rec.geometry.coordinates] : rec.geometry.coordinates;
-        partes.forEach(function (pc) {
-          var shp = new THREE.Shape(metrosArrAVec2(pc[0].slice(0, -1)));
-          pc.slice(1).forEach(function (h) { shp.holes.push(new THREE.Path(metrosArrAVec2(h.slice(0, -1)))); });
-          var g = new THREE.ShapeGeometry(shp);
-          var pos = g.attributes.position, uv = g.attributes.uv;
-          for (var i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / 6, pos.getY(i) / 6);
-          g.rotateX(-Math.PI / 2);
-          var m = new THREE.Mesh(g, matArena); m.position.y = 0.03; m.receiveShadow = true; grupoVerde.add(m);
-        });
-      } catch (e) { }
-    });
-
-    // Río: resina azul translúcida.
-    var matResina = new THREE.MeshPhysicalMaterial({ color: cLin(colorMaqueta('cRes')), transparent: true, opacity: 0.58, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, side: THREE.DoubleSide, depthWrite: false });
-    var grupoResina = new THREE.Group(); scene.add(grupoResina);
-    (estado.riosFlat || []).forEach(function (rio) {
-      recortarTramosVisibles(rio.pts).forEach(function (tramo) {
-        try {
-          if (tramo.length < 2) return;
-          var geoRes = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(cintaPoligono(tramo, rio.ancho || 12))), { depth: 1.0, bevelEnabled: false });
-          geoRes.rotateX(-Math.PI / 2);
-          var meshRes = new THREE.Mesh(geoRes, matResina);
-          meshRes.renderOrder = 2;
-          grupoResina.add(meshRes);
-        } catch (e) { }
-      });
-    });
+    var verdeEnLamina = verdeUnion, rioEnLamina = rioUnion, rioVisible = true;
+    // grano de pintura (no ruido de arena encima de otra textura)
+    var granoPintura = (function () {
+      var n = 128, cv = document.createElement('canvas'); cv.width = cv.height = n;
+      var x = cv.getContext('2d'), im = x.createImageData(n, n), d = im.data;
+      for (var i = 0; i < d.length; i += 4) { var v = Math.random() < 0.5 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = Math.random() * 16; }
+      x.putImageData(im, 0, 0); return laminaCtx.createPattern(cv, 'repeat');
+    })();
+    function pintarPoligono(f, color, borde) {
+      if (!f) return;
+      var c = laminaCtx;
+      c.beginPath();
+      anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
+      c.fillStyle = color; c.fill('evenodd');
+      c.fillStyle = granoPintura; c.fill('evenodd');
+      if (borde) { c.strokeStyle = borde; c.lineWidth = 1.2; c.stroke(); }
+    }
+    dibujarLamina();
 
     // Corredores viales (calzada + veredas): ningún edificio puede pisarlos.
     var corredores = [];
@@ -3625,6 +3618,7 @@
       try {
         var esc = Math.max(0.55, Math.min(1.2, arbol.radioM / 2.5));
         if (!dentroDelDisco(arbol.p) || sobreCalzada(arbol.p) || sobreEdificio(arbol.p, 1.2 * esc)) return;
+        if (rioUnion) { try { if (turf.booleanPointInPolygon(arbol.p, rioUnion)) return; } catch (e) { } }
         [new THREE.Mesh(geoCopa, matCopa), new THREE.Mesh(geoTronco, matTronco)].forEach(function (m) {
           m.position.set(arbol.p[0], 0, -arbol.p[1]); m.scale.setScalar(esc); m.castShadow = true; grupoArboles.add(m);
         });
@@ -3867,7 +3861,7 @@
         '<div class="maq-tit">Maqueta</div>' +
         '<div class="maq-grid">' +
         '<label><input type="checkbox" data-capa="arboles" checked>Árboles</label>' +
-        '<label><input type="checkbox" data-capa="resina" checked>Resina del río</label>' +
+        '<label><input type="checkbox" data-capa="rio" checked>Río</label>' +
         '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
         '</div>' +
@@ -3879,6 +3873,7 @@
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
           if (k === 'lineas') { laminaConLineas = inp.checked; dibujarLamina(); }
+          else if (k === 'rio') { rioVisible = inp.checked; dibujarLamina(); }
           else if (capas[k]) capas[k].visible = inp.checked;
           solicitarRender();
         });
@@ -3891,11 +3886,12 @@
       p.querySelectorAll('button[data-vista]').forEach(function (b) {
         b.addEventListener('click', function () { VISTAS[b.getAttribute('data-vista')](); actualizarCamara(); solicitarRender(); });
       });
-      var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Resina', [matResina]], ['cSand', 'Áreas verdes', [matArena]], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
+      var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
       var cont = p.querySelector('.maq-colores');
       function aplicar(id, v) {
         var c = COLS.filter(function (x) { return x[0] === id; })[0]; if (!c) return;
-        if (c[2]) c[2].forEach(function (m) { m.color.copy(cLin(v)); });
+        if (c[2] === 'lamina') dibujarLamina();
+        else if (c[2]) c[2].forEach(function (m) { m.color.copy(cLin(v)); });
         else canvas.style.background = 'radial-gradient(120% 90% at 50% 35%, ' + v + ' 0%, ' + v + ' 20%, #d9dad8 100%)';
         solicitarRender();
       }
