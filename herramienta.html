@@ -1002,6 +1002,34 @@
       el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
     });
     cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); });
+    // Celular: mantener el dedo ~0,5 s sin moverlo enciende la lupa; mientras el dedo sigue apoyado
+    // se arrastra la lupa (el mapa no se mueve). Al levantar el dedo vuelve la navegación normal y ese
+    // toque no selecciona predio. La lupa va un poco arriba del dedo para que el dedo no la tape.
+    var tLupa = null, lupaTactil = false, x0 = 0, y0 = 0;
+    function ponerLupa(t) {
+      var r = cont.getBoundingClientRect();
+      el.style.setProperty('--mx', (t.clientX - r.left) + 'px'); el.style.setProperty('--my', (t.clientY - r.top - 70) + 'px');
+    }
+    cont.addEventListener('touchstart', function (ev) {
+      if (ev.touches.length !== 1 || modoDibujo) return;
+      var t = ev.touches[0]; x0 = t.clientX; y0 = t.clientY;
+      clearTimeout(tLupa);
+      tLupa = setTimeout(function () {
+        lupaTactil = true; mapa.dragging.disable();
+        ponerLupa({ clientX: x0, clientY: y0 }); el.classList.add('visible');
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) { }
+      }, 500);
+    }, { passive: true });
+    cont.addEventListener('touchmove', function (ev) {
+      var t = ev.touches[0];
+      if (!lupaTactil) { if (Math.hypot(t.clientX - x0, t.clientY - y0) > 8) clearTimeout(tLupa); return; }
+      ev.preventDefault(); ponerLupa(t);
+    }, { passive: false });
+    function finTactil() {
+      clearTimeout(tLupa);
+      if (lupaTactil) { lupaTactil = false; el.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600; }
+    }
+    cont.addEventListener('touchend', finTactil); cont.addEventListener('touchcancel', finTactil);
     mapa.on('zoomend', function () { if (mapa.getZoom() < 17) el.classList.remove('visible'); });
   })();
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
@@ -1188,7 +1216,8 @@
   // cada clic nuevo del mapa; lo usan recomputarYRenderizar() y los editores de vértices/patio.
   var estadoEdicion = null;
 
-  mapa.on('click', function (e) { if (modoDibujo) agregarVerticeDibujo(e.latlng); else if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
+  var ignorarClicHasta = 0;
+  mapa.on('click', function (e) { if (Date.now() < ignorarClicHasta) return; if (modoDibujo) agregarVerticeDibujo(e.latlng); else if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
   // ---------- Terreno ingresado por el usuario (dibujo, coordenadas o archivo) ----------
   // Para predios que no están en el catastro o están mal representados. Se calca sobre la ortofoto
   // OFICIAL del municipio (2018 + vuelos de dron 2023-2026), no sobre Google: sus términos prohíben
