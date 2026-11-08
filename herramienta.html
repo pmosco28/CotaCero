@@ -279,12 +279,14 @@
   .maq-panel .maq-ficha-msg { font-size: 0.7rem; font-weight: 300; line-height: 1.35; color: #1C1A16; }
   .maq-panel .maq-ficha-msg.alerta { color: #B2502E; font-weight: 500; }
   .maq-panel .maq-ficha-nota { font-size: 0.64rem; font-weight: 300; color: #6d6a63; }
-  .barra-union { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1200; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: rgba(246,245,242,.95); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); border-radius: 12px; box-shadow: 0 6px 20px rgba(40,38,34,.16); font-size: 0.82rem; color: #1C1A16; max-width: calc(100% - 24px); }
+  .barra-union { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1200; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: rgba(246,245,242,.95); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); border-radius: 12px; box-shadow: 0 6px 20px rgba(40,38,34,.16); font-size: 0.82rem; color: #1C1A16; width: min(440px, calc(100% - 24px)); box-sizing: border-box; }
   .barra-union[hidden] { display: none; }
-  .barra-union .bu-txt { display: grid; line-height: 1.25; } .barra-union .bu-txt small { font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
+  .barra-union .bu-txt { display: block; flex: 1; min-width: 0; line-height: 1.25; } .barra-union .bu-txt small { display: block; font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
+  .barra-union button { flex: none; }
   .barra-union button { font: inherit; font-weight: 600; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; cursor: pointer; }
   .barra-union .bu-listo { background: #B2502E; border-color: #B2502E; color: #fff; } .barra-union .bu-listo:disabled { opacity: .4; cursor: default; }
   .maq-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+  .maq-panel .maq-acc, .maq-panel .maq-acc span, .maq-panel .maq-acc small { text-transform: none; letter-spacing: 0; }
   .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 9px 6px; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-acc span { font-weight: 600; font-size: 0.86rem; } .maq-acc small { font-weight: 300; font-size: 0.68rem; opacity: .75; }
   .maq-acc.activo { background: #1C1A16; color: #f3f1ec; }
