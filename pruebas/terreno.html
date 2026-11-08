@@ -408,7 +408,7 @@
   }
   var bt = document.getElementById('botones3d');
   zonas3d.forEach(function (z, i) { var b = document.createElement('button'); b.textContent = z.nombre; b.onclick = function () { mostrar3D(i); }; bt.appendChild(b); });
-  try { mostrar3D(0); } catch (e) { log('3D: ' + e); }
+  setTimeout(function () { try { mostrar3D(0); } catch (e) { log('3D: ' + e + ' ' + (e.stack || '').split('\n')[1]); } }, 400);
   function marcarBoton(i) { if (!bt) return; [].forEach.call(bt.children, function (b, k) { b.classList.toggle('activa', k === i); }); }
 
   // ---------- Maqueta 3D en terrazas ----------
