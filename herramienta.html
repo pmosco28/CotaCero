@@ -5959,6 +5959,13 @@
       var capasViejas = wrap.querySelector('.maq-capas-flot'); if (capasViejas) capasViejas.remove();
       var barraCapas = p.querySelector('.maq-barra');
       if (barraCapas) { barraCapas.className = 'maq-capas-flot'; canvas.insertAdjacentElement('afterend', barraCapas); }
+      // si el panel flota sobre la maqueta, la barra se centra en el espacio libre a su izquierda
+      function ajustarBarraV() {
+        var pr = p.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
+        var tapa = pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70;
+        barraV.style.paddingRight = tapa ? Math.round(cr.right - pr.left + 8) + 'px' : '';
+      }
+      ajustarBarraV(); window.addEventListener('resize', ajustarBarraV);
       function marcarVista(nombre) { barraV.querySelectorAll('button').forEach(function (x) { x.classList.toggle('activa', x.getAttribute('data-vista') === nombre); }); }
       // Un solo botón: planta ↔ 3D del lote. El conjunto se ve alejando con el pellizco (el zoom
       // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
