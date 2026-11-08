@@ -3366,7 +3366,8 @@
     // la otra tipología que ya existe — patio(s) central(es) recortados de un único volumen perimetral
     // que llega hasta el lindero en lateral/posterior (calcularPatioInterno, más abajo) — en vez de
     // pabellones sueltos con vacíos alrededor, que no tiene sentido si el edificio real va adosado.
-    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico && !estado.esAreaHistorica;
+    // lote pasante: manda la partición por frentes (dos bloques, uno por calle), no los pabellones
+    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico && !estado.esAreaHistorica && !particionDosFrentes(estado);
     var bloquesAltas = (dividirEnPavellones && estado.puntosAltasActuales.length >= 3)
       ? dividirEnBloques(estado, estado.puntosAltasActuales)
       : [estado.puntosAltasActuales];
