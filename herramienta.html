@@ -2,12 +2,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>¿Qué puedo construir?</title>
-<!-- Expresión gráfica CotaCero (ver memoria cotacero-expresion-grafica): SIN serifa en ningún lado —
+<!-- Expresión gráfica CotaCero: una sola familia, Inter Tight (linaje Helvetica), con su juego de
+     grosores 100/300/400/700 para la jerarquía; Archivo Narrow solo para los nombres de calle de la
+     lámina. Paleta: tinta y grises; un único color (terracota) para el predio, la acción y las alertas.
+     Nota histórica: SIN serifa en ningún lado —
      la Fraunces que se usaba acá antes se saca entera. La jerarquía la da el GROSOR, no una serif de
      acento: Bricolage Grotesque para títulos/marca (bold/black, tracking apretado, estilo lámina de
      concurso de arquitectura), IBM Plex Sans para cuerpo, IBM Plex Mono para datos — mismas tres, ya
      cargadas, ninguna fuente nueva de más. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100;200;300;400;500;600;700;800&family=Archivo+Narrow:wght@500;600&display=swap">
 <style>
 /* Leaflet 1.9.4 core CSS, inlined — la CSP del artifact solo admite hojas de estilo externas de
    Google Fonts, así que el <link> a cdnjs quedaba bloqueado y el mapa se veía roto. */
@@ -15,16 +18,16 @@
 </style>
 <style>
   :root {
-    --paper: #F7F4EC;
-    --paper-raised: #FFFDF8;
+    --paper: #ECEBE7;
+    --paper-raised: #F7F6F3;
     --ink: #1C1A16;
-    --ink-soft: #5B5546;
+    --ink-soft: #5E5B55;
     --terracotta: #B2502E;
     --terracotta-dark: #8F3F23;
-    --ochre: #C9A227;
-    --surveyor: #2D5A6B;
-    --line: #D8D0BC;
-    --line-soft: #E8E2D1;
+    --ochre: #1C1A16;     /* antes dorado: ahora tinta (deslizadores y acentos) */
+    --surveyor: #6E6A62;  /* antes azul: ahora gris */
+    --line: #D3D0C9;
+    --line-soft: #E3E1DB;
     --good: #3F7D52;
   }
 
@@ -32,20 +35,22 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: 'Inter Tight', sans-serif;
     line-height: 1.5;
   }
-  h1, h2, h3, .display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
-  .mono { font-family: 'IBM Plex Mono', monospace; }
+  h1, h2, h3, .display { font-family: 'Inter Tight', sans-serif; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+  /* juego de grosores: 100 extra fino · 300 fino · 400 normal · 700 grueso */
+  .w100 { font-weight: 100; } .w300 { font-weight: 300; } .w700 { font-weight: 700; }
+  .mono { font-family: 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; }
 
   /* ---------- top bar ---------- */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 32px; border-bottom: 1px solid var(--line);
   }
-  .brand { display: flex; align-items: baseline; gap: 8px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
+  .brand { display: flex; align-items: baseline; gap: 8px; font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
   .brand .dot { color: inherit; }
-  .brand .ligero { font-weight: 200; }
+  .brand .ligero { font-weight: 100; }
   .topbar nav a {
     color: var(--ink-soft); text-decoration: none; font-size: 0.88rem; font-weight: 500; margin-left: 22px;
   }
@@ -68,7 +73,7 @@
   .mapa-hero { max-width: 1180px; margin: 36px auto 0; padding: 0 32px; }
 
   .map-card-header { margin-bottom: 10px; }
-  .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Hanken Grotesk'; }
+  .map-card-header h3 { margin: 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); font-family: 'Inter Tight'; }
   .map-card-header .hint { font-size: 0.78rem; color: var(--ink-soft); }
   /* El escenario se parte en dos tercios: el mapa (2/3, interactivo) y una columna del icono 3D
      (1/3, SIN el div de Leaflet encima) — esa columna de la derecha es a propósito territorio no
@@ -81,11 +86,22 @@
      así nunca roba clics ni el scroll. Se desvanece mucho ANTES de llegar al borde real de su caja. */
   .mapa-stage { position: relative; display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
   .mapa-col { flex: 2 1 0; min-width: 0; transition: flex 0.2s ease; }
-  .mapa-ventana { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 88vh; }
+  .mapa-stage:not(.modo-3d) .icono-3d-col { display: none; }
+  .mapa-stage:not(.modo-3d) .mapa-col { flex: 1 1 100%; }
+  .mapa-ventana { position: relative; width: 100%; height: min(76vh, 720px); }
+  /* Lupa: de cerca, un círculo difuminado alrededor del mouse deja ver la ortofoto y los predios */
+  .mapa-lupa { position: absolute; inset: 0; z-index: 450; pointer-events: none; opacity: 0; transition: opacity .25s; background: transparent;
+    -webkit-mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%);
+    mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%); }
+  .mapa-lupa.visible { opacity: 1; }
+  .mapa-lupa .leaflet-container, .mapa-lupa.leaflet-container { background: transparent; }
+  .lupa-predios { filter: brightness(0) invert(1); opacity: .85; }
+  .capa-base-plano { filter: grayscale(1) contrast(1.25) brightness(1.02); }
+  .leaflet-container .leaflet-control-attribution { background: transparent; color: #8a867e; font-size: 0.62rem; }
   #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
   .mapa-fade {
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
-    background: radial-gradient(circle at center, transparent 28%, var(--paper) 70%);
+    background: radial-gradient(ellipse 75% 70% at center, transparent 72%, var(--paper) 100%);
   }
   .mapa-cargando {
     position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center;
@@ -106,6 +122,7 @@
     justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
     transition: flex 0.2s ease;
   }
+  .icono3d-vacio { display: none; }
   .icono3d-vacio svg { width: 64px; height: 64px; opacity: 0.55; }
   .icono3d-vacio p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
   .vol3d-wrap { display: none; width: 100%; padding: 0 32px; }
@@ -117,11 +134,11 @@
     /* Degradado sutil desde la derecha (donde antes quedaba un tercio de fondo plano vacío sobre los
        edificios) — vuelve a var(--paper) antes de la mitad, así sigue fundiéndose con el resto de la
        página y no se nota como una franja de color aparte. */
-    background: radial-gradient(120% 90% at 50% 35%, #eceded 0%, #d9dad8 70%);
+    background: radial-gradient(110% 85% at 50% 40%, #F6F5F2 0%, var(--paper) 72%);
     cursor: grab; display: block;
   }
   @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
-  .maq-panel { position: absolute; top: 12px; right: 12px; z-index: 5; width: min(250px, calc(100% - 24px)); background: rgba(250,249,246,.93); border: 1px solid #c9c6bf; border-radius: 6px; padding: 10px 12px; display: grid; gap: 8px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 6px 24px rgba(40,38,34,.08); }
+  .maq-panel { position: absolute; top: 14px; right: 14px; z-index: 5; width: min(258px, calc(100% - 28px)); background: rgba(246,245,242,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(43,42,39,.10); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 10px 30px rgba(40,38,34,.10); max-height: calc(100% - 28px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
   .maq-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -129,20 +146,84 @@
   .maq-panel input[type=color] { width: 24px; height: 18px; padding: 0; border: 1px solid #c9c6bf; border-radius: 3px; background: none; }
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
   .maq-terreno { display: flex; margin: 8px 0 4px; }
+  .maq-barra { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .maq-overlay { position: absolute; left: 18px; bottom: 18px; z-index: 4; display: flex; align-items: flex-end; gap: 16px; pointer-events: none; color: #1C1A16; }
+  .maq-norte { position: relative; width: 34px; height: 44px; display: grid; justify-items: center; pointer-events: auto; }
+  .maq-norte svg { width: 22px; height: 22px; fill: #1C1A16; stroke: none; transition: transform .08s linear; }
+  .maq-norte b { font-weight: 300; font-size: 0.72rem; letter-spacing: .1em; }
+  .maq-escala { display: grid; gap: 3px; font-size: 0.68rem; font-weight: 300; letter-spacing: .04em; }
+  .maq-escala i { display: block; height: 5px; border: 1px solid #1C1A16; border-top: 0; min-width: 20px; }
+  .maq-tip-ed { position: absolute; z-index: 6; pointer-events: none; background: rgba(28,26,22,.92); color: #f3f1ec; font-size: 0.72rem; font-weight: 300; line-height: 1.35; padding: 6px 9px; border-radius: 6px; }
+  .maq-tip-ed b { font-weight: 600; } .maq-tip-ed span { opacity: .7; font-size: 0.66rem; }
+  .maq-tip-ed[hidden] { display: none; }
+  .maq-sep { width: 1px; height: 22px; background: #d6d2ca; margin: 0 3px; }
+  .maq-panel .ico, .maq-vistas-flot button { position: relative; width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #d6d2ca; border-radius: 7px; background: rgba(255,255,255,.75); color: #5f5c55; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  .maq-panel .ico svg, .maq-vistas-flot button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .maq-panel label.ico input { position: absolute; opacity: 0; pointer-events: none; }
+  .maq-panel .ico:hover { border-color: #2b2a27; color: #2b2a27; }
+  .maq-panel .ico.activa, .maq-panel label.ico:has(input:checked) { background: #2b2a27; border-color: #2b2a27; color: #f3f1ec; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); background: #2b2a27; color: #f3f1ec; font: 500 0.7rem/1.3 inherit; letter-spacing: 0; text-transform: none; padding: 4px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 30; }
+  [data-tip-largo]:hover::after { white-space: normal; width: 190px; text-align: center; }
+  .maq-panel .maq-barra .ico:first-child:hover::after { left: 0; transform: none; }
+  .maq-col > summary { cursor: pointer; font-size: 0.72rem; color: #8a867e; list-style: none; }
+  .maq-col > summary::-webkit-details-marker { display: none; }
+  .maq-col[open] > .maq-colores { margin-top: 6px; }
+  .maq-unir, .maq-deshacer { font: inherit; font-size: 0.76rem; font-weight: 500; text-transform: none; letter-spacing: 0; padding: 7px 8px; background: transparent; color: #1C1A16; border: 1px solid #1C1A16; border-radius: 8px; cursor: pointer; }
+  .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
+  .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
+  .maq-productos { display: grid; gap: 6px; }
+  .maq-panel .maq-restriccion { display: grid; gap: 3px; padding: 10px 12px; text-align: left; }
+  .maq-r-tit { font-weight: 700; font-size: 0.86rem; letter-spacing: -0.01em; }
+  .maq-r-det { font-weight: 300; font-size: 0.74rem; color: #5E5B55; }
+  .maq-r-txt { margin: 4px 0 0; font-weight: 300; font-size: 0.76rem; line-height: 1.45; text-align: justify; hyphens: auto; }
+  .maq-tramites { display: grid; gap: 8px; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; text-align: left; }
+  .maq-tramite { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; cursor: pointer; }
+  .maq-tramite input { position: absolute; opacity: 0; pointer-events: none; }
+  .maq-tramite i { display: grid; box-sizing: border-box; width: 15px; min-width: 15px; height: 15px; flex: none; margin-top: 2px; border: 1px solid #1C1A16; border-radius: 4px; display: grid; place-items: center; }
+  .maq-tramite input:checked + i { background: #1C1A16; }
+  .maq-tramite input:checked + i::after { content: ''; width: 7px; height: 4px; border: 1.6px solid #f3f1ec; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+  .maq-tramite span { display: grid; line-height: 1.25; } .maq-tramite b { font-weight: 500; font-size: 0.8rem; } .maq-tramite small { font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
+  .maq-tramite em { font-style: normal; font-weight: 300; font-size: 0.72rem; white-space: nowrap; }
+  .maq-panel .maq-solicitar { font: inherit; font-weight: 700; height: 36px; border: 0; border-radius: 8px; background: #B2502E; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0.02em; }
+  .maq-panel .maq-solicitar:hover { background: #8F3F23; }
+  .maq-switch { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 300; cursor: pointer; }
+  .maq-switch span:first-child { flex: 1; text-align: right; }
+  .maq-switch span:last-child { flex: 1; }
+  .maq-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .maq-switch i { position: relative; width: 34px; height: 18px; border-radius: 9px; border: 1px solid #1C1A16; flex: none; transition: background .15s; }
+  .maq-switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #1C1A16; transition: transform .15s, background .15s; }
+  .maq-switch input:checked + i { background: #1C1A16; }
+  .maq-switch input:checked + i::after { transform: translateX(16px); background: #f3f1ec; }
+  .maq-switch:has(input:not(:checked)) span:first-child, .maq-switch:has(input:checked) span:last-child { font-weight: 600; }
+  .maq-avisar-txt { font-size: 0.7rem; font-weight: 300; color: #5E5B55; text-align: center; }
+  .maq-panel .maq-comprar.secundario { background: transparent; color: #1C1A16; border: 1px solid #1C1A16; }
+  .maq-panel .maq-comprar.secundario:hover { background: #1C1A16; color: #f3f1ec; }
+  .maq-estudio { border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+  .maq-estudio-tit { font-size: 0.66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .maq-estudio .maq-union { border: 0; padding: 0; font-weight: 300; }
+  .maq-estudio .maq-union b { font-weight: 700; }
+  .maq-dividir { font: inherit; font-size: 0.76rem; font-weight: 500; text-transform: none; letter-spacing: 0; padding: 7px 8px; background: transparent; color: #1C1A16; border: 1px solid #1C1A16; border-radius: 8px; cursor: pointer; }
+  .maq-dividir:hover, .maq-dividir.activa { background: #1C1A16; color: #f3f1ec; }
+  .maq-acabados { display: flex; align-items: center; gap: 7px; font-size: 0.66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #6d6a63; }
+  .maq-acabados span { margin-right: auto; }
+  .maq-acabado { position: relative; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(28,26,22,.3); cursor: pointer; padding: 0; }
+  .maq-acabado.activa { outline: 1.5px solid #1C1A16; outline-offset: 2px; }
+  .maq-union { font-size: 0.78rem; line-height: 1.45; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; background: transparent; }
+  .maq-union-btns { display: flex; gap: 6px; margin-top: 6px; } .maq-union-btns button { flex: 1; }
   .maq-terreno button { flex: 1; font: inherit; font-size: 0.72rem; padding: 6px 8px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; cursor: pointer; }
   .maq-terreno button + button { border-left-width: 0; }
   .maq-terreno button:first-child { border-radius: 4px 0 0 4px; } .maq-terreno button:last-child { border-radius: 0 4px 4px 0; }
   .maq-terreno button.activa { background: #2b2a27; color: #f3f1ec; }
   .maq-vistas-flot { position: relative; z-index: 6; height: 52px; margin-top: -52px; display: flex; justify-content: center; align-items: center; gap: 0; pointer-events: none; }
-  .maq-vistas-flot button { pointer-events: auto; font: inherit; font-size: 0.74rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: rgba(250,249,246,.94); color: #2b2a27; border: 1px solid #2b2a27; border-left-width: 0; padding: 7px 14px; cursor: pointer; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
-  .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 4px 0 0 4px; }
-  .maq-vistas-flot button:last-child { border-radius: 0 4px 4px 0; }
+  .maq-vistas-flot button { pointer-events: auto; width: 42px; height: 38px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #2b2a27; border: 1px solid rgba(43,42,39,.18); border-left-width: 0; border-radius: 0; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
+  .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 10px 0 0 10px; }
+  .maq-vistas-flot button:last-child { border-radius: 0 10px 10px 0; }
   .maq-vistas-flot button.activa, .maq-vistas-flot button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel button { font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 1px solid #2b2a27; color: #2b2a27; border-radius: 3px; padding: 4px 8px; cursor: pointer; }
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
-  @media (max-width: 640px) { .maq-panel { position: static; width: auto; margin-top: 10px; box-shadow: none; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
+  @media (max-width: 640px) { .maq-panel { position: static; width: auto; margin-top: 10px; box-shadow: none; max-height: none; overflow: visible; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
   .maq-panel details.maq-mas > summary { cursor: pointer; font-size: 0.78rem; color: #6d6a63; list-style: none; }
   .maq-panel details.maq-mas > summary::-webkit-details-marker { display: none; }
   .maq-panel details.maq-mas > summary::before { content: '▸ '; }
@@ -161,17 +242,22 @@
   .reporte-pdf.ficha-gratis .ficha-cta-url { font-size: 0.62rem; color: #6d6a63; margin-top: 6px; word-break: break-all; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr { width: 30mm; text-align: center; font-size: 0.65rem; color: #6d6a63; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr svg { width: 30mm; height: 30mm; }
-  .maq-panel .maq-comprar { text-transform: none; letter-spacing: 0; font: inherit; font-weight: 700; font-size: 0.86rem; padding: 10px 10px; border-radius: 6px; border: 0; background: #b0532f; color: #fff; cursor: pointer; text-align: left; line-height: 1.25; }
-  .maq-panel .maq-comprar small { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.9; margin-top: 2px; }
-  .maq-panel .maq-comprar:hover { background: #8f3f22; }
-  .maq-panel .maq-ficha { display: grid; gap: 5px; }
-  .maq-panel .maq-ficha-fila { display: flex; gap: 6px; }
-  .maq-panel .maq-ficha input { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 6px 7px; border: 1px solid #c9c6bf; border-radius: 4px; }
-  .maq-panel .maq-ficha button { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 6px 9px; border: 1px solid #2b2a27; background: #fff; border-radius: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
-  .maq-panel .maq-ficha-nota { font-size: 0.66rem; color: #6d6a63; }
-  .maq-panel .maq-norma { border: 1px solid #c9c6bf; border-radius: 5px; padding: 8px; display: grid; gap: 8px; background: #fff; }
-  .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
-  .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
+  .maq-panel .maq-comprar { position: relative; display: flex; align-items: center; justify-content: space-between; text-transform: none; letter-spacing: 0.02em; font: inherit; font-weight: 700; font-size: 0.86rem; height: 36px; padding: 0 12px; border-radius: 8px; border: 0; background: #B2502E; color: #fff; cursor: pointer; }
+  .maq-panel .maq-comprar em { font-style: normal; font-weight: 300; }
+  .maq-panel .maq-comprar:hover { background: #8F3F23; }
+  .maq-panel .maq-comprar[data-tip]:hover::after { bottom: auto; top: calc(100% + 7px); }
+  .maq-panel .maq-ficha { display: grid; gap: 6px; }
+  .maq-panel .maq-ficha input { width: 100%; min-width: 0; font: inherit; font-size: 0.8rem; font-weight: 300; padding: 8px 10px; border: 1px solid rgba(28,26,22,.25); border-radius: 8px; background: transparent; color: #1C1A16; }
+  .maq-panel .maq-ficha input:focus { outline: none; border-color: #1C1A16; }
+  .maq-panel .maq-ficha input.falta { border-color: #B2502E; }
+  .maq-panel .maq-ficha button { font: inherit; font-size: 0.8rem; font-weight: 600; height: 34px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; border-radius: 8px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-ficha button:hover { background: #1C1A16; color: #f3f1ec; }
+  .maq-panel .maq-ficha-msg { font-size: 0.7rem; font-weight: 300; line-height: 1.35; color: #1C1A16; }
+  .maq-panel .maq-ficha-msg.alerta { color: #B2502E; font-weight: 500; }
+  .maq-panel .maq-ficha-nota { font-size: 0.64rem; font-weight: 300; color: #6d6a63; }
+  .maq-panel .maq-norma { border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; display: grid; gap: 8px; background: transparent; }
+  .maq-panel .maq-normativa { font: inherit; font-weight: 600; min-height: 34px; padding: 6px 8px; line-height: 1.25; border-radius: 8px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-normativa.activo { background: transparent; color: #1C1A16; }
   .maq-panel .maq-norma-detalle { display: grid; gap: 6px; }
   .maq-panel .maq-norma[hidden] { display: none; }
   .maq-panel .maq-restriccion { font-size: 0.78rem; color: #2b2a27; line-height: 1.35; }
@@ -197,29 +283,31 @@
     display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin;
   }
   .chip-producto {
-    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
-    width: 92px; padding: 12px 8px 10px; border-radius: 12px; border: 1px solid var(--line-soft);
-    background: var(--paper-raised); color: var(--ink-soft); cursor: pointer;
-    font-family: 'Hanken Grotesk'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    width: 116px; padding: 14px 8px 12px; border-radius: 10px; border: 1px solid rgba(28,26,22,.18);
+    background: transparent; color: var(--ink); cursor: pointer;
+    font-family: 'Inter Tight'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
   }
-  .chip-producto:hover { border-color: var(--line); }
+  .chip-producto:hover { border-color: var(--ink); }
+  .chip-producto .chip-nombre { font-weight: 500; font-size: 0.74rem; line-height: 1.2; }
+  .chip-producto .chip-precio { font-weight: 300 !important; font-size: 0.74rem !important; }
   .chip-producto.activa { border-color: var(--terracotta); color: var(--terracotta-dark); background: color-mix(in srgb, var(--terracotta) 6%, var(--paper-raised)); }
   .chip-producto .chip-icono { width: 26px; height: 26px; color: inherit; }
   .chip-producto .chip-icono svg { width: 100%; height: 100%; display: block; }
   .chip-producto .chip-nombre { font-size: 0.68rem; font-weight: 600; line-height: 1.2; color: var(--ink); }
   .chip-producto.activa .chip-nombre { color: var(--terracotta-dark); }
-  .chip-producto .chip-precio { font-size: 0.66rem; font-weight: 700; font-family: 'IBM Plex Mono'; }
+  .chip-producto .chip-precio { font-size: 0.66rem; font-weight: 700; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; }
   @media (max-width: 720px) { .chip-producto { width: 78px; } }
 
   .producto-detalle { max-width: 1180px; margin: 0 auto; padding: 18px 32px 28px; border-top: 1px solid var(--line); }
   .producto-detalle[hidden] { display: none; }
   .producto-detalle .pd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   .producto-detalle .pd-head .chip-icono { width: 22px; height: 22px; color: var(--terracotta-dark); }
-  .producto-detalle h3 { margin: 0; font-size: 1.15rem; font-family: 'Bricolage Grotesque'; display: flex; align-items: center; gap: 8px; }
+  .producto-detalle h3 { margin: 0; font-size: 1.15rem; font-family: 'Inter Tight'; display: flex; align-items: center; gap: 8px; }
   .pd-precio-wrap { display: flex; align-items: baseline; gap: 6px; margin-left: auto; }
   .pd-precio-wrap label { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
   .pd-precio-wrap input {
-    width: 90px; font-family: 'IBM Plex Mono'; font-size: 1rem; font-weight: 600; padding: 6px 10px;
+    width: 90px; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1rem; font-weight: 600; padding: 6px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--terracotta-dark);
   }
   .producto-detalle p.pd-desc { color: var(--ink-soft); max-width: 62ch; margin: 0 0 14px; }
@@ -229,7 +317,7 @@
   .form-solicitud { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-width: 52ch; }
   .form-solicitud label { font-size: 0.78rem; color: var(--ink-soft); margin: 8px 0 2px; }
   .form-solicitud input, .form-solicitud textarea {
-    width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.85rem; padding: 8px 10px;
+    width: 100%; font-family: 'Inter Tight'; font-size: 0.85rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
@@ -274,14 +362,29 @@
   .tool { max-width: 760px; margin: 8px auto 0; padding: 0 32px; }
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
+  .terreno-manual { margin: -4px 0 14px; font-size: 0.82rem; }
+  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+  .terreno-manual > summary span { font-weight: 300; color: var(--ink-soft); }
+  .terreno-manual > summary::after { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+  .terreno-manual[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
+  .terreno-manual > summary::-webkit-details-marker { display: none; }
+  .tm-cuerpo { margin-top: 10px; border: 1px solid var(--ink); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; max-width: 640px; }
+  .tm-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tm-tabs button, .tm-acciones button { font: inherit; font-size: 0.78rem; font-weight: 500; padding: 7px 11px; border: 1px solid var(--ink); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; }
+  .tm-tabs button.activa, .tm-acciones button:hover:not(:disabled) { background: var(--ink); color: #f3f1ec; }
+  .tm-acciones { display: flex; gap: 6px; flex-wrap: wrap; } .tm-acciones button:disabled { opacity: .35; cursor: default; }
+  .tm-pane p { margin: 0 0 8px; font-weight: 300; }
+  .tm-pane textarea { width: 100%; font: 300 0.8rem 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; padding: 8px 10px; border: 1px solid rgba(28,26,22,.3); border-radius: 8px; background: transparent; }
+  .tm-msg { font-size: 0.76rem; font-weight: 300; } .tm-msg.alerta { color: var(--terracotta); font-weight: 500; }
+  .tm-vertice { width: 10px; height: 10px; border-radius: 50%; background: #B2502E; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.5); }
   .buscar-maps input {
     flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--line-soft); color: var(--ink); font-family: 'Hanken Grotesk'; font-size: 0.85rem;
+    background: var(--line-soft); color: var(--ink); font-family: 'Inter Tight'; font-size: 0.85rem;
   }
   .buscar-maps input:focus { outline: 2px solid var(--terracotta); outline-offset: -1px; }
   .buscar-maps button {
     background: var(--terracotta); color: #fff; border: none; border-radius: 8px; padding: 0 16px;
-    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Hanken Grotesk'; transition: background 0.15s;
+    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Inter Tight'; transition: background 0.15s;
   }
   .buscar-maps button:hover { background: var(--terracotta-dark); }
   .buscar-maps-msg { font-size: 0.78rem; margin: -6px 0 14px; line-height: 1.4; }
@@ -299,7 +402,7 @@
 
   .stat-row { display: flex; gap: 32px; }
   .stat .label { font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-  .stat .value { font-family: 'IBM Plex Mono'; font-size: 1.05rem; font-weight: 500; margin-top: 2px; }
+  .stat .value { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 500; margin-top: 2px; }
 
   table.determ { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   table.determ th, table.determ td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
@@ -318,7 +421,7 @@
     padding: 10px 12px; line-height: 1.45;
   }
   #notas-profesional {
-    width: 100%; font-family: 'Hanken Grotesk'; font-size: 0.82rem; padding: 8px 10px;
+    width: 100%; font-family: 'Inter Tight'; font-size: 0.82rem; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised);
     color: var(--ink); resize: vertical;
   }
@@ -336,7 +439,7 @@
        que ya usa var(--ink)/var(--ink-soft)/etc. (incluye filasLados/filasTablaHtml, inyectados tal
        cual desde el panel) herede automáticamente la versión clara, sin tocar esas cadenas HTML. */
     --paper: #FFFFFF; --paper-raised: #FFFFFF; --ink: #1C1A16; --ink-soft: #5B5546;
-    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #C9A227; --line: #D8D0BC; --line-soft: #E8E2D1;
+    --terracotta: #B2502E; --terracotta-dark: #8F3F23; --ochre: #1C1A16; --line: #D8D0BC; --line-soft: #E8E2D1;
     background: var(--paper); color: var(--ink);
   }
   @media print {
@@ -383,9 +486,9 @@
      aparece (ver imprimirCroquisActivo) con el código correcto. */
   .codigo-acceso-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .codigo-valor { font-size: 0.82rem; color: var(--ink-soft); }
-  .codigo-valor strong { font-family: 'IBM Plex Mono'; color: var(--terracotta-dark); letter-spacing: 0.04em; }
+  .codigo-valor strong { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; color: var(--terracotta-dark); letter-spacing: 0.04em; }
   .codigo-input {
-    width: 108px; font-family: 'IBM Plex Mono'; font-size: 0.85rem; padding: 7px 9px;
+    width: 108px; font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 0.85rem; padding: 7px 9px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--paper-raised); color: var(--ink);
     text-transform: uppercase;
   }
@@ -434,14 +537,14 @@
     .zoom-plano-interior svg { max-height: none; }
   }
   .reporte-pdf .membrete { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 22px; }
-  .reporte-pdf .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
+  .reporte-pdf .brand { font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.3rem; }
   .reporte-pdf .brand em { font-style: normal; font-weight: 200; color: inherit; }
-  .reporte-pdf h1 { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.5rem; margin: 0 0 4px; }
+  .reporte-pdf h1 { font-family: 'Inter Tight', sans-serif; font-weight: 700; letter-spacing: -0.01em; font-size: 1.5rem; margin: 0 0 4px; }
   .reporte-pdf .clave { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
   .reporte-pdf .stat-row { display: flex; gap: 14px; margin-bottom: 18px; }
   .reporte-pdf .stat { background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 16px; flex: 1; }
   .reporte-pdf .stat .label { font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-  .reporte-pdf .stat .value { font-family: 'IBM Plex Mono'; font-size: 1.05rem; margin-top: 2px; }
+  .reporte-pdf .stat .value { font-family: 'Inter Tight'; font-variant-numeric: tabular-nums; font-size: 1.05rem; margin-top: 2px; }
   .reporte-pdf .seccion-titulo { font-size: 0.76rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 8px; }
   /* Volumetría + ubicación comparten un mismo espacio — la ubicación como recuadro flotante ("locator
      map inset") en la esquina superior derecha del render 3D, convención real de lámina de
@@ -538,7 +641,7 @@
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     background: var(--terracotta); color: #fff; border: none; border-radius: 9px;
     padding: 12px 18px; font-weight: 600; font-size: 0.92rem; cursor: pointer;
-    font-family: 'Hanken Grotesk'; transition: background 0.15s;
+    font-family: 'Inter Tight'; transition: background 0.15s;
   }
   .btn:hover { background: var(--terracotta-dark); }
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
@@ -557,11 +660,11 @@
   .btn-whatsapp {
     position: fixed; right: 20px; bottom: 20px; z-index: 1500;
     display: inline-flex; align-items: center; gap: 8px;
-    background: #1E7E4A; color: #FFFFFF; text-decoration: none;
-    font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; font-size: 0.92rem;
+    background: #1C1A16; color: #FFFFFF; text-decoration: none;
+    font-family: 'Inter Tight', sans-serif; font-weight: 600; font-size: 0.92rem;
     padding: 12px 18px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.22);
   }
-  .btn-whatsapp:hover { background: #17663B; }
+  .btn-whatsapp:hover { background: #000; }
   .btn-whatsapp svg { width: 20px; height: 20px; flex: none; }
   @media (max-width: 640px) {
     .btn-whatsapp { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); justify-content: center; padding: 14px 18px; }
@@ -607,7 +710,7 @@
   .modal-privacidad ul { margin: 4px 0; padding-left: 20px; }
   .modal-privacidad .modal-cerrar {
     display: block; margin: 22px 0 0 auto; background: none; border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 16px; font-family: 'Hanken Grotesk'; font-size: 0.85rem; cursor: pointer;
+    border-radius: 8px; padding: 8px 16px; font-family: 'Inter Tight'; font-size: 0.85rem; cursor: pointer;
   }
   .modal-privacidad .modal-cerrar:hover { background: var(--line-soft); }
 
@@ -648,16 +751,40 @@
     <button type="button" id="buscar-maps-btn">Buscar</button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
+  <details class="terreno-manual" id="terrenoManual">
+    <summary>Búsqueda avanzada <span>— dibujar el terreno, coordenadas o archivo</span></summary>
+    <div class="tm-cuerpo">
+      <div class="tm-tabs">
+        <button type="button" data-tm="dibujar" class="activa">Dibujar sobre foto aérea</button>
+        <button type="button" data-tm="puntos">Por coordenadas</button>
+        <button type="button" data-tm="archivo">Desde archivo</button>
+      </div>
+      <div class="tm-pane" data-pane="dibujar">
+        <p>El mapa cambia a la ortofoto oficial del municipio. Toca cada vértice del terreno en orden y pulsa <b>Terminar</b>.</p>
+        <div class="tm-acciones"><button type="button" id="tmEmpezar">Empezar a dibujar</button><button type="button" id="tmDeshacer" disabled>Deshacer punto</button><button type="button" id="tmTerminar" disabled>Terminar</button><button type="button" id="tmCancelar" disabled>Cancelar</button></div>
+      </div>
+      <div class="tm-pane" data-pane="puntos" hidden>
+        <p>Un vértice por línea, en orden. UTM WGS84 zona 17 Sur (<i>este norte</i>) o geográficas (<i>latitud, longitud</i>).</p>
+        <textarea id="tmTexto" rows="5" placeholder="722150.32 9679820.15&#10;722168.90 9679815.40&#10;722172.10 9679790.02&#10;722153.75 9679794.60"></textarea>
+        <div class="tm-acciones"><button type="button" id="tmCrear">Crear terreno</button></div>
+      </div>
+      <div class="tm-pane" data-pane="archivo" hidden>
+        <p>CSV o TXT de un levantamiento (punto, este, norte), GeoJSON o KML de Google Earth.</p>
+        <input type="file" id="tmArchivo" accept=".csv,.txt,.geojson,.json,.kml">
+      </div>
+      <div class="tm-msg" id="tmMsg" hidden></div>
+    </div>
+  </details>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
         <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
         <path d="M32 4 L32 32 M32 32 L58 18 M32 32 L6 18 M32 32 L32 60"/>
       </svg>
-      <p>Elige un predio en el mapa para ver el modelo 3D</p>
+      <p></p>
     </div>
     <div class="vol3d-wrap">
       <div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>
@@ -728,6 +855,9 @@
 <div id="reporte-pdf" class="reporte-pdf"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -851,11 +981,40 @@
   // Fondo: ortofoto oficial del IGM servida por el IDE Cuenca (WMS), en vez de pedir mosaicos
   // directo a los servidores de Google (uso no permitido por sus términos).
   var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
+  // ---------- Lupa de ortofoto ----------
+  // Un segundo mapa (solo ortofoto municipal + predios en blanco), sincronizado con el principal y
+  // recortado por una máscara circular difuminada que sigue al mouse. Aparece de cerca (zoom ≥ 17),
+  // para que cualquier persona reconozca su casa antes de tocar el predio. Sin interacción propia.
+  var mapaLupa = null;
+  (function () {
+    var el = document.getElementById('mapaLupa'); if (!el) return;
+    mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
+    function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
+    mapa.on('move zoom resize', sincronizar);
+    mapa.on('resize', function () { mapaLupa.invalidateSize(false); });
+    sincronizar();
+    var cont = mapa.getContainer();
+    cont.addEventListener('mousemove', function (ev) {
+      var r = cont.getBoundingClientRect();
+      el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+      el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
+    });
+    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); });
+    mapa.on('zoomend', function () { if (mapa.getZoom() < 17) el.classList.remove('visible'); });
+  })();
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
-  var capaBase = L.tileLayer.wms(IDE_CUENCA_WMS, {
-    layers: CAPA_ORTOFOTO, format: 'image/jpeg', transparent: false, version: '1.1.1',
-    attribution: 'Ortofoto IGM · IDE Cuenca', maxZoom: 20
-  }).addTo(mapa);
+  // Base: OpenFreeMap, estilo Positron (datos de OpenStreetMap): calles con nombre, parques y ríos,
+  // claro y en grises. Gratis también para uso comercial, sin clave ni límite de vistas; exige citar
+  // OpenStreetMap/OpenMapTiles (MapLibre lo agrega solo). Respaldo si MapLibre no carga: teselas
+  // estándar de OSM en gris.
+  var capaBase;
+  if (L.maplibreGL && window.maplibregl) {
+    capaBase = L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/positron', attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Datos de <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' }).addTo(mapa);
+  } else {
+    capaBase = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'capa-base-plano', attribution: '© OpenStreetMap' }).addTo(mapa);
+  }
   // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
   // en sí no se puede acelerar (depende del servidor del IDE Cuenca), pero sí dar una señal de que algo está
   // pasando en vez de un círculo vacío/a medias que se siente roto. 'loading'/'load' son eventos
@@ -883,9 +1042,9 @@
   // (Leaflet apila por orden de inserción) — son contexto, el predio sujeto sigue siendo lo prominente.
   var capaVias = L.geoJSON(null, { style: { color: '#6B6B63', weight: 5, opacity: 0.45 } }).addTo(mapa);
   var capaVecinos = L.geoJSON(null, { style: { color: '#8C8C84', weight: 1, fillColor: '#8C8C84', fillOpacity: 0.12 } }).addTo(mapa);
-  var capaPredio = L.geoJSON(null, { style: { color: '#C9A227', weight: 3, fillColor: '#C9A227', fillOpacity: 0.18 } }).addTo(mapa);
+  var capaPredio = L.geoJSON(null, { style: { color: '#B2502E', weight: 2.2, fillColor: '#B2502E', fillOpacity: 0.06 } }).addTo(mapa);
   var capaVolumetria = L.geoJSON(null, { style: { color: '#B2502E', weight: 2, dashArray: '4,3', fillOpacity: 0 } }).addTo(mapa);
-  var capaManzana = L.geoJSON(null, { style: { color: '#2D6A4F', weight: 2, dashArray: '6,4', fillOpacity: 0 } }).addTo(mapa);
+  var capaManzana = L.geoJSON(null, { style: { color: '#6E6A62', weight: 1.5, dashArray: '6,4', fillOpacity: 0 } }).addTo(mapa);
   var capaVertices = L.layerGroup().addTo(mapa);
 
   var panel = document.getElementById('panel');
@@ -1029,7 +1188,176 @@
   // cada clic nuevo del mapa; lo usan recomputarYRenderizar() y los editores de vértices/patio.
   var estadoEdicion = null;
 
-  mapa.on('click', function (e) { consultarPredio(e.latlng); });
+  mapa.on('click', function (e) { if (modoDibujo) agregarVerticeDibujo(e.latlng); else if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
+  // ---------- Terreno ingresado por el usuario (dibujo, coordenadas o archivo) ----------
+  // Para predios que no están en el catastro o están mal representados. Se calca sobre la ortofoto
+  // OFICIAL del municipio (2018 + vuelos de dron 2023-2026), no sobre Google: sus términos prohíben
+  // extraer geometría de sus imágenes, y la ortofoto municipal es la referencia del catastro.
+  var modoDibujo = false, verticesDibujo = [], capaDibujo = L.layerGroup().addTo(mapa), capaOrtoDibujo = null;
+  function msgTM(t, alerta) { var m = document.getElementById('tmMsg'); if (!m) return; m.hidden = !t; m.textContent = t || ''; m.className = 'tm-msg' + (alerta ? ' alerta' : ''); }
+  function redibujarDibujo() {
+    capaDibujo.clearLayers();
+    if (verticesDibujo.length > 1) L.polygon(verticesDibujo, { color: '#B2502E', weight: 2, fillOpacity: 0.08, dashArray: verticesDibujo.length < 3 ? '4,4' : null }).addTo(capaDibujo);
+    verticesDibujo.forEach(function (v) { L.marker(v, { icon: L.divIcon({ className: '', iconSize: [10, 10], iconAnchor: [5, 5], html: '<div class="tm-vertice"></div>' }), interactive: false }).addTo(capaDibujo); });
+    var bD = document.getElementById('tmDeshacer'), bT = document.getElementById('tmTerminar');
+    if (bD) bD.disabled = !verticesDibujo.length; if (bT) bT.disabled = verticesDibujo.length < 3;
+  }
+  function empezarDibujo() {
+    modoDibujo = true; verticesDibujo = []; desactivarModo3D();
+    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
+    capaOrtoDibujo.addTo(mapa); mapa.doubleClickZoom.disable();
+    if (mapa.getZoom() < 18) mapa.setZoom(18);
+    ['tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = false; });
+    redibujarDibujo(); msgTM('Toca los vértices del terreno en orden. Acércate con el pellizco para más precisión.');
+  }
+  function salirDibujo() {
+    modoDibujo = false; verticesDibujo = []; capaDibujo.clearLayers();
+    if (capaOrtoDibujo) mapa.removeLayer(capaOrtoDibujo); mapa.doubleClickZoom.enable();
+    ['tmDeshacer', 'tmTerminar', 'tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = true; });
+  }
+  function agregarVerticeDibujo(ll) { verticesDibujo.push([ll.lat, ll.lng]); redibujarDibujo(); }
+  // UTM WGS84 zona 17 Sur → lat/lng (fórmulas estándar de Snyder)
+  function utm17SALatLng(E, N) {
+    var a = 6378137, f = 1 / 298.257223563, e2 = f * (2 - f), ep2 = e2 / (1 - e2), k0 = 0.9996;
+    var x = E - 500000, y = N - 10000000, M = y / k0, mu = M / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 * e2 * e2 / 256));
+    var e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    var p1 = mu + (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32) * Math.sin(2 * mu) + (21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32) * Math.sin(4 * mu) + (151 * Math.pow(e1, 3) / 96) * Math.sin(6 * mu) + (1097 * Math.pow(e1, 4) / 512) * Math.sin(8 * mu);
+    var C1 = ep2 * Math.cos(p1) * Math.cos(p1), T1 = Math.tan(p1) * Math.tan(p1), N1 = a / Math.sqrt(1 - e2 * Math.sin(p1) * Math.sin(p1)), R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(p1) * Math.sin(p1), 1.5), D = x / (N1 * k0);
+    var lat = p1 - (N1 * Math.tan(p1) / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * Math.pow(D, 4) / 24 + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * Math.pow(D, 6) / 720);
+    var lng = (D - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * Math.pow(D, 5) / 120) / Math.cos(p1);
+    return [lat * 180 / Math.PI, -81 + lng * 180 / Math.PI];
+  }
+  function puntosDeTexto(txt) {
+    var out = [];
+    txt.split(/\r?\n/).forEach(function (ln) {
+      // separadores: si hay punto decimal, las comas separan; con ";" las comas son decimales
+      ln = /\./.test(ln) ? ln.replace(/,/g, ' ') : /;/.test(ln) ? ln.replace(/,/g, '.').replace(/;/g, ' ') : ln.replace(/,/g, ' ');
+      var nums = (ln.match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat);
+      if (nums.length < 2) return;
+      // CSV de levantamiento: "punto, este, norte[, cota]" → tomar el par que parece UTM
+      var par = null;
+      for (var i = 0; i < nums.length - 1; i++) { if (nums[i] > 100000 && nums[i] < 1000000 && nums[i + 1] > 9000000 && nums[i + 1] < 10000000) { par = utm17SALatLng(nums[i], nums[i + 1]); break; } }
+      if (!par) for (var j = 0; j < nums.length - 1; j++) { if (Math.abs(nums[j]) <= 5 && Math.abs(nums[j + 1]) >= 77 && Math.abs(nums[j + 1]) <= 82) { par = [nums[j], nums[j + 1]]; break; } }
+      if (par) out.push(par);
+    });
+    return out;
+  }
+  async function usarTerrenoIngresado(latlngs, origen) {
+    if (latlngs.length < 3) { msgTM('Hacen falta al menos 3 vértices.', true); return; }
+    var anillo = latlngs.map(function (p) { return [p[1], p[0]]; }); anillo.push(anillo[0]);
+    var f;
+    try { f = turf.polygon([anillo]); if (turf.kinks(f).features.length) { msgTM('El contorno se cruza consigo mismo: revisa el orden de los vértices.', true); return; } } catch (e) { msgTM('No se pudo formar el polígono con esos puntos.', true); return; }
+    var area = turf.area(f); if (area < 20 || area > 500000) { msgTM('El área (' + Math.round(area) + ' m²) no parece la de un terreno. Revisa las coordenadas.', true); return; }
+    f.properties = { clave: 'Terreno ingresado (' + origen + ')', manual: true };
+    salirDibujo(); msgTM('Terreno de ' + Math.round(area).toLocaleString('es-EC') + ' m². Calculando…');
+    prediosUnion = [f]; resumenAntesDeUnir = null; modoUnir = false;
+    var c = turf.centroid(f).geometry.coordinates; mapa.setView([c[1], c[0]], 18);
+    await mostrarResultado(f);
+    msgTM('');
+  }
+  (function () {
+    var cont = document.getElementById('terrenoManual'); if (!cont) return;
+    cont.open = false;
+    cont.addEventListener('toggle', function () { if (!cont.open && modoDibujo) { salirDibujo(); msgTM(''); } });
+    cont.querySelectorAll('[data-tm]').forEach(function (b) { b.addEventListener('click', function () {
+      cont.querySelectorAll('[data-tm]').forEach(function (o) { o.classList.toggle('activa', o === b); });
+      cont.querySelectorAll('[data-pane]').forEach(function (pn) { pn.hidden = pn.getAttribute('data-pane') !== b.getAttribute('data-tm'); });
+      if (b.getAttribute('data-tm') !== 'dibujar' && modoDibujo) salirDibujo();
+    }); });
+    document.getElementById('tmEmpezar').addEventListener('click', empezarDibujo);
+    document.getElementById('tmDeshacer').addEventListener('click', function () { verticesDibujo.pop(); redibujarDibujo(); });
+    document.getElementById('tmCancelar').addEventListener('click', function () { salirDibujo(); msgTM(''); });
+    document.getElementById('tmTerminar').addEventListener('click', function () { usarTerrenoIngresado(verticesDibujo.slice(), 'dibujado'); });
+    document.getElementById('tmCrear').addEventListener('click', function () { usarTerrenoIngresado(puntosDeTexto(document.getElementById('tmTexto').value), 'coordenadas'); });
+    document.getElementById('tmArchivo').addEventListener('change', function (ev) {
+      var file = ev.target.files && ev.target.files[0]; if (!file) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var txt = String(rd.result || ''), pts = [];
+        try {
+          if (/\.(geo)?json$/i.test(file.name)) {
+            var g = JSON.parse(txt), geom = g.type === 'FeatureCollection' ? g.features[0].geometry : g.type === 'Feature' ? g.geometry : g;
+            var ring = geom.type === 'Polygon' ? geom.coordinates[0] : geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : [];
+            pts = ring.slice(0, -1).map(function (c) { return c[0] > 1000 ? utm17SALatLng(c[0], c[1]) : [c[1], c[0]]; });
+          } else if (/\.kml$/i.test(file.name)) {
+            var m = txt.match(/<coordinates>([\s\S]*?)<\/coordinates>/i);
+            if (m) pts = m[1].trim().split(/\s+/).map(function (t) { var v = t.split(','); return [parseFloat(v[1]), parseFloat(v[0])]; }).filter(function (p) { return isFinite(p[0]); });
+            if (pts.length > 1 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1]) pts.pop();
+          } else pts = puntosDeTexto(txt);
+        } catch (e) { pts = []; }
+        if (!pts.length) { msgTM('No encontré coordenadas en ese archivo.', true); return; }
+        usarTerrenoIngresado(pts, 'archivo');
+      };
+      rd.readAsText(file);
+    });
+  })();
+  // ---------- Unir lotes (estudio gratuito → trámite de unificación) ----------
+  // El cliente parte de su lote y toca predios vecinos que se TOCAN con él; la herramienta recalcula
+  // todo (normativa, volumen, m², viviendas) sobre el lote unido. Unificar requiere trámite municipal.
+  var modoUnir = false, prediosUnion = [], resumenAntesDeUnir = null, ultimoResumen = null;
+  function claveDe(f) { return String((f.properties && (f.properties.clave || f.properties.CLAVE)) || ''); }
+  function unirPredios(lista) {
+    var u = null, E = 0.0003; // 30 cm: cierra rendijas entre linderos que no calzan exacto
+    lista.forEach(function (f) { var b = turf.buffer(f, E, { units: 'kilometers', steps: 2 }); u = u ? turf.union(u, b) : b; });
+    u = turf.buffer(u, -E, { units: 'kilometers', steps: 2 });
+    if (!u) return null;
+    if (u.geometry.type === 'MultiPolygon') {
+      var mejor = null, aMax = 0;
+      u.geometry.coordinates.forEach(function (pc) { var a = turf.area(turf.polygon(pc)); if (a > aMax) { aMax = a; mejor = pc; } });
+      u = turf.polygon(mejor);
+    }
+    u = turf.polygon([u.geometry.coordinates[0]]); // sin huecos internos
+    var claves = lista.map(claveDe);
+    u.properties = { clave: claves.join(' + '), claves: claves };
+    return u;
+  }
+  function iniciarUnion() {
+    if (!estadoSeleccionado) return;
+    if (!prediosUnion.length && estadoSeleccionado.featureCrudo) prediosUnion = [estadoSeleccionado.featureCrudo];
+    if (!resumenAntesDeUnir && ultimoResumen && prediosUnion.length === 1) resumenAntesDeUnir = { m2: ultimoResumen.m2, viv: ultimoResumen.viv, area: Math.round(turf.area(prediosUnion[0])), clave: claveDe(prediosUnion[0]) };
+    modoUnir = true;
+    desactivarModo3D();
+    setTimeout(function () { try { mapa.invalidateSize(); mapa.fitBounds(capaPredio.getBounds(), { padding: [70, 70], maxZoom: 19, animate: false }); } catch (e) { console.warn('unir: no se pudo centrar', e); } }, 450);
+    var st = document.getElementById('buscar-maps-msg') || document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    mostrarMsgBusqueda('Toca en el mapa el lote vecino que quieres unir (debe tocarse con el tuyo). Tocar uno ya unido lo quita.');
+  }
+  async function agregarALaUnion(latlng) {
+    var cql = 'INTERSECTS(geom,SRID=4326;POINT(' + latlng.lng + ' ' + latlng.lat + '))';
+    var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql);
+    var f = null;
+    try { var d = await (await fetch(url)).json(); f = d.features && d.features[0]; } catch (e) { }
+    if (!f) { mostrarMsgBusqueda('Ahí no hay un predio catastrado. Toca dentro del lote vecino.', 'err'); return; }
+    var c = claveDe(f), ya = prediosUnion.map(claveDe).indexOf(c);
+    var lista = prediosUnion.slice();
+    if (ya >= 0) { if (lista.length === 1) { mostrarMsgBusqueda('Ese es tu lote. Toca un lote vecino.', 'err'); return; } lista.splice(ya, 1); }
+    else {
+      var actual = lista.length > 1 ? unirPredios(lista) : lista[0];
+      var toca = false; try { toca = turf.booleanIntersects(turf.buffer(actual, 0.001, { units: 'kilometers' }), f); } catch (e) { }
+      if (!toca) { mostrarMsgBusqueda('Ese lote no colinda con el tuyo: solo se pueden unir lotes que se tocan.', 'err'); return; }
+      if (lista.length >= 6) { mostrarMsgBusqueda('Hasta 6 lotes por estudio.', 'err'); return; }
+      lista.push(f);
+    }
+    var u = lista.length > 1 ? unirPredios(lista) : lista[0];
+    if (!u) { mostrarMsgBusqueda('No se pudo unir esa geometría. Prueba con otro lote.', 'err'); return; }
+    prediosUnion = lista; modoUnir = false; mostrarMsgBusqueda('');
+    await mostrarResultado(u, true);
+  }
+  function deshacerUnion() {
+    if (prediosUnion.length < 2) return;
+    var base = prediosUnion[0]; prediosUnion = [base]; resumenAntesDeUnir = null;
+    mostrarResultado(base, true);
+  }
+  async function cargarUnionPorClaves(claves) {
+    var fs = [];
+    for (var i = 0; i < claves.length; i++) {
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + claves[i] + "'");
+      try { var d = await (await fetch(url)).json(); if (d.features && d.features[0]) fs.push(d.features[0]); } catch (e) { }
+    }
+    if (!fs.length) return;
+    prediosUnion = fs;
+    var c = turf.pointOnFeature(fs[0]).geometry.coordinates; mapa.setView([c[1], c[0]], 18);
+    await mostrarResultado(fs.length > 1 ? unirPredios(fs) : fs[0], true);
+  }
 
   // ---------- búsqueda por link de Google Maps ----------
   // Objetivo: pegar un link de Google Maps (o unas coordenadas sueltas) y que salte directo al predio,
@@ -1248,6 +1576,83 @@
   // Lote con DOS FRENTES OPUESTOS (pasante): la normativa rige desde cada calle, así que el edificio
   // se parte en dos bloques a mitad de fondo; cada uno cuenta sus pisos desde la vereda de SU calle
   // (en ladera: dos bloques de distinta altura absoluta) y cada uno resuelve sus propios patios.
+  // ---------- Dividir un lote en lotes mínimos según la normativa ----------
+  // Franjas perpendiculares al frente principal, de IGUAL ÁREA, tantas como permitan a la vez el lote
+  // mínimo (área) y el frente mínimo. Si el área daría muchos más lotes que el frente, el terreno pide
+  // una vía interna: eso ya es un diseño de lotización (producto pagado), no se dibuja solo.
+  function recortarSemiplanoU(poly, M, u, signo) {
+    if (!poly || poly.length < 3) return [];
+    var out = [];
+    function f(p) { return signo * ((p[0] - M[0]) * u[0] + (p[1] - M[1]) * u[1]); }
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b);
+      if (fa <= 0) out.push(a);
+      if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { var t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    }
+    return out.length >= 3 ? out : [];
+  }
+  function areaPoligonoM(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+  function calcularDivision(estado) {
+    var tabla = determinantesActivos(), fila = tabla[0];
+    var loteMin = fila.lote_min, frenteMin = fila.frente_min || 6;
+    if (estado.ejeIPRUS && isFinite(parseFloat(estado.ejeIPRUS.loteMin))) {
+      loteMin = parseFloat(estado.ejeIPRUS.loteMin);
+      tabla.forEach(function (t) { if (t.lote_min <= loteMin) frenteMin = t.frente_min || frenteMin; });
+    }
+    // frente principal: el grupo de lados "frente" más largo
+    var grupos = {};
+    for (var i = 0; i < estado.nLados; i++) {
+      if (estado.tipoLado[i] !== 'frente') continue;
+      var g = estado.numeroFrente[i] || 1, a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados];
+      (grupos[g] = grupos[g] || []).push([a, b]);
+    }
+    var mejor = null, Lmejor = 0;
+    Object.keys(grupos).forEach(function (k) { var L = grupos[k].reduce(function (s, sg) { return s + Math.hypot(sg[1][0] - sg[0][0], sg[1][1] - sg[0][1]); }, 0); if (L > Lmejor) { Lmejor = L; mejor = grupos[k]; } });
+    var A = areaPoligonoM(estado.pts);
+    var res = { n: 0, area: A, loteMin: loteMin, frenteMin: frenteMin, frente: Lmejor, lotes: [], cortes: [] };
+    // Centro Histórico, áreas históricas y bienes patrimoniales: el fraccionamiento no sigue la tabla
+    // general; lo define la Dirección de Áreas Históricas caso por caso
+    if (estado.esCentroHistorico || estado.esAreaHistorica || /patrimonial/i.test(estado.restriccionVolumen || '')) {
+      res.bloqueo = 'En ' + (estado.esCentroHistorico ? 'el Centro Histórico' : estado.esAreaHistorica ? 'las áreas históricas' : 'un bien patrimonial') + ' la división de predios no sigue la tabla general: la define la Dirección de Áreas Históricas caso por caso.';
+      res.nConVia = 0; return res;
+    }
+    if (!mejor) return res;
+    var p0 = mejor[0][0], p1 = mejor[mejor.length - 1][1], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+    var u = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L];
+    var nArea = Math.floor(A / loteMin), nFrente = Math.floor(Lmejor / frenteMin);
+    res.nPorArea = nArea; res.nPorFrente = nFrente;
+    var ts = estado.pts.map(function (p) { return (p[0] - p0[0]) * u[0] + (p[1] - p0[1]) * u[1]; });
+    var tmin = Math.min.apply(null, ts), tmax = Math.max.apply(null, ts);
+    function areaHasta(t) { return areaPoligonoM(recortarSemiplanoU(estado.pts, [p0[0] + u[0] * t, p0[1] + u[1] * t], u, 1)); }
+    for (var n = Math.min(nArea, nFrente, 12); n >= 2; n--) {
+      var cortes = [];
+      for (var k = 1; k < n; k++) {
+        var objetivo = A * k / n, lo = tmin, hi = tmax;
+        for (var it = 0; it < 40; it++) { var mid = (lo + hi) / 2; if (areaHasta(mid) < objetivo) lo = mid; else hi = mid; }
+        cortes.push((lo + hi) / 2);
+      }
+      var lotes = [], ok = true, tPrev = null;
+      cortes.concat([null]).forEach(function (tc) {
+        var lote = estado.pts.slice();
+        if (tc != null) lote = recortarSemiplanoU(lote, [p0[0] + u[0] * tc, p0[1] + u[1] * tc], u, 1);
+        if (tPrev != null) lote = recortarSemiplanoU(lote, [p0[0] + u[0] * tPrev, p0[1] + u[1] * tPrev], u, -1);
+        var aL = areaPoligonoM(lote);
+        // frente de cada lote: ancho de la franja medido sobre la línea de frente
+        var ancho = (tc != null ? tc : Math.max.apply(null, [0, L])) - (tPrev != null ? tPrev : 0);
+        if (aL < loteMin * 0.98 || ancho < frenteMin * 0.95) ok = false;
+        lotes.push({ pts: lote, area: aL });
+        tPrev = tc;
+      });
+      if (ok) {
+        res.n = n; res.lotes = lotes;
+        res.cortes = cortes.map(function (tc) { var M = [p0[0] + u[0] * tc, p0[1] + u[1] * tc], nrm = [-u[1], u[0]]; return [[M[0] - nrm[0] * 400, M[1] - nrm[1] * 400], [M[0] + nrm[0] * 400, M[1] + nrm[1] * 400]]; });
+        break;
+      }
+    }
+    // con vía interna (se ceden ~25 % para vía y áreas verdes) cabrían aprox. estos lotes
+    res.nConVia = Math.floor(A * 0.75 / loteMin);
+    return res;
+  }
   function particionDosFrentes(estado) {
     var grupos = {};
     for (var i = 0; i < estado.nLados; i++) {
@@ -1260,10 +1665,17 @@
     }
     var lista = Object.keys(grupos).map(function (k) { var g = grupos[k], n = Math.hypot(g.nx, g.ny) || 1; return { L: g.L, mid: [g.mx / g.L, g.my / g.L], n: [g.nx / n, g.ny / n] }; }).sort(function (x, y) { return y.L - x.L; });
     if (lista.length < 2) return null;
-    var f1 = lista[0], f2 = lista[1];
-    if (f1.n[0] * f2.n[0] + f1.n[1] * f2.n[1] > -0.5) return null; // esquinero, no pasante
+    // el par de frentes más opuesto (no solo los dos más largos: un lote unido o en L puede tener un
+    // tercer frente corto de esquina); ignora tramos de frente de menos de 4 m
+    var f1 = null, f2 = null, mejor = -Infinity;
+    for (var a1 = 0; a1 < lista.length; a1++) for (var b1 = a1 + 1; b1 < lista.length; b1++) {
+      var A = lista[a1], B = lista[b1]; if (A.L < 4 || B.L < 4) continue;
+      var dot = A.n[0] * B.n[0] + A.n[1] * B.n[1]; if (dot > -0.3) continue; // esquinero, no pasante
+      var dd = Math.hypot(B.mid[0] - A.mid[0], B.mid[1] - A.mid[1]); if (dd < 16) continue; // muy poco fondo
+      var sc = -dot * Math.min(A.L, B.L); if (sc > mejor) { mejor = sc; f1 = A; f2 = B; }
+    }
+    if (!f1) return null;
     var dx = f2.mid[0] - f1.mid[0], dy = f2.mid[1] - f1.mid[1], d = Math.hypot(dx, dy);
-    if (d < 16) return null; // muy poco fondo para dos bloques
     return { M: [(f1.mid[0] + f2.mid[0]) / 2, (f1.mid[1] + f2.mid[1]) / 2], u: [dx / d, dy / d], frentes: [f1, f2] };
   }
   // Sutherland–Hodgman contra el semiplano signo·((p − M)·u) ≤ 0 (signo 1 = lado del frente 1)
@@ -2017,7 +2429,7 @@
       }
     });
     // Valoración patrimonial de lo construido en el lote (si la hay): condiciona qué se puede hacer.
-    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave) && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
+    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && ((featureReg.properties && featureReg.properties.claves) || [String(clave)]).indexOf(String(f.properties.clave)) >= 0 && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
       var pr = f.properties;
       return { clasificacion: pr.clasificac, valor: pr.valor_regi, categoria: categoriaPatrimonial(pr.valor_regi), pisos: pr.pisos_actu || pr.altura || null, altura: pr.altura_act || (pr.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' && pr.altura ? pr.altura * 3 : null), bloque: pr.bloque };
     }).sort(function (a, b) { return (b.categoria == null ? -9 : b.categoria) - (a.categoria == null ? -9 : a.categoria); });
@@ -2179,14 +2591,14 @@
     var restriccionVolumen = null;
     var catMax = patrimonioLote.length ? patrimonioLote[0].categoria : null;
     if (catMax != null && catMax >= 1) restriccionVolumen = 'Edificación patrimonial (' + NOMBRE_CATEGORIA[catMax] + ', inventario municipal ' + patrimonioLote[0].valor + '): se conserva, así que no se muestra un volumen de reemplazo. Qué intervención se admite (restauración, rehabilitación, ampliación posterior) lo define la Dirección General de Áreas Históricas.';
-    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
+    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia. ¿Es tuyo y tienes escritura? Entonces el catastro puede estar desactualizado y conviene una regularización para oficializar tu predio.';
     else if (fraccionVerde > 0.5) restriccionVolumen = 'Más de la mitad de este predio es parque o área verde (' + (nombreAreaVerdeDelLote || 'OpenStreetMap') + '): no se muestra volumen edificable.';
     else if (areaLoteM2 > 10000) restriccionVolumen = 'Lote de ' + Math.round(areaLoteM2 / 10000 * 10) / 10 + ' ha: en un predio de este tamaño se edifica a través de un proceso de urbanización o plan, no con un volumen directo. Escríbenos para un estudio específico.';
 
     var margenVecinos = 40;
     var mLngVec = margenVecinos / mPerDegLng, mLatVec = margenVecinos / mPerDegLat;
     var bboxVecinos = [bboxPredio[0] - mLngVec, bboxPredio[1] - mLatVec, bboxPredio[2] + mLngVec, bboxPredio[3] + mLatVec];
-    var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND clave<>'" + String(clave).replace(/'/g, "''") + "'");
+    var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND " + ((featureReg.properties && featureReg.properties.claves) || [clave]).map(function (c) { return "clave<>'" + String(c).replace(/'/g, "''") + "'"; }).join(' AND '));
     var dataVecinos = { features: [] };
     try { dataVecinos = await (await fetch(urlVecinos)).json(); } catch (e) { console.warn('No se pudieron traer vecinos', e); }
 
@@ -2787,6 +3199,17 @@
         if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return false;
         return distLuz(c, patios) > PROF_LUZ_M;
       });
+      // orientación LOCAL: el patio se alinea con el muro más cercano de su propia ala (en plantas en L
+      // o giradas, alinearlo al ángulo general del lote lo dejaba torcido respecto de sus muros)
+      (function () {
+        var dm = Infinity, ang = estado.anguloRef || 0;
+        for (var e = 0; e < n; e++) {
+          var pa = puntosEnvolvente[e], pb = puntosEnvolvente[(e + 1) % n];
+          if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) < 2) continue;
+          var de = distPuntoSegmento(peor, pa, pb); if (de < dm) { dm = de; ang = Math.atan2(pb[1] - pa[1], pb[0] - pa[0]); }
+        }
+        cosA = Math.cos(ang); sinA = Math.sin(ang);
+      })();
       var us = oscuras.map(function (c) { return (c[0] - peor[0]) * cosA + (c[1] - peor[1]) * sinA; });
       var vs = oscuras.map(function (c) { return -(c[0] - peor[0]) * sinA + (c[1] - peor[1]) * cosA; });
       var u0 = Math.min.apply(null, us.concat([0])), u1 = Math.max.apply(null, us.concat([0]));
@@ -2842,7 +3265,7 @@
 
   async function consultarPredio(latlng) {
     if (marcadorClic) mapa.removeLayer(marcadorClic);
-    marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#2D5A6B', fillColor: '#2D5A6B', fillOpacity: 1 }).addTo(mapa);
+    marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#1C1A16', fillColor: '#1C1A16', fillOpacity: 1 }).addTo(mapa);
 
     panelEmpty.style.display = 'none';
     panel.innerHTML = '<div class="panel-empty">⏳ Consultando catastro municipal…</div>';
@@ -2861,6 +3284,7 @@
         panel.innerHTML = '<div class="panel-empty"><span class="icon">🤷</span>No encontramos un predio catastrado en ese punto. Prueba dentro de una manzana urbana.</div>';
         return;
       }
+      prediosUnion = [data.features[0]]; resumenAntesDeUnir = null; modoUnir = false;
       await mostrarResultado(data.features[0]);
     } catch (err) {
       console.error(err);
@@ -2891,7 +3315,43 @@
   }
   if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
-  async function mostrarResultado(feature) {
+  // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
+  // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
+  var introHechaPara = null;
+  // Acabados de maqueta: paletas completas (más claro que elegir color por color)
+  var ACABADOS = {
+    blanco: { nombre: 'Blanco', c: { cTer: '#f3f1ec', cSide: '#d9d2c4', cBld: '#faf9f6', cRes: '#4f95c4', cSand: '#a9b78c', cCan: '#c9d0bd' } },
+    carton: { nombre: 'Cartón', c: { cTer: '#ddcdb0', cSide: '#b99d72', cBld: '#f4eee3', cRes: '#6f9cc0', cSand: '#b6bd94', cCan: '#a3ad85' } },
+    madera: { nombre: 'Madera', c: { cTer: '#e2c7a2', cSide: '#a87f52', cBld: '#fbf7f0', cRes: '#5f8fb5', cSand: '#a9b48a', cCan: '#7f9064' } },
+    concreto: { nombre: 'Concreto', c: { cTer: '#d8d8d4', cSide: '#9e9e99', cBld: '#f6f6f4', cRes: '#7a98ad', cSand: '#b3b9a9', cCan: '#8f9a86' } }
+  };
+  var acabadoActual = 'blanco'; try { acabadoActual = localStorage.getItem('cotacero-acabado') || 'blanco'; } catch (e) { }
+  var ICONOS_MAQ = {arboles: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>', rio: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c3-2 5 2 9 0s6 2 9 0M3 15c3-2 5 2 9 0s6 2 9 0"/></svg>', lineas: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/></svg>', edificios: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-3v14M10 20V4l8 3v13M3 20h18"/></svg>', curvas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4-5 14-5 18 0M5 13c4-5 10-5 14 0M8 8c2-3 6-3 8 0"/></svg>', foto: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>', tin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l6-9 4 5 3-4 5 8z"/></svg>', terrazas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15h12M8 11h8M10 7h4"/></svg>', unir: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10"/><rect x="13" y="7" width="8" height="10"/><path d="M10 12h4"/></svg>', avisar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v3.5M12 13.5v.3"/></svg>', conjunto: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>', lote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M9 11l3-1.5 3 1.5v3l-3 1.5-3-1.5z"/></svg>', planta: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 11h7v9M11 4v4"/></svg>', info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.4"/></svg>'};
+  async function ejeIPRUSDelPredio(estado) {
+    var bb = turf.bbox(turf.buffer(estado.featureReg, 0.03, { units: 'kilometers' }));
+    var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=iprus:ejes_unificados&outputFormat=application/json&srsName=EPSG:4326&bbox=' + bb.join(',') + ',EPSG:4326';
+    var d = await (await fetch(url)).json();
+    var frentes = [];
+    for (var i = 0; i < estado.nLados; i++) {
+      if (estado.tipoLado[i] !== 'frente') continue;
+      var a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados], ll = estado.metrosALatLng([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+      frentes.push(turf.point([ll[1], ll[0]]));
+    }
+    if (!frentes.length) return null;
+    var mejor = null;
+    (d.features || []).forEach(function (f) {
+      if (!f.geometry) return;
+      var lineas = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : f.geometry.type === 'LineString' ? [f.geometry.coordinates] : [];
+      var dmin = Infinity;
+      lineas.forEach(function (ln) { frentes.forEach(function (pt) { try { dmin = Math.min(dmin, turf.pointToLineDistance(pt, turf.lineString(ln), { units: 'meters' })); } catch (e) { } }); });
+      if (dmin > 15) return;
+      var pr = f.properties || {}, pisos = parseInt(pr.pisos_max_ || pr.pisos_max, 10);
+      if (!isFinite(pisos)) return;
+      if (!mejor || pisos > mejor.pisos) mejor = { codigo: pr.codigo_eje, nombre: pr.nombre, tramo: pr.tramo, pisos: pisos, loteMin: pr['lote_míni'] || pr.lote_minimo || null };
+    });
+    return mejor;
+  }
+  async function mostrarResultado(feature, desdeUnion) {
     capaVertices.clearLayers(); capaManzana.clearLayers();
     capaVias.clearLayers(); capaVecinos.clearLayers();
     estadoEdicion = null;
@@ -2911,6 +3371,20 @@
       return;
     }
     estadoEdicion = estado;
+    estado.featureCrudo = feature;
+    // Linderos que se cruzan: área del predio (tal como está en el catastro) que también pertenece a
+    // predios vecinos. Se ignoran roces de menos de 0,5 m² (digitalización).
+    try {
+      var sol = { n: 0, area: 0 };
+      (estado.vecinosFeatures || []).forEach(function (v) {
+        try { var it = turf.intersect(turf.feature(feature.geometry), turf.feature(v.geometry)); if (!it) return; var a = turf.area(it); if (a >= 0.5) { sol.n++; sol.area += a; } } catch (e) { }
+      });
+      sol.area = Math.round(sol.area); sol.fraccion = sol.area / Math.max(1, turf.area(feature));
+      estado.solapes = sol;
+    } catch (e) { estado.solapes = null; }
+    estado.claves = (feature.properties && feature.properties.claves) || null;
+    estado.esUnion = !!(estado.claves && estado.claves.length > 1);
+    if (!estado.esUnion) resumenAntesDeUnir = desdeUnion ? null : resumenAntesDeUnir;
     // Guardado en estado (no solo variable local de esta función) porque recomputarYRenderizar/
     // dibujarVolumetria también necesitan saber si el predio es centro histórico — ahí decide si usar
     // la tipología de pabellones+patios grandes (lotes "Aislada" con retiros reales) o la de patio
@@ -2929,14 +3403,16 @@
 
     capaPredio.clearLayers();
     capaPredio.addData(estado.featureReg);
-    capaManzana.addData(estado.featureManzana);
+    // mapa limpio: solo el contorno del predio (manzana, vías, vecinos y huella quedan como datos)
     capaVias.clearLayers();
-    if (estado.viasFeatures.length) capaVias.addData({ type: 'FeatureCollection', features: estado.viasFeatures });
+
     capaVecinos.clearLayers();
-    if (estado.vecinosFeatures.length) capaVecinos.addData({ type: 'FeatureCollection', features: estado.vecinosFeatures });
+
     mapa.fitBounds(capaPredio.getBounds(), { padding: [40, 40], maxZoom: 19 });
 
     var maxPisosLote;
+    estado.ejeIPRUS = null;
+    if (!esCentroHistorico) { try { estado.ejeIPRUS = await ejeIPRUSDelPredio(estado); } catch (e) { console.warn('Ejes IPRUS no disponibles', e); } }
     if (esCentroHistorico) {
       estado.retiros = { frente: 0, lateral: 0, posterior: 0 };
       estado.retirosPB = { frente: 0, lateral: 0, posterior: 0 };
@@ -2952,6 +3428,18 @@
       estado.pisos = Math.min(2, maxPisosLote);
     } else {
       var maxPisosPorArea = maxPisosDisponibles(areaM2);
+      // Fuente de la altura: 1) eje IPRUS con frente; 2) zonas sin tabla verificada (cabeceras
+      // parroquiales UP-*): tope conservador de 3 pisos; 3) tabla de referencia por área del lote.
+      if (estado.ejeIPRUS) {
+        var lmE = parseFloat(estado.ejeIPRUS.loteMin);
+        maxPisosPorArea = (!isFinite(lmE) || areaM2 >= lmE) ? estado.ejeIPRUS.pisos : Math.min(estado.ejeIPRUS.pisos, maxPisosPorArea);
+        estado.fuenteAltura = 'Altura del eje ' + estado.ejeIPRUS.codigo + ' (' + estado.ejeIPRUS.nombre + '): ' + estado.ejeIPRUS.pisos + ' pisos' + (isFinite(lmE) ? ', lote mínimo ' + lmE + ' m²' : '') + '.';
+      } else if (/^UP-/i.test(pitOficial)) {
+        maxPisosPorArea = Math.min(maxPisosPorArea, 3);
+        estado.fuenteAltura = 'Zona ' + pitOficial + ': sin tabla verificada, se usa un tope conservador de 3 pisos. Confírmalo con el IPRUS.';
+      } else {
+        estado.fuenteAltura = 'Altura según el área del lote (tabla de referencia' + (pitOficial ? ', zona ' + pitOficial : '') + ').';
+      }
       maxPisosLote = calcularMaxPisosReal(estado, maxPisosPorArea);
       estado.maxPisosPorArea = maxPisosPorArea;
       estado.limitadoPorRetiros = maxPisosLote < maxPisosPorArea;
@@ -2973,7 +3461,7 @@
       var grupos = estado.numeroFrente.filter(function (n) { return n != null; });
       var maxGrupo = grupos.length ? Math.max.apply(null, grupos) : 0;
       var etiqueta = tipo === 'frente' && estado.numeroFrente[idx] != null && maxGrupo > 1 ? 'frente ' + estado.numeroFrente[idx] : tipo;
-      var colorChip = tipo === 'frente' ? '#B2502E' : tipo === 'posterior' ? '#6A3FA0' : '#2D5A6B';
+      var colorChip = tipo === 'frente' ? '#B2502E' : tipo === 'posterior' ? '#1C1A16' : '#8C877C';
       var nombreVia = lado.via && lado.via.nombre ? lado.via.nombre.trim() : null;
       var medianero = lado.esColindante ? ', medianero (' + lado.distManzana.toFixed(1) + 'm enterrado en la manzana)' : '';
       return '<div style="display:flex;align-items:center;gap:8px;font-size:0.8rem;padding:3px 0;">' +
@@ -3076,7 +3564,7 @@
     activarModo3D(estado, areaM2);
     mostrarVolumenNormativa = false; // predio nuevo: se abre sin volumen
     recomputarYRenderizar(estado);
-    construirEditorPerimetro(estado);
+    if (estado.editarPerimetro) construirEditorPerimetro(estado); else capaVertices.clearLayers();
 
     // slider-pisos vive en .panel-flotante AHORA FIJO en el HTML (antes se recreaba con
     // panel.innerHTML cada vez, así que un addEventListener nuevo por selección no se acumulaba
@@ -3228,7 +3716,8 @@
     // la otra tipología que ya existe — patio(s) central(es) recortados de un único volumen perimetral
     // que llega hasta el lindero en lateral/posterior (calcularPatioInterno, más abajo) — en vez de
     // pabellones sueltos con vacíos alrededor, que no tiene sentido si el edificio real va adosado.
-    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico && !estado.esAreaHistorica;
+    // lote pasante: manda la partición por frentes (dos bloques, uno por calle), no los pabellones
+    var dividirEnPavellones = estado.pisos > 1 && !estado.esCentroHistorico && !estado.esAreaHistorica && !particionDosFrentes(estado);
     var bloquesAltas = (dividirEnPavellones && estado.puntosAltasActuales.length >= 3)
       ? dividirEnBloques(estado, estado.puntosAltasActuales)
       : [estado.puntosAltasActuales];
@@ -3307,9 +3796,9 @@
     var featuresHuellaAltas = bloquesAltasFinal.map(function (pts) { return estado.poligonoMetrosAFeature(pts); }).filter(Boolean);
     capaVolumetria.clearLayers();
     if (featuresHuellaAltas.length) {
-      capaVolumetria.addData(featuresHuellaAltas.length === 1 ? featuresHuellaAltas[0] : { type: 'FeatureCollection', features: featuresHuellaAltas });
+      if (estado.editarPerimetro) capaVolumetria.addData(featuresHuellaAltas.length === 1 ? featuresHuellaAltas[0] : { type: 'FeatureCollection', features: featuresHuellaAltas });
     } else {
-      capaVolumetria.addData(featureLimpio);
+      if (estado.editarPerimetro) capaVolumetria.addData(featureLimpio);
     }
 
     // --- Three.js: extrusión sobre un plano local en metros, mismo origen para todas las huellas ---
@@ -3364,7 +3853,8 @@
     function cLin(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
     var PALETA_MAQUETA = { cTer: '#f3f1ec', cSide: '#d9d2c4', cBld: '#faf9f6', cRes: '#4f95c4', cSand: '#a9b78c', cCan: '#c9d0bd', cBg: '#e4e5e3' };
     var coloresMaqueta = {};
-    try { coloresMaqueta = JSON.parse(localStorage.getItem('cotacero-maqueta-colores') || '{}'); } catch (e) { coloresMaqueta = {}; }
+    coloresMaqueta = {}; // paleta única (blanco); el fondo alterna con la foto aérea
+    try { localStorage.removeItem('cotacero-maqueta-colores'); localStorage.removeItem('cotacero-acabado'); } catch (e) { }
     function colorMaqueta(id) { return coloresMaqueta[id] || PALETA_MAQUETA[id]; }
     var mat = new THREE.MeshStandardMaterial({ color: cLin(colorMaqueta('cBld')), roughness: 0.7, metalness: 0 });
     var matArista = new THREE.LineBasicMaterial({ color: cLin(0x8A857C) });
@@ -3533,7 +4023,7 @@
       destinoVol = grupoVolumen;
     });
     scene.add(grupoVolumen);
-    if (estado.restriccionVolumen) mostrarVolumenNormativa = false;
+    if (estado.restriccionVolumen || estado.division) mostrarVolumenNormativa = false;
     grupoVolumen.visible = mostrarVolumenNormativa;
     // Densidad → referencia de m²: en Cuenca el IPRUS ya no trae COS/CUS; trae altura, lote mínimo,
     // retiros y Densidad Neta de Vivienda (viv/ha). Viviendas = densidad × área del lote (ha). Se
@@ -3544,6 +4034,7 @@
       resumenNormativa = { m2: Math.round(areaConstruida), viv: null };
       var nv0 = nivelParaPisos(pisos), dv0 = nv0 ? parseFloat(String(nv0.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
       if (isFinite(dv0)) resumenNormativa.viv = Math.max(1, Math.floor(dv0 * areaAnillo(estado.pts) / 10000));
+      ultimoResumen = resumenNormativa;
       if (!elD) return;
       var nivel = nivelParaPisos(pisos), dv = nivel ? parseFloat(String(nivel.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
       var areaLote = areaAnillo(estado.pts);
@@ -3569,6 +4060,8 @@
     var radioMaxLote = estado.pts.reduce(function (m, p) { return Math.max(m, Math.abs(p[0]), Math.abs(p[1])); }, 0);
     var radioContexto = Math.max(RADIO_CONTEXTO_M, radioMaxLote + MARGEN_SOBRE_LOTE_M);
     var R = radioContexto;
+    // niebla del color de la página: el borde lejano de la maqueta se funde con el fondo
+    scene.fog = new THREE.Fog(new THREE.Color('#ECEBE7').convertSRGBToLinear(), R * 3.2, R * 8);
     var ptsContexto = [[-R, -R], [R, -R], [R, R], [-R, R]];
     function dentroDelDisco(p) { return Math.abs(p[0]) <= R && Math.abs(p[1]) <= R; }
     // Recorte de polilínea contra el cuadrado (Liang–Barsky por tramo), devolviendo tramos continuos.
@@ -3829,7 +4322,7 @@
       for (var i = 1; i < P.length; i++) acum.push(acum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
       var largo = acum[acum.length - 1];
       var fpx = alturaM * pxPorM * 1.4;
-      laminaCtx.font = '600 ' + fpx + 'px "Archivo Narrow", "Arial Narrow", "Hanken Grotesk", Arial, sans-serif';
+      laminaCtx.font = '600 ' + fpx + 'px "Archivo Narrow", "Arial Narrow", "Inter Tight", Arial, sans-serif';
       var esp = fpx * 0.16;
       var letras = texto.split('');
       var anchos = letras.map(function (ch) { return laminaCtx.measureText(ch).width + esp; });
@@ -4006,6 +4499,18 @@
         }
       }
       if (typeof dibujarCurvas === 'function') dibujarCurvas(c);
+      if (estado.division && estado.division.lotes.length > 1) {
+        c.save();
+        c.font = '300 ' + Math.round(1.5 * pxPorM) + 'px "Inter Tight", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        estado.division.lotes.forEach(function (l, i) {
+          c.beginPath(); l.pts.forEach(function (p, j) { var q = aLamina(p); if (j) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath();
+          c.setLineDash([0.9 * pxPorM, 0.6 * pxPorM]); c.strokeStyle = '#1C1A16'; c.lineWidth = Math.max(1.5, 0.18 * pxPorM); c.stroke();
+          var cx = 0, cy = 0; l.pts.forEach(function (p) { cx += p[0] / l.pts.length; cy += p[1] / l.pts.length; });
+          var q = aLamina([cx, cy]); c.setLineDash([]); c.lineWidth = 4; c.strokeStyle = 'rgba(255,255,255,.9)';
+          var tx = 'L' + (i + 1) + ' · ' + Math.round(l.area) + ' m²'; c.strokeText(tx, q[0], q[1]); c.fillStyle = '#1C1A16'; c.fillText(tx, q[0], q[1]);
+        });
+        c.restore();
+      }
       if (loteEnLamina && estado.pts && estado.pts.length >= 3) {
         c.beginPath(); estado.pts.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath();
         c.fillStyle = 'rgba(232,140,90,0.38)'; c.fill();
@@ -4578,6 +5083,7 @@
           meshVecino.receiveShadow = true; meshVecino.castShadow = true;
           var cEd = ptsR.reduce(function (a, q) { return [a[0] + q[0] / ptsR.length, a[1] + q[1] / ptsR.length]; }, [0, 0]);
           meshVecino.userData.c = cEd; meshVecino.userData.pts = ptsR; meshVecino.userData.h = ed.altura; grupoEdificios.add(meshVecino);
+          meshVecino.userData.info = { pisos: ed.pisos || null, altura: ed.altura, real: !!ed.alturaReal };
           var aristaV = new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino); aristaV.userData.c = cEd; aristaV.userData.pts = ptsR; aristaV.userData.h = ed.altura;
           grupoEdificios.add(aristaV);
         });
@@ -4690,7 +5196,7 @@
       var lineaPB = lineaDePlanta(metrosArrAVec2(ptsPBBloqueM), 0xB2502E);
       if (lineaPB) scene.add(lineaPB);
       if (pisos > 1) {
-        var lineaAltas = lineaDePlanta(metrosArrAVec2(bloquesAltasFinal[bi]), 0xC9A227);
+        var lineaAltas = lineaDePlanta(metrosArrAVec2(bloquesAltasFinal[bi]), 0x8A857C);
         if (lineaAltas) scene.add(lineaAltas);
       }
     });
@@ -4817,7 +5323,36 @@
       volAnimId = requestAnimationFrame(function () {
         volAnimId = null;
         renderer.render(scene, camera);
+        actualizarOverlay();
       });
+    }
+    // Norte y escala gráfica: el norte del modelo es −z (y de los metros locales); la escala se mide
+    // en el plano perpendicular a la vista, a la distancia del punto que se mira.
+    var overlayNorte = null, overlayEscala = null;
+    function actualizarOverlay() {
+      if (!overlayNorte) return;
+      var w0 = canvas.clientWidth, h0 = canvas.clientHeight;
+      function aPant(v) { var q = v.clone().project(camera); return [(q.x + 1) / 2 * w0, (1 - q.y) / 2 * h0]; }
+      var a = aPant(target), b = aPant(target.clone().add(new THREE.Vector3(0, 0, -20)));
+      overlayNorte.style.transform = 'rotate(' + (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI) + 'deg)';
+      var der = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(10);
+      var c = aPant(target.clone().add(der)), px10 = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (!px10) return;
+      var m = 5; [5, 10, 20, 50, 100].forEach(function (o) { if (o * px10 / 10 <= 110) m = o; });
+      overlayEscala.querySelector('i').style.width = Math.round(m * px10 / 10) + 'px';
+      overlayEscala.querySelector('span').textContent = m + ' m';
+    }
+    // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
+    function animarCrecimiento() {
+      var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
+      if (!objs.length) objs = [grupoVolumen];
+      var t0 = performance.now(), D = 950;
+      (function paso() {
+        var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
+        objs.forEach(function (o) { o.scale.y = Math.max(0.001, e); });
+        renderer.render(scene, camera); actualizarOverlay();
+        if (t < 1) requestAnimationFrame(paso);
+      })();
     }
 
     var chkSombras = document.getElementById('chk-sombras');
@@ -4903,42 +5438,58 @@
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
       p.innerHTML =
-        '<div class="maq-tit">Maqueta</div>' +
 
-        (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
+        (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
+        (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         (function () {
-          var sg = productoSugerido(estado);
-          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '">' + sg.titulo + (precioDeProducto(sg.id) ? ' — ' + precioDeProducto(sg.id) : '') + '<small>' + sg.sub + '</small></button>' : '') +
-            '<div class="maq-ficha"><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Ficha gratis (PDF)</button></div>' +
+          var tr = tramitesRecomendados(estado);
+          if (!estado.tramitesSel || estado.tramitesSelPara !== tr.map(function (x) { return x.id; }).join(',')) {
+            estado.tramitesSel = {}; tr.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = tr.map(function (x) { return x.id; }).join(',');
+          }
+          return (tr.length ? '<div class="maq-tramites"><div class="maq-estudio-tit">Trámites recomendados</div>' + tr.map(function (x) {
+            var pr = precioDeProducto(x.id);
+            return '<label class="maq-tramite"><input type="checkbox" data-tramite="' + x.id + '"' + (estado.tramitesSel[x.id] ? ' checked' : '') + '><i></i><span><b>' + x.nombre + '</b><small>' + x.sub + '</small></span><em>' + (pr || 'a convenir') + '</em></label>';
+          }).join('') + '<button type="button" class="maq-solicitar">Solicitar</button><div class="maq-ficha-msg maq-tramites-msg" hidden></div></div>' : '') +
+            '<div class="maq-ficha"><input type="email" class="maq-ficha-correo" placeholder="Tu correo para la ficha gratis" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar ficha PDF</button><div class="maq-ficha-msg" hidden></div>' +
             '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
         })() +
         '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
-          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
+          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa') + '</button>' +
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
-            '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
-            (particionFrentes ? '<div class="maq-nota">Lote con dos frentes: el volumen se parte en dos bloques y cada uno cuenta sus pisos desde su propia calle.</div>' : '') +
-
+            '<div class="maq-aprox">Aproximado. ' + (estado.fuenteAltura || '') + (particionFrentes ? ' Lote con dos frentes: dos bloques, cada uno con sus pisos desde su propia calle.' : '') + '</div>' +
           '</div>' +
         '</div>' +
-        ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
-        '<div class="maq-nota"><a class="maq-avisar" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a></div>' +
-        '<details class="maq-mas"' + (window.innerWidth > 640 ? ' open' : '') + '><summary>Capas, vistas y colores</summary><div>' +
-        '<div class="maq-grid">' +
-        '<label><input type="checkbox" data-capa="arboles" checked>Árboles</label>' +
-        '<label><input type="checkbox" data-capa="rio" checked>Río</label>' +
-        '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
-        '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
-        '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
-        '<label><input type="checkbox" data-capa="foto">Foto aérea</label>' +
+        '<div class="maq-estudio"><div class="maq-estudio-tit">Estudio urbano</div>' +
+          (estado.esUnion
+            ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
+                (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
+                '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div></div>'
+            : '') +
+          (estado.division
+            ? '<div class="maq-union">' + (estado.division.bloqueo ? estado.division.bloqueo : estado.division.n >= 2
+                ? '<b>' + estado.division.n + ' lotes</b> de ~' + Math.round(estado.division.area / estado.division.n) + ' m² hacia la calle' +
+                  '<div class="maq-nota">Lote mínimo ' + estado.division.loteMin + ' m², frente mínimo ' + estado.division.frenteMin + ' m.' + (estado.division.nConVia > estado.division.n + 1 ? ' Con una vía interna podrían salir unos ' + estado.division.nConVia + ': eso pide un diseño de lotización.' : '') + ' Fraccionar requiere permiso municipal.</div>'
+                : 'Este lote no alcanza para dividirse: necesita al menos 2 × ' + estado.division.loteMin + ' m² y 2 × ' + estado.division.frenteMin + ' m de frente.' + (estado.division.nConVia >= 2 ? '<div class="maq-nota">Con una vía interna podrían salir unos ' + estado.division.nConVia + ' lotes: eso pide un diseño de lotización.</div>' : '')) + '</div>'
+            : '') +
+          '<div class="maq-union-btns">' +
+            (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
+              : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
+          '</div>' +
         '</div>' +
-        '<div class="maq-nota maq-nota-foto" hidden>Ortofoto: GAD Municipal de Cuenca (IDE), 2018 y vuelos de dron 2023-2026 donde existen.</div>' +
-        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
-        '<div class="maq-terreno"><button type="button" data-terreno="tin"' + (modoTerreno === 'tin' ? ' class="activa"' : '') + '>Terreno</button><button type="button" data-terreno="terrazas"' + (modoTerreno !== 'tin' ? ' class="activa"' : '') + '>Maqueta en capas</button></div>' +
-        '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
-        '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>' +
-        '</div></details>';
+        '<div class="maq-barra">' +
+          '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
+          '<label class="ico" data-tip="Río"><input type="checkbox" data-capa="rio" checked>' + ICONOS_MAQ.rio + '</label>' +
+          '<label class="ico" data-tip="Predios y vías"><input type="checkbox" data-capa="lineas" checked>' + ICONOS_MAQ.lineas + '</label>' +
+          '<label class="ico" data-tip="Edificios"><input type="checkbox" data-capa="edificios" checked>' + ICONOS_MAQ.edificios + '</label>' +
+          '<label class="ico" data-tip="Curvas de nivel cada 1 m, referenciales (no reemplazan un levantamiento)" data-tip-largo><input type="checkbox" data-capa="curvas" checked>' + ICONOS_MAQ.curvas + '</label>' +
+        '</div>' +
+        '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
+        '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
+        '<a class="maq-avisar-txt" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a>' +
+        '<div class="maq-vistas"><button type="button" data-vista="conjunto" data-tip="Conjunto">' + ICONOS_MAQ.conjunto + '</button><button type="button" data-vista="lote" data-tip="Lote">' + ICONOS_MAQ.lote + '</button><button type="button" data-vista="planta" data-tip="Planta">' + ICONOS_MAQ.planta + '</button></div>' +
+        '';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
       var btnNorm = p.querySelector('.maq-normativa'), detalleNorm = p.querySelector('.maq-norma-detalle');
@@ -4948,24 +5499,50 @@
         grupoVolumen.visible = mostrarVolumenNormativa;
         grupoExistente.visible = !mostrarVolumenNormativa;
         btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
-        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa';
+        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa';
+        if (mostrarVolumenNormativa) animarCrecimiento();
         detalleNorm.hidden = !mostrarVolumenNormativa;
         if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
         solicitarRender();
       });
-      var btnComprar = p.querySelector('.maq-comprar');
-      if (btnComprar) btnComprar.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(btnComprar.getAttribute('data-producto')); });
+      p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
+      var btnDiv = p.querySelector('.maq-dividir');
+      if (btnDiv) btnDiv.addEventListener('click', function () {
+        estado.division = estado.division ? null : calcularDivision(estado);
+        if (estado.division && estado.division.n < 2) estado.division.lotes = [];
+        recomputarYRenderizar(estado);
+      });
+      var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
+      p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; }); });
+      var btnSol = p.querySelector('.maq-solicitar');
+      if (btnSol) btnSol.addEventListener('click', function () {
+        var ids = Object.keys(estado.tramitesSel || {}).filter(function (k) { return estado.tramitesSel[k]; });
+        var msgT = p.querySelector('.maq-tramites-msg');
+        if (!ids.length) { if (msgT) { msgT.hidden = false; msgT.className = 'maq-ficha-msg maq-tramites-msg alerta'; msgT.textContent = 'Marca al menos un trámite.'; } return; }
+        if (msgT) msgT.hidden = true;
+        var nombres = ids.map(function (k) { var x = tramitesRecomendados(estado).filter(function (y) { return y.id === k; })[0]; var pr = precioDeProducto(k); return (x ? x.nombre : k) + (pr ? ' (' + pr + ')' : ''); });
+        if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(ids[0]);
+        setTimeout(function () { var det = document.getElementById('sol-detalle'); if (det) det.value = 'Trámites solicitados: ' + nombres.join(', ') + (det.value ? '\n' + det.value : ''); }, 120);
+      });
       var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
       try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
       btnFicha.addEventListener('click', function () {
         var correo = (inCorreo.value || '').trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.style.borderColor = '#b0532f'; inCorreo.placeholder = 'Escribe tu correo'; return; }
+        var msgF = p.querySelector('.maq-ficha-msg');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.classList.add('falta'); if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'Escribe tu correo para descargar la ficha.'; } return; }
+        inCorreo.classList.remove('falta');
+        if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Listo. En la ventana que se abre elige «Guardar como PDF». Te escribiremos a ' + correo + ' sobre este predio.'; }
         try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
         registrarInteresado(estado, correo);
         generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)));
       });
       var lnkPriv = p.querySelector('.maq-ficha-priv');
       if (lnkPriv) lnkPriv.addEventListener('click', function (ev) { ev.preventDefault(); var l = document.getElementById('link-privacidad'); if (l) l.click(); });
+      var swT = p.querySelector('.sw-terreno');
+      if (swT) swT.addEventListener('change', function () {
+        modoTerreno = swT.checked ? 'terrazas' : 'tin'; try { localStorage.setItem('cotacero-terreno', modoTerreno); } catch (e) { }
+        aplicarModoTerreno(); solicitarRender();
+      });
       p.querySelectorAll('[data-terreno]').forEach(function (bt) {
         bt.addEventListener('click', function () {
           modoTerreno = bt.getAttribute('data-terreno'); try { localStorage.setItem('cotacero-terreno', modoTerreno); } catch (e) { }
@@ -5022,30 +5599,73 @@
       marcarVista('lote');
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
       VISTAS.lote(); actualizarCamara(); solicitarRender();
-      var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
-      var cont = p.querySelector('.maq-colores');
-      function aplicar(id, v) {
-        var c = COLS.filter(function (x) { return x[0] === id; })[0]; if (!c) return;
-        if (c[2] === 'lamina') dibujarLamina();
-        else if (c[2]) c[2].forEach(function (m) { m.color.copy(cLin(v)); });
-        else canvas.style.background = 'radial-gradient(120% 90% at 50% 35%, ' + v + ' 0%, ' + v + ' 20%, #d9dad8 100%)';
-        solicitarRender();
+      // norte y escala (abajo a la izquierda)
+      var ovViejo = wrap.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
+      var ov = document.createElement('div'); ov.className = 'maq-overlay';
+      ov.innerHTML = '<div class="maq-norte" data-tip="Norte"><svg viewBox="0 0 24 24"><path d="M12 3l5 16-5-4-5 4z"/></svg><b>N</b></div><div class="maq-escala"><i></i><span></span></div>';
+      canvas.insertAdjacentElement('afterend', ov);
+      overlayNorte = ov.querySelector('.maq-norte svg'); overlayEscala = ov.querySelector('.maq-escala');
+      actualizarOverlay();
+      // entrada: medio giro lento hasta la vista del lote, una sola vez por predio
+      if (introHechaPara !== estado.clave) {
+        introHechaPara = estado.clave;
+        (function () {
+          var th1 = theta, r1 = radius, th0 = th1 - 0.9, r0 = r1 * 1.35, t0 = performance.now(), D = 2400, cancelada = false;
+          canvas.addEventListener('pointerdown', function () { cancelada = true; }, { once: true });
+          (function paso() {
+            if (cancelada) return;
+            var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
+            theta = th0 + (th1 - th0) * e; radius = r0 + (r1 - r0) * e;
+            actualizarCamara(); renderer.render(scene, camera); actualizarOverlay();
+            if (t < 1) requestAnimationFrame(paso);
+          })();
+        })();
       }
-      COLS.forEach(function (c) {
-        var l = document.createElement('label');
-        l.innerHTML = '<input type="color" value="' + colorMaqueta(c[0]) + '"><span>' + c[1] + '</span>';
-        cont.appendChild(l);
-        if (c[0] === 'cBg' && coloresMaqueta.cBg) aplicar('cBg', coloresMaqueta.cBg);
-        l.querySelector('input').addEventListener('input', function (e) {
-          coloresMaqueta[c[0]] = e.target.value; aplicar(c[0], e.target.value);
-          try { localStorage.setItem('cotacero-maqueta-colores', JSON.stringify(coloresMaqueta)); } catch (err) { }
+      // resaltado de edificios al pasar el mouse: pisos y de dónde sale el dato
+      var tipEd = wrap.querySelector('.maq-tip-ed') || (function () { var d = document.createElement('div'); d.className = 'maq-tip-ed'; d.hidden = true; wrap.appendChild(d); return d; })();
+      var rayo = new THREE.Raycaster(), ratonV = new THREE.Vector2(), resaltado = null, matResalte = mat.clone(), pendienteHover = false, ultimoEv = null;
+      matResalte.color = cLin('#d9d3c6');
+      function quitarResalte() { if (resaltado) { resaltado.material = resaltado.userData.matOriginal; resaltado = null; tipEd.hidden = true; solicitarRender(); } }
+      if (canvas.__hoverFn) canvas.removeEventListener('pointermove', canvas.__hoverFn);
+      if (canvas.__hoverFuera) canvas.removeEventListener('pointerleave', canvas.__hoverFuera);
+      canvas.__hoverFuera = quitarResalte;
+      canvas.addEventListener('pointerleave', quitarResalte);
+      canvas.addEventListener('pointermove', canvas.__hoverFn = function (ev) {
+        ultimoEv = ev; if (pendienteHover) return; pendienteHover = true;
+        requestAnimationFrame(function () {
+          pendienteHover = false; var e2 = ultimoEv;
+          if (arrastrando || e2.pointerType === 'touch') { quitarResalte(); return; }
+          var r = canvas.getBoundingClientRect();
+          ratonV.set(((e2.clientX - r.left) / r.width) * 2 - 1, -((e2.clientY - r.top) / r.height) * 2 + 1);
+          rayo.setFromCamera(ratonV, camera);
+          var cand = grupoEdificios.visible ? grupoEdificios.children.filter(function (o) { return o.isMesh; }) : [];
+          var hit = rayo.intersectObjects(cand, false)[0];
+          var obj = hit ? hit.object : null;
+          if (obj !== resaltado) {
+            if (resaltado) resaltado.material = resaltado.userData.matOriginal;
+            resaltado = obj;
+            if (obj) { obj.userData.matOriginal = obj.userData.matOriginal || obj.material; obj.material = matResalte; }
+            solicitarRender();
+          }
+          if (obj) {
+            var inf = obj.userData.info || {}, h = inf.altura || obj.userData.h || 0, ps = inf.pisos || Math.max(1, Math.round(h / 3));
+            tipEd.innerHTML = '<b>' + ps + (ps === 1 ? ' piso' : ' pisos') + '</b> · ' + Math.round(h) + ' m<br><span>' + (inf.real ? 'dato municipal' : 'altura estimada') + '</span>';
+            tipEd.style.left = (e2.clientX - r.left + 14) + 'px'; tipEd.style.top = (e2.clientY - r.top + 14) + 'px'; tipEd.hidden = false;
+          } else tipEd.hidden = true;
         });
       });
-      p.querySelector('.maq-reset').addEventListener('click', function () {
-        coloresMaqueta = {}; try { localStorage.removeItem('cotacero-maqueta-colores'); } catch (e) { }
-        cont.querySelectorAll('input').forEach(function (inp, i) { inp.value = PALETA_MAQUETA[COLS[i][0]]; aplicar(COLS[i][0], PALETA_MAQUETA[COLS[i][0]]); });
-        canvas.style.background = '';
-      });
+      function aplicarAcabado(k) {
+        var A = ACABADOS[k]; if (!A) return;
+        acabadoActual = k; coloresMaqueta = Object.assign({}, A.c);
+        try { localStorage.setItem('cotacero-maqueta-colores', JSON.stringify(coloresMaqueta)); localStorage.setItem('cotacero-acabado', k); } catch (e) { }
+        [matTerraza, matCarton].forEach(function (m) { m.color.copy(cLin(A.c.cTer)); });
+        matCanto.color.copy(cLin(A.c.cSide));
+        grupoTIN.children.forEach(function (o, i) { if (i > 0 && o.material) o.material.color.copy(cLin(A.c.cSide)); });
+        mat.color.copy(cLin(A.c.cBld)); matCopa.color.copy(cLin(A.c.cCan));
+        dibujarLamina(); solicitarRender();
+        p.querySelectorAll('.maq-acabado').forEach(function (b) { b.classList.toggle('activa', b.getAttribute('data-acabado') === k); });
+      }
+      p.querySelectorAll('.maq-acabado').forEach(function (b) { b.addEventListener('click', function () { aplicarAcabado(b.getAttribute('data-acabado')); }); });
     })();
 
     renderer.render(scene, camera);
@@ -5684,14 +6304,86 @@
   function productoSugerido(estado) {
     var r = estado.restriccionVolumen || '';
     if (/propiedad pública|parque o área verde/.test(r)) return null;
-    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
-    if (/ ha:/.test(r)) return { id: 'analisis-sitio', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
-    if (estado.frenteARio) return { id: 'planimetrico-iprus', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
-    return { id: 'planimetrico-iprus', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
+    if (estado.esUnion) return { id: 'unificacion', corto: 'Unificación', titulo: 'Unifica tus lotes con nosotros', sub: 'Planimetría + trámite de unificación ante el municipio' };
+    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
+    if (/ ha:/.test(r)) return { id: 'analisis-sitio', corto: 'Factibilidad', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
+    if (estado.frenteARio) return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
+    return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
+  }
+  // Productos que se ofrecen en la barra según lo que el cliente está estudiando: el primero es el
+  // principal (terracota), los demás van en contorno.
+  function productosSugeridos(estado) {
+    var base = productoSugerido(estado), lista = [];
+    if (estado.division && estado.division.n >= 2) {
+      lista.push({ id: 'lotizacion', corto: 'Permiso de lotización', titulo: 'Permiso de fraccionamiento / lotización', sub: 'Planimetría de la división + trámite ante el municipio' });
+      lista.push({ id: 'diseno-lotizacion', corto: 'Diseño de lotización', titulo: 'Diseño de lotización', sub: 'Lotes, vía interna y áreas verdes para aprovechar mejor el terreno' });
+    } else if (estado.esUnion) {
+      lista.push(base);
+      lista.push({ id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' });
+    } else if (base) lista.push(base);
+    return lista.filter(Boolean);
+  }
+  // Lista de trámites recomendados según el predio y el estudio. sel = marcado por defecto.
+  function tramitesRecomendados(estado) {
+    var r = estado.restriccionVolumen || '', L = [];
+    function t(id, nombre, sub, sel) { L.push({ id: id, nombre: nombre, sub: sub, sel: !!sel }); }
+    if (estado.featureCrudo && estado.featureCrudo.properties && estado.featureCrudo.properties.manual) {
+      t('regularizacion', 'Regularización del predio', 'Oficializar el terreno en el catastro municipal', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio con linderos y curvas', true);
+      t('planimetrico-iprus', 'IPRUS', 'Planimétrico + trámite ante el municipio');
+      return L;
+    }
+    if (/propiedad pública/.test(r)) {
+      t('regularizacion', 'Regularización del predio', 'Si tienes escritura y el catastro lo registra como público', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio, base de la regularización', true);
+      return L;
+    }
+    if (/parque o área verde/.test(r)) return L;
+    if (estado.solapes && estado.solapes.area >= 2) t('regularizacion', 'Regularización de linderos', 'Corrige los cruces con tus vecinos en el catastro', true);
+    if (/patrimonial/i.test(r)) {
+      t('planimetrico-iprus', 'IPRUS de áreas históricas', 'Planimétrico + informe predial ante Áreas Históricas', true);
+      t('levantamiento-arquitectonico', 'Levantamiento arquitectónico', 'Estado actual de la edificación: base de cualquier intervención', true);
+      t('anteproyecto-historico', 'Anteproyecto en área histórica', 'Restauración, rehabilitación o ampliación para aprobación de Áreas Históricas');
+      t('permiso-menor-historico', 'Permiso de construcción menor', 'Mantenimiento y reparaciones en área histórica');
+      if (!estado.esCentroHistorico) t('certificacion-patrimonial', 'Certificación patrimonial', 'Gestión del certificado (fuera del Centro Histórico)');
+      return L;
+    }
+    if (estado.division && estado.division.n >= 2) {
+      t('lotizacion', 'Permiso de lotización', 'Planimetría de la división + trámite municipal', true);
+      t('diseno-lotizacion', 'Diseño de lotización', 'Lotes, vía interna y áreas verdes');
+      t('planimetrico-iprus', 'IPRUS', 'Planimétrico + trámite ante el municipio');
+      return L;
+    }
+    if (estado.esUnion) {
+      t('unificacion', 'Unificación de lotes', 'Planimetría + trámite de unificación', true);
+      t('planimetrico-iprus', 'IPRUS del lote unido', 'Planimétrico + trámite ante el municipio', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio');
+      return L;
+    }
+    if (/ ha:/.test(r)) {
+      t('analisis-sitio', 'Estudio de factibilidad', 'Análisis de sitio a tres escalas', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio');
+      t('diseno-lotizacion', 'Diseño de lotización', 'Lotes, vía interna y áreas verdes');
+      return L;
+    }
+    t('planimetrico-iprus', 'IPRUS', estado.frenteARio ? 'Tu predio da al río: planimétrico + trámite' : 'Planimétrico + trámite ante el municipio', true);
+    t('levantamiento', 'Levantamiento topográfico', 'Curvas cada 25 cm medidas en sitio');
+    t('analisis-sitio', 'Análisis de sitio', 'Entorno, equipamientos y accesibilidad');
+    return L;
+  }
+  function htmlRestriccion(txt) {
+    // "Título (detalle): cuerpo" → título grueso, detalle fino, cuerpo justificado
+    var i = txt.indexOf('): '), cab = '', cuerpo = txt;
+    if (i > 0) { cab = txt.slice(0, i + 1); cuerpo = txt.slice(i + 3); }
+    else { var j = txt.indexOf(': '); if (j > 0 && j < 80) { cab = txt.slice(0, j); cuerpo = txt.slice(j + 2); } }
+    var tit = cab, det = '', k = cab.indexOf(' (');
+    if (k > 0) { tit = cab.slice(0, k); det = cab.slice(k + 2, -1); }
+    cuerpo = cuerpo.charAt(0).toUpperCase() + cuerpo.slice(1);
+    return (tit ? '<div class="maq-r-tit">' + tit + '</div>' : '') + (det ? '<div class="maq-r-det">' + det + '</div>' : '') + '<p class="maq-r-txt" lang="es">' + cuerpo + '</p>';
   }
   function urlProductoPredio(estado, idProducto) {
     var base = location.origin + location.pathname;
-    return base + '?clave=' + encodeURIComponent(estado.clave) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
+    return base + (estado.esUnion ? '?claves=' + encodeURIComponent(estado.claves.join(',')) : '?clave=' + encodeURIComponent(estado.clave)) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
   }
   function precioDeProducto(id) {
     var p = (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0];
@@ -6293,6 +6985,22 @@
       descripcion: 'Tres escalas de profundidad — macro, medio y micro — sobre equipamientos cercanos, accesibilidad y entorno real del predio.' },
     { id: 'croquis', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
       descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
+    { id: 'unificacion', soloRecomendado: true, nombre: 'Unificación de lotes', precioBase: '', nota: 'por trámite',
+      descripcion: 'Planimetría del lote unificado y gestión del trámite de unificación de predios ante el GAD Municipal de Cuenca.' },
+    { id: 'lotizacion', soloRecomendado: true, nombre: 'Permiso de lotización', precioBase: '', nota: 'por trámite',
+      descripcion: 'Planimetría de la división del predio y gestión del permiso de fraccionamiento o lotización ante el GAD Municipal de Cuenca.' },
+    { id: 'diseno-lotizacion', soloRecomendado: true, nombre: 'Diseño de lotización', precioBase: '', nota: 'según el terreno',
+      descripcion: 'Diseño de lotes, vía interna y áreas verdes para terrenos grandes, listo para el trámite municipal.' },
+    { id: 'levantamiento-arquitectonico', soloRecomendado: true, nombre: 'Levantamiento arquitectónico', precioBase: '', nota: 'según la edificación',
+      descripcion: 'Levantamiento del estado actual de la edificación (plantas, fachadas, cortes), requisito de cualquier intervención en área histórica.' },
+    { id: 'anteproyecto-historico', soloRecomendado: true, nombre: 'Anteproyecto en área histórica', precioBase: '', nota: 'según el proyecto',
+      descripcion: 'Anteproyecto de restauración, rehabilitación o ampliación para la aprobación de la Dirección de Áreas Históricas.' },
+    { id: 'permiso-menor-historico', soloRecomendado: true, nombre: 'Permiso de construcción menor (área histórica)', precioBase: '', nota: 'por trámite',
+      descripcion: 'Gestión del permiso para mantenimiento y reparaciones en edificaciones de áreas históricas.' },
+    { id: 'certificacion-patrimonial', soloRecomendado: true, nombre: 'Certificación patrimonial', precioBase: '', nota: 'por trámite',
+      descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
+    { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
+      descripcion: 'Levantamiento y gestión para oficializar el predio en el catastro: linderos que se cruzan con vecinos, diferencias de área o predios mal registrados. Frecuente en zonas periurbanas y rurales.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
@@ -6372,9 +7080,9 @@
   if (barraCont && detalleCont) {
     function renderBarra() {
       barraCont.innerHTML = CATALOGO_PRODUCTOS.filter(function (p) {
-        return !p.precioGratis && p.id !== 'volumetria';
+        return !p.precioGratis && p.id !== 'volumetria' && !p.soloRecomendado;
       }).map(function (p) {
-        var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
+        var precioTxt = p.precioGratis ? 'Gratis' : (precioGuardado(p.id, p.precioBase) ? '$' + precioGuardado(p.id, p.precioBase) : 'A convenir');
         return '<button type="button" class="chip-producto' + (p.id === productoActivo ? ' activa' : '') + '" data-id="' + p.id + '">' +
           '<span class="chip-icono">' + (ICONOS_PRODUCTO[p.id] || '') + '</span>' +
           '<span class="chip-nombre">' + p.nombre + '</span>' +
@@ -6420,7 +7128,7 @@
         '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
           '<span class="badge badge-demo">Por encargo</span></div>' +
         '<p class="pd-desc">' + producto.descripcion + '</p>' +
-        '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
+        '<p class="pd-nota">' + (precioGuardado(producto.id, producto.precioBase) ? 'Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') : 'Precio a convenir según el caso') +
           ' — este no es instantáneo: completá el pedido y te lo mandamos por correo o WhatsApp cuando esté listo.</p>' +
         '<div class="form-solicitud">' +
           '<label>Tu nombre</label>' +
@@ -6773,7 +7481,12 @@
 
     // Llegada desde los botones del catálogo de index.html (herramienta.html?producto=planimetrico):
     // abre directo el formulario de ese producto. La clave se carga sola al tocar el predio.
-    var productoDesdeUrl = null, claveDesdeUrl = null;
+    var productoDesdeUrl = null, claveDesdeUrl = null, clavesDesdeUrl = null;
+    try { clavesDesdeUrl = new URLSearchParams(window.location.search).get('claves'); } catch (e) { }
+    if (clavesDesdeUrl) {
+      var lc = clavesDesdeUrl.split(',').map(function (x) { return x.replace(/[^0-9]/g, ''); }).filter(function (x) { return /^\d{10,16}$/.test(x); }).slice(0, 6);
+      if (lc.length) setTimeout(function () { cargarUnionPorClaves(lc); }, 300);
+    }
     try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); claveDesdeUrl = new URLSearchParams(window.location.search).get('clave'); } catch (e) { }
     // Desde la ficha gratis (botón o QR): ?clave=...&producto=... abre el predio y el pedido.
     if (claveDesdeUrl && /^\d{10,16}$/.test(claveDesdeUrl.replace(/[\s.\-]/g, ''))) {
