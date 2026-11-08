@@ -122,6 +122,27 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
+  .reporte-pdf .aviso-legal { background: none !important; border: 1px solid #d9d5cc; border-radius: 6px; }
+  .reporte-pdf.ficha-gratis .ficha-datos { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 0.86rem; }
+  .reporte-pdf.ficha-gratis .ficha-datos td { padding: 5px 0; border-bottom: 1px solid #e3e0d9; }
+  .reporte-pdf.ficha-gratis .ficha-datos td:first-child { color: #6d6a63; width: 45%; }
+  .reporte-pdf.ficha-gratis .ficha-img { width: 100%; max-height: 92mm; object-fit: cover; margin: 8px 0; }
+  .reporte-pdf.ficha-gratis .ficha-cta { display: flex; gap: 14px; align-items: center; border: 2px solid #b0532f; border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+  .reporte-pdf.ficha-gratis .ficha-cta-txt { flex: 1; }
+  .reporte-pdf.ficha-gratis .ficha-cta-tit { font-weight: 700; font-size: 1.05rem; }
+  .reporte-pdf.ficha-gratis .ficha-cta-sub { font-size: 0.82rem; color: #4a4741; margin: 2px 0 8px; }
+  .reporte-pdf.ficha-gratis .ficha-cta-btn { display: inline-block; background: none; border: 1.5px solid #b0532f; color: #b0532f !important; text-decoration: none; font-weight: 700; padding: 7px 14px; border-radius: 6px; }
+  .reporte-pdf.ficha-gratis .ficha-cta-url { font-size: 0.62rem; color: #6d6a63; margin-top: 6px; word-break: break-all; }
+  .reporte-pdf.ficha-gratis .ficha-cta-qr { width: 30mm; text-align: center; font-size: 0.65rem; color: #6d6a63; }
+  .reporte-pdf.ficha-gratis .ficha-cta-qr svg { width: 30mm; height: 30mm; }
+  .maq-panel .maq-comprar { text-transform: none; letter-spacing: 0; font: inherit; font-weight: 700; font-size: 0.86rem; padding: 10px 10px; border-radius: 6px; border: 0; background: #b0532f; color: #fff; cursor: pointer; text-align: left; line-height: 1.25; }
+  .maq-panel .maq-comprar small { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.9; margin-top: 2px; }
+  .maq-panel .maq-comprar:hover { background: #8f3f22; }
+  .maq-panel .maq-ficha { display: grid; gap: 5px; }
+  .maq-panel .maq-ficha-fila { display: flex; gap: 6px; }
+  .maq-panel .maq-ficha input { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 6px 7px; border: 1px solid #c9c6bf; border-radius: 4px; }
+  .maq-panel .maq-ficha button { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 6px 9px; border: 1px solid #2b2a27; background: #fff; border-radius: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-ficha-nota { font-size: 0.66rem; color: #6d6a63; }
   .maq-panel .maq-norma { border: 1px solid #c9c6bf; border-radius: 5px; padding: 8px; display: grid; gap: 8px; background: #fff; }
   .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
@@ -597,7 +618,7 @@
     <span class="hint">Cuenca, Ecuador</span>
   </div>
   <div class="buscar-maps">
-    <input type="text" id="buscar-maps-input" placeholder="Pega un link de Google Maps (o lat, lng)">
+    <input type="text" id="buscar-maps-input" placeholder="Clave catastral, link de Google Maps o lat, lng">
     <button type="button" id="buscar-maps-btn">Buscar</button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
@@ -982,9 +1003,24 @@
     msg.className = 'buscar-maps-msg ' + (tipo || '');
     msg.textContent = texto;
   }
+  // Clave catastral: 13 dígitos en Cuenca; se aceptan con espacios, puntos o guiones.
+  async function buscarPorClave(clave) {
+    mostrarMsgBusqueda('Buscando la clave ' + clave + '…');
+    try {
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + clave + "'");
+      var data = await (await fetch(url)).json();
+      if (!data.features || !data.features.length) { mostrarMsgBusqueda('No encontramos la clave ' + clave + ' en el catastro de Cuenca. Revisa los dígitos (son 13).', 'err'); return; }
+      var c = turf.pointOnFeature(data.features[0]).geometry.coordinates;
+      mostrarMsgBusqueda('');
+      mapa.setView([c[1], c[0]], 18);
+      consultarPredio({ lat: c[1], lng: c[0] });
+    } catch (e) { mostrarMsgBusqueda('No se pudo consultar el catastro en este momento. Intenta de nuevo en unos segundos.', 'err'); }
+  }
   function buscarPorGoogleMaps() {
     var texto = document.getElementById('buscar-maps-input').value.trim();
     if (!texto) return;
+    var soloDigitos = texto.replace(/[\s.\-]/g, '');
+    if (/^\d{10,16}$/.test(soloDigitos)) { buscarPorClave(soloDigitos); return; }
     var coords = extraerLatLngDeGoogleMaps(texto);
     if (coords) {
       mostrarMsgBusqueda('');
@@ -1454,12 +1490,28 @@
   // (clasificac, valor_regi). Cubre Centro Histórico y El Ejido; fuera de ahí queda OSM o 6 m.
   async function consultarBloquesMunicipales(bbox) {
     var cql = "BBOX(geom," + bbox.join(',') + ",'EPSG:4326')";
-    try {
-      var res = await fetch('https://ide.cuenca.gob.ec/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=dahp_catastro:bloques_fin&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql));
-      var data = await res.json();
-      return data.features || [];
-    } catch (e) { return []; }
+    // bloques_fin: pisos y altura revisados; bloques_cristo_rey_ch_ejido: valoración patrimonial
+    // del inventario (E/VAR A/VAR B/A/SV/N) y pisos, para Centro Histórico, El Ejido y Cristo Rey.
+    var capas = ['dahp_catastro:bloques_fin', 'dahp_catastro:bloques_cristo_rey_ch_ejido'];
+    var listas = await Promise.all(capas.map(function (c) {
+      return fetch('https://ide.cuenca.gob.ec/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=' + c + '&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql))
+        .then(function (r) { return r.json(); }).then(function (d) { return (d.features || []).map(function (f) { f.properties = f.properties || {}; f.properties.__capa = c; return f; }); })
+        .catch(function () { return []; });
+    }));
+    return listas[0].concat(listas[1]);
   }
+  // Valoración del inventario patrimonial de Cuenca: (E)(4) emergente, A(VAR A)(3) valor
+  // arquitectónico A, B(VAR B)(2) valor arquitectónico B, (A)(1) valor ambiental, (SV)(0) sin valor
+  // especial, (N)(-1) impacto negativo. De 1 hacia arriba la edificación se conserva.
+  function categoriaPatrimonial(valor) {
+    var t = String(valor || '');
+    var m = t.match(/\((-?\d)\)\s*$/);
+    if (m) return parseInt(m[1], 10);
+    if (/\(E\)/.test(t)) return 4; if (/VAR A/.test(t)) return 3; if (/VAR B/.test(t)) return 2;
+    if (/^\(A\)/.test(t)) return 1; if (/\(SV\)/.test(t)) return 0; if (/\(N\)/.test(t)) return -1;
+    return null;
+  }
+  var NOMBRE_CATEGORIA = { 4: 'emergente', 3: 'valor arquitectónico A', 2: 'valor arquitectónico B', 1: 'valor ambiental', 0: 'sin valor especial', '-1': 'impacto negativo' };
 
   async function consultarConstruccionesMunicipales(bbox) {
     var bboxStr = bbox.join(',');
@@ -1857,14 +1909,15 @@
         try { var i = turf.intersect(fe, turf.polygon([b.pts.concat([b.pts[0]])])); if (i) { var a = turf.area(i); if (a > mejorA) { mejorA = a; mejor = b; } } } catch (e) { }
       });
       if (mejor && mejorA > 0.3 * turf.area(fe)) {
-        var h = Number(mejor.p.altura_act) || (Number(mejor.p.pisos_actu) || 0) * 3;
-        if (h > 0) { ed.altura = h; ed.alturaReal = true; ed.fuente = 'municipio'; ed.pisos = Number(mejor.p.pisos_actu) || null; }
+        var h = Number(mejor.p.altura_act) || (Number(mejor.p.pisos_actu) || 0) * 3 || (mejor.p.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' ? (Number(mejor.p.altura) || 0) * 3 : 0);
+        if (h > 0) { ed.altura = h; ed.alturaReal = true; ed.fuente = 'municipio'; ed.pisos = Number(mejor.p.pisos_actu) || Number(mejor.p.altura) || null; }
       }
     });
     // Valoración patrimonial de lo construido en el lote (si la hay): condiciona qué se puede hacer.
-    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave); }).map(function (f) {
-      return { clasificacion: f.properties.clasificac, valor: f.properties.valor_regi, pisos: f.properties.pisos_actu, altura: f.properties.altura_act, bloque: f.properties.bloque };
-    });
+    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave) && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
+      var pr = f.properties;
+      return { clasificacion: pr.clasificac, valor: pr.valor_regi, categoria: categoriaPatrimonial(pr.valor_regi), pisos: pr.pisos_actu || pr.altura || null, altura: pr.altura_act || (pr.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' && pr.altura ? pr.altura * 3 : null), bloque: pr.bloque };
+    }).sort(function (a, b) { return (b.categoria == null ? -9 : b.categoria) - (a.categoria == null ? -9 : a.categoria); });
     var edificacionesContexto = todasEdificaciones.filter(function (ed) {
       try { return !turf.booleanIntersects(turf.polygon([ed.pts.concat([ed.pts[0]])]), poligonoLotePlano); } catch (e) { return true; }
     });
@@ -2014,7 +2067,9 @@
       esPredioPublico = mejorPublico && mejorSolape > 0.5 * areaL;
     } catch (e) { }
     var restriccionVolumen = null;
-    if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
+    var catMax = patrimonioLote.length ? patrimonioLote[0].categoria : null;
+    if (catMax != null && catMax >= 1) restriccionVolumen = 'Edificación patrimonial (' + NOMBRE_CATEGORIA[catMax] + ', inventario municipal ' + patrimonioLote[0].valor + '): se conserva, así que no se muestra un volumen de reemplazo. Qué intervención se admite (restauración, rehabilitación, ampliación posterior) lo define la Dirección General de Áreas Históricas.';
+    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
     else if (fraccionVerde > 0.5) restriccionVolumen = 'Más de la mitad de este predio es parque o área verde (' + (nombreAreaVerdeDelLote || 'OpenStreetMap') + '): no se muestra volumen edificable.';
     else if (areaLoteM2 > 10000) restriccionVolumen = 'Lote de ' + Math.round(areaLoteM2 / 10000 * 10) / 10 + ' ha: en un predio de este tamaño se edifica a través de un proceso de urbanización o plan, no con un volumen directo. Escríbenos para un estudio específico.';
 
@@ -2566,7 +2621,7 @@
   //     El patio nuevo pasa a ser fachada con luz y se recalcula.
   // PROF_LUZ_M (6 m desde la ventana) es criterio de diseño, no un artículo: la norma fija tamaño de
   // patio y % de ventana (15 % del piso), no la profundidad de los locales. Ajustable.
-  var PROF_LUZ_M = 6;
+  var PROF_LUZ_M = 6, PATIO_MAX_M = 9;
   function ladoMinimoPatio(pisos) {
     var altura = pisos * 3;
     var areaMin = pisos <= 1 ? 9 : (pisos === 2 ? 12 : 15);
@@ -2604,8 +2659,8 @@
       return d;
     }
     var cosA = Math.cos(estado.anguloRef || 0), sinA = Math.sin(estado.anguloRef || 0);
-    var patios = [];
-    for (var it = 0; it < 6; it++) {
+    var patios = [], intentos = 0;
+    for (var it = 0; it < 10; it++) {
       var peor = null, dPeor = PROF_LUZ_M;
       celdas.forEach(function (c) {
         if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return;
@@ -2625,7 +2680,9 @@
       var vs = oscuras.map(function (c) { return -(c[0] - peor[0]) * sinA + (c[1] - peor[1]) * cosA; });
       var u0 = Math.min.apply(null, us.concat([0])), u1 = Math.max.apply(null, us.concat([0]));
       var v0 = Math.min.apply(null, vs.concat([0])), v1 = Math.max.apply(null, vs.concat([0]));
-      var au = Math.max(lado, (u1 - u0) - 2 * PROF_LUZ_M + 2 * paso), av = Math.max(lado, (v1 - v0) - 2 * PROF_LUZ_M + 2 * paso);
+      // tope de 9 m por lado: en plantas muy profundas conviene una secuencia de patios medianos
+      // (crujías de ~12 m entre ellos) y no uno enorme que se coma la planta
+      var au = Math.min(PATIO_MAX_M, Math.max(lado, (u1 - u0) - 2 * PROF_LUZ_M + 2 * paso)), av = Math.min(PATIO_MAX_M, Math.max(lado, (v1 - v0) - 2 * PROF_LUZ_M + 2 * paso));
       var cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
       function rect(cu_, cv_, au_, av_) {
         return [[-au_ / 2, -av_ / 2], [au_ / 2, -av_ / 2], [au_ / 2, av_ / 2], [-au_ / 2, av_ / 2]].map(function (q) {
@@ -2638,16 +2695,26 @@
         var cx = 0, cy = 0; pt.forEach(function (q) { cx += q[0] / pt.length; cy += q[1] / pt.length; });
         return pt.every(function (q) { return puntoDentroDePoligono([cx + (q[0] - cx) * 0.97, cy + (q[1] - cy) * 0.97], puntosEnvolvente); });
       };
+      // dos patios nunca se tocan (se superponían y el 3D perdía los huecos al subir pisos):
+      // entre patios queda al menos una crujía de 3 m
+      var libre = function (pt) {
+        return !patios.some(function (o) {
+          for (var k = 0; k < pt.length; k++) { if (puntoDentroDePoligono(pt[k], o)) return true; for (var m = 0; m < o.length; m++) if (distPuntoSegmento(pt[k], o[m], o[(m + 1) % o.length]) < 3) return true; }
+          for (var k2 = 0; k2 < o.length; k2++) { if (puntoDentroDePoligono(o[k2], pt)) return true; for (var m2 = 0; m2 < pt.length; m2++) if (distPuntoSegmento(o[k2], pt[m2], pt[(m2 + 1) % pt.length]) < 3) return true; }
+          return false;
+        });
+      };
       var patio = null;
-      [[cu, cv, 1], [cu, cv, 0.8], [0, 0, 0.8], [0, 0, 0.6]].some(function (t) {
+      [[cu, cv, 1], [cu, cv, 0.8], [0, 0, 0.8], [0, 0, 0.6], [0, 0, 0]].some(function (t) {
         var cand = rect(t[0], t[1], Math.max(lado, au * t[2]), Math.max(lado, av * t[2]));
-        if (dentro(cand)) { patio = cand; return true; } return false;
+        if (dentro(cand) && libre(cand)) { patio = cand; return true; } return false;
       });
       if (!patio) patio = rect(0, 0, lado, lado);
-      // el patio tiene que quedar dentro de la planta (cerrado), si no, se descarta el intento
-      if (!dentro(patio)) {
+      // el patio tiene que quedar dentro de la planta (cerrado) y separado de los demás; si no, se
+      // descarta ese punto oscuro y se sigue con el próximo
+      if (!dentro(patio) || !libre(patio)) {
         celdas = celdas.filter(function (c) { return c !== peor; });
-        it--; if (!celdas.length) break; continue;
+        intentos++; if (intentos > 150) break; it--; if (!celdas.length) break; continue;
       }
       patios.push(patio);
     }
@@ -2811,9 +2878,12 @@
         : 'Tope de ' + maxPisosLote + ' piso' + (maxPisosLote === 1 ? '' : 's') + ' según el Plan Especial del Centro Histórico (PECH 2016) para este predio puntual.';
       notaCentro = '<div style="font-size:0.85rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:12px;">' + NORMATIVA_CENTRO_HISTORICO.nota + '<br><br>📏 ' + notaPisosPech + '</div>';
     } else {
-      var nivelesRef = NORMATIVA_REFERENCIA.determinantes;
+      var nivelesRef = determinantesActivos();
+      var tituloTabla = estado.esAreaHistorica
+        ? 'Área histórica (Ordenanza 2024), valores referenciales'
+        : 'Tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
       filasTablaHtml = '<div>' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Determinantes de aprovechamiento — ' + NORMATIVA_REFERENCIA.sector + ', ' + NORMATIVA_REFERENCIA.tratamiento + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">' + tituloTabla + '</div>' +
         '<table class="determ"><thead><tr><th>Altura</th><th>Lote mín.</th><th>Implantación</th><th>Retiros F/L/P</th><th>Densidad</th></tr></thead><tbody>' +
         nivelesRef.map(function (n) {
           var r = rangoPisos(n);
@@ -2832,7 +2902,7 @@
     if (estado.restriccionVolumen) {
       notaTopeReal = '<div style="font-size:0.8rem; color:var(--ink); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🚫 ' + estado.restriccionVolumen + '</div>' + notaTopeReal;
     }
-    if (estado.patrimonioLote && estado.patrimonioLote.length) {
+    if (!estado.restriccionVolumen && estado.patrimonioLote && estado.patrimonioLote.length && estado.patrimonioLote[0].categoria != null && estado.patrimonioLote[0].categoria >= 1) {
       var pl = estado.patrimonioLote[0];
       notaTopeReal = '<div style="font-size:0.8rem; color:#7a2e12; background:#fbeee6; border:1px solid #e6b9a3; border-radius:10px; padding:10px 12px;">⚠️ Lo construido en este lote está registrado por el municipio como <strong>' + String(pl.clasificacion || '').toLowerCase() + '</strong> (valoración ' + (pl.valor || '—') + ', ' + (pl.pisos || '?') + ' pisos, ' + (pl.altura || '?') + ' m). Una edificación con valor patrimonial no se puede reemplazar libremente: el volumen de abajo es solo lo que la normativa permitiría en un lote libre. Confirmar con la Dirección General de Áreas Históricas qué intervención se admite.</div>' + notaTopeReal;
     }
@@ -4276,13 +4346,19 @@
         '</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
         (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
+        (function () {
+          var sg = productoSugerido(estado);
+          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '">' + sg.titulo + (precioDeProducto(sg.id) ? ' — ' + precioDeProducto(sg.id) : '') + '<small>' + sg.sub + '</small></button>' : '') +
+            '<div class="maq-ficha"><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Ficha gratis (PDF)</button></div>' +
+            '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
+        })() +
         '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
           '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
             '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
-            '<button type="button" class="maq-pedir">Pedir informe de este predio</button>' +
+
           '</div>' +
         '</div>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
@@ -4301,7 +4377,19 @@
         detalleNorm.hidden = !mostrarVolumenNormativa;
         solicitarRender();
       });
-      p.querySelector('.maq-pedir').addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio('analisis-sitio'); });
+      var btnComprar = p.querySelector('.maq-comprar');
+      if (btnComprar) btnComprar.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(btnComprar.getAttribute('data-producto')); });
+      var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
+      try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
+      btnFicha.addEventListener('click', function () {
+        var correo = (inCorreo.value || '').trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.style.borderColor = '#b0532f'; inCorreo.placeholder = 'Escribe tu correo'; return; }
+        try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
+        registrarInteresado(estado, correo);
+        generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)));
+      });
+      var lnkPriv = p.querySelector('.maq-ficha-priv');
+      if (lnkPriv) lnkPriv.addEventListener('click', function (ev) { ev.preventDefault(); var l = document.getElementById('link-privacidad'); if (l) l.click(); });
       p.querySelectorAll('input[data-capa]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
@@ -4443,6 +4531,34 @@
       console.warn('capturarImagen3D: también falló la captura directa del canvas', e);
       return '';
     }
+  }
+  // Para imprimir: la captura se pasa a una versión clara — fondo blanco y tonos levantados (las
+  // sombras quedan como gris suave, no manchas oscuras que gastan tinta).
+  function aclararParaPapel(dataUrl) {
+    return new Promise(function (resolve) {
+      if (!dataUrl) return resolve(dataUrl);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+          var x = c.getContext('2d');
+          x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+          x.drawImage(img, 0, 0);
+          var im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+          for (var i = 0; i < d.length; i += 4) {
+            for (var k = 0; k < 3; k++) {
+              var v = d[i + k] / 255;
+              v = 1 - (1 - v) * 0.55;          // levanta los oscuros
+              d[i + k] = Math.round(255 * Math.pow(v, 0.9));
+            }
+          }
+          x.putImageData(im, 0, 0);
+          resolve(c.toDataURL('image/jpeg', 0.92));
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
   }
   function capturarImagen3D() {
     if (!ultimoRender3D) return '';
@@ -4969,9 +5085,92 @@
     return '<div class="seccion-titulo">Uso de suelo</div><div class="uso-suelo">' + filas + '</div>';
   }
 
+  // Qué producto ofrecer según lo que detectó la herramienta (null = no se vende: predio público/parque).
+  function productoSugerido(estado) {
+    var r = estado.restriccionVolumen || '';
+    if (/propiedad pública|parque o área verde/.test(r)) return null;
+    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
+    if (/ ha:/.test(r)) return { id: 'analisis-sitio', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
+    if (estado.frenteARio) return { id: 'planimetrico-iprus', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
+    return { id: 'planimetrico-iprus', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
+  }
+  function urlProductoPredio(estado, idProducto) {
+    var base = location.origin + location.pathname;
+    return base + '?clave=' + encodeURIComponent(estado.clave) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
+  }
+  function precioDeProducto(id) {
+    var p = (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0];
+    return p && p.precioBase ? '$' + p.precioBase : '';
+  }
+
+  // Ficha rápida GRATIS: una página, instantánea, sin código. Lleva un botón (enlace) y un QR que
+  // abren esta misma herramienta con el predio y el producto ya cargados.
+  function generarFichaGratis(estado, areaM2) {
+    var cap = ''; try { cap = capturarImagen3D(); } catch (e) { }
+    aclararParaPapel(cap).then(function (clara) { generarFichaGratisCon(estado, areaM2, clara); });
+  }
+  function generarFichaGratisCon(estado, areaM2, imgSrc) {
+    var restringido = !!estado.restriccionVolumen;
+    var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+    var sug = productoSugerido(estado);
+    var url = urlProductoPredio(estado, sug ? sug.id : null);
+    var qr = ''; try { qr = construirQrSvg(url); } catch (e) { }
+    var txtCons = (document.getElementById('info-construccion') || {}).textContent || '—';
+    var txtDens = (document.getElementById('info-densidad') || {}).textContent || '—';
+    function esc(t) { return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    var datos = '<table class="ficha-datos">' +
+      '<tr><td>Clave catastral</td><td class="mono">' + esc(estado.clave) + '</td></tr>' +
+      '<tr><td>Zona (PIT)</td><td>' + esc(estado.pitOficial || '—') + '</td></tr>' +
+      '<tr><td>Área del lote</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
+      (restringido ? '' :
+        '<tr><td>Pisos máximos (aprox.)</td><td>' + estado.maxPisosLote + '</td></tr>' +
+        '<tr><td>Construcción posible (aprox.)</td><td>' + esc(txtCons) + '</td></tr>' +
+        '<tr><td>Viviendas (densidad)</td><td>' + esc(txtDens) + '</td></tr>') +
+      '</table>';
+    var nota = restringido ? '<div class="aviso-legal">🚫 ' + esc(estado.restriccionVolumen) + '</div>'
+      : (estado.esAreaHistorica ? '<div class="aviso-legal">🏛️ Área histórica y patrimonial: valores referenciales según la Ordenanza de Áreas Históricas (2024).</div>' : '');
+    var cta = sug
+      ? '<div class="ficha-cta"><div class="ficha-cta-txt"><div class="ficha-cta-tit">' + esc(sug.titulo) + '</div>' +
+          '<div class="ficha-cta-sub">' + esc(sug.sub) + (precioDeProducto(sug.id) ? ' · desde ' + precioDeProducto(sug.id) : '') + '</div>' +
+          '<a class="ficha-cta-btn" href="' + url + '">Pedirlo en línea →</a>' +
+          '<div class="ficha-cta-url mono">' + esc(url.replace(/^https?:\/\//, '')) + '</div></div>' +
+          (qr ? '<div class="ficha-cta-qr">' + qr + '<div>Escanéame</div></div>' : '') + '</div>'
+      : '';
+    var rep = document.getElementById('reporte-pdf');
+    rep.className = 'reporte-pdf ficha-gratis';
+    rep.innerHTML =
+      '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
+      '<h1>Ficha rápida del predio</h1>' + datos + nota +
+      (imgSrc ? '<img class="ficha-img" src="' + imgSrc + '">' : '') +
+      cta +
+      '<div class="aviso-legal" style="font-size:0.7rem;">Referencial, a partir de datos públicos del IDE del GAD Municipal de Cuenca (consulta del ' + fechaHoy + ') y OpenStreetMap (ODbL). No tiene validez legal ni reemplaza el IPRUS. cotacero.pm@gmail.com · WhatsApp 0999 163 505</div>';
+    var tituloOriginal = document.title;
+    document.title = 'Ficha CotaCero ' + estado.clave;
+    function restaurar() { document.title = tituloOriginal; window.removeEventListener('afterprint', restaurar); }
+    window.addEventListener('afterprint', restaurar);
+    var img = rep.querySelector('.ficha-img');
+    if (img && img.decode) img.decode().catch(function () { }).then(function () { window.print(); }); else window.print();
+  }
+  // Registro del interesado (correo) en la misma hoja de pedidos, como "ficha gratis". No bloquea la
+  // descarga: se envía en segundo plano.
+  function registrarInteresado(estado, correo) {
+    try {
+      if (!APPS_SCRIPT_URL_DOCUMENTOS) return;
+      fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'ficha-gratis', productoNombre: 'Ficha rápida gratis (interesado)',
+          predio: estado.clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: 'Descargó la ficha gratis' + (estado.restriccionVolumen ? ' — ' + estado.restriccionVolumen.slice(0, 60) : ''),
+          documentos: [], origen: 'ficha-gratis', sitio_web: '', t: 99999 })
+      }).catch(function () { });
+    } catch (e) { }
+  }
+
   function generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto) {
-    var imgSrc = '';
-    try { imgSrc = capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló capturarImagen3D', e); }
+    var cap = '';
+    try { cap = capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló capturarImagen3D', e); }
+    aclararParaPapel(cap).then(function (clara) { generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, clara); });
+  }
+  function generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, imgSrc) {
     // El plano de ubicación cruza geometría real (manzana/vecinos/vías) contra un recorte de círculo —
     // más superficie para un caso raro de digitalización (un anillo degenerado, p.ej.) que tumbe todo
     // el informe por un solo predio. Igual que arriba: si falla, el informe sigue sin esa sección en vez
@@ -4986,9 +5185,18 @@
           ? 'Este predio no está digitalizado todavía en el Plan Especial del Centro Histórico (PECH) — se muestra un tope conservador de ' + estado.maxPisosLote + ' piso' + (estado.maxPisosLote === 1 ? '' : 's') + ' mientras se confirma el real.'
           : 'Tope de ' + estado.maxPisosLote + ' piso' + (estado.maxPisosLote === 1 ? '' : 's') + ' según el Plan Especial del Centro Histórico (PECH 2016) para este predio puntual.') + '</div>'
       : '';
-    var notaRio = estado.frenteARio
-      ? '<div class="aviso-legal">🏞️ Frente a río/quebrada detectado — del piso 4 en adelante, cada piso retrocede 3m adicionales sobre ese lado.</div>'
+    var restringido = !!estado.restriccionVolumen;
+    var notaRio = (estado.frenteARio && !restringido)
+      ? '<div class="aviso-legal">🏞️ Frente a río/quebrada (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — ' + (estado.esAreaHistorica ? 'desde el piso 3' : 'del piso 5 en adelante') + ', cada piso retrocede 3 m adicionales solo sobre la fachada que da al río, sin volados en esos pisos.</div>'
       : '';
+    // Mismas notas que la ficha en pantalla: restricción (patrimonio / público / parque / >1 ha),
+    // patrimonio y régimen de área histórica.
+    var notaRestriccion = restringido ? '<div class="aviso-legal">🚫 ' + estado.restriccionVolumen + '</div>' : '';
+    var pl = (estado.patrimonioLote || [])[0];
+    var notaPatrimonio = (!restringido && pl && pl.categoria != null && pl.categoria >= 1) ? '<div class="aviso-legal">⚠️ Edificación registrada en el inventario patrimonial municipal (' + (pl.valor || '') + ').</div>' : '';
+    var notaAHP = (estado.esAreaHistorica && !restringido) ? '<div class="aviso-legal">🏛️ Área histórica y patrimonial (PIT ' + estado.pitOficial + '): volumen referencial según la Ordenanza de Áreas Históricas y Patrimoniales (2024) — hasta 4 plantas, retiros de 3 m, sin voladizos. Los determinantes finales están en la ficha del plan del sector y en el IPRUS del predio.</div>' : '';
+    var txtCons = (document.getElementById('info-construccion') || {}).textContent || '—';
+    var txtDens = (document.getElementById('info-densidad') || {}).textContent || '—';
     // Mismo aviso que en el panel en vivo (recomputarYRenderizar) — un lote que se reparte en varios
     // bloques admite muchas distribuciones válidas de patios/edificios, ésta es solo una. Pedido
     // explícito del usuario: que quede claro en el documento que se entrega al cliente, no solo en
@@ -4999,15 +5207,21 @@
 
     document.getElementById('reporte-pdf').innerHTML =
       '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
-      '<h1>Volumetría de referencia</h1>' +
-      '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
+      '<h1>' + (restringido ? 'Informe de sitio' : 'Volumetría de referencia') + '</h1>' +
+      '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span>' + (estado.pitOficial ? ' · Zona <span class="mono">' + estado.pitOficial + '</span>' : '') + '</div>' +
       '<div class="stat-row">' +
         '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
+        (restringido ? '' :
         '<div class="stat"><div class="label">Pisos</div><div class="value">' + estado.pisos + ' / ' + estado.maxPisosLote + '</div></div>' +
-        '<div class="stat"><div class="label">Retiros (altas)</div><div class="value" style="font-size:0.88rem;">' + estado.retiros.frente + ' / ' + estado.retiros.lateral + ' / ' + estado.retiros.posterior + ' m</div></div>' +
+        '<div class="stat"><div class="label">Retiros F / L / P</div><div class="value" style="font-size:0.88rem;">' + estado.retiros.frente + ' / ' + estado.retiros.lateral + ' / ' + estado.retiros.posterior + ' m</div></div>') +
       '</div>' +
-      notaCentro + notaRio +
-      (filasTablaHtml ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
+      (restringido ? '' :
+      '<div class="stat-row">' +
+        '<div class="stat"><div class="label">Construcción del volumen</div><div class="value" style="font-size:0.88rem;">' + escapar(txtCons) + '</div></div>' +
+        '<div class="stat"><div class="label">Densidad</div><div class="value" style="font-size:0.82rem;">' + escapar(txtDens) + '</div></div>' +
+      '</div>') +
+      notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio +
+      (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
       construirBloqueUsoSuelo(estado.usoSuelo) +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
@@ -5017,7 +5231,7 @@
       // leer primero. La ubicación ya NO es una sección aparte — pedido explícito del usuario: va como
       // recuadro flotante en la esquina superior derecha de la MISMA imagen (ver .render-combo), un
       // locator map inset — convención real de lámina de arquitectura, no algo inventado acá.
-      '<div class="seccion-titulo">Volumetría (vista 3D)</div>' +
+      '<div class="seccion-titulo">' + (restringido ? 'Estado actual (vista 3D)' : 'Volumetría (vista 3D)') + '</div>' +
       notaVersatilidad +
       (imgSrc
         ? '<div class="render-combo">' +
@@ -5025,7 +5239,9 @@
             (svgUbicacion ? '<div class="ubicacion-inset">' + svgUbicacion + '</div>' : '') +
           '</div>'
         : '<div class="aviso-legal">⚠️ No se pudo capturar la imagen de la volumetría 3D en este navegador. Prueba de nuevo, o genera el informe desde otro navegador (Chrome) si el problema persiste.</div>' +
-          (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : ''));
+          (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : '')) +
+      '<div class="seccion-titulo">Fuentes</div>' +
+      '<div class="aviso-legal" style="font-size:0.72rem;">Catastro, zonificación (PIT) y ejes: IDE del GAD Municipal de Cuenca, consultados en vivo el ' + fechaHoy + '. Valoración patrimonial y alturas: inventario de bloques de la Dirección de Áreas Históricas (IDE Cuenca). Curvas de nivel: modelo digital del terreno municipal (~3 m), referenciales. Ordenanza de Áreas Históricas y Patrimoniales (2024) y Normas de Arquitectura y Urbanismo (Anexo 8, 2022). Calles, edificaciones y áreas verdes complementarias: © colaboradores de OpenStreetMap (ODbL).</div>';
 
     // El título de la página es lo que Chrome/Safari sugieren como nombre de archivo en el diálogo
     // "Guardar como PDF" — se cambia justo antes de imprimir y se restaura cuando el diálogo de
@@ -5036,7 +5252,7 @@
     // tilde acá por las dudas de cómo lo maneje el navegador en el diálogo de guardar) + clave
     // catastral — pedido explícito, mismo criterio en los tres descargables de la herramienta.
     var tituloOriginal = document.title;
-    document.title = 'Volumetria de referencia ' + estado.clave;
+    document.title = (estado.restriccionVolumen ? 'Informe de sitio ' : 'Volumetria de referencia ') + estado.clave;
     function restaurarTitulo() {
       document.title = tituloOriginal;
       window.removeEventListener('afterprint', restaurarTitulo);
@@ -5962,8 +6178,15 @@
 
     // Llegada desde los botones del catálogo de index.html (herramienta.html?producto=planimetrico):
     // abre directo el formulario de ese producto. La clave se carga sola al tocar el predio.
-    var productoDesdeUrl = null;
-    try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); } catch (e) { }
+    var productoDesdeUrl = null, claveDesdeUrl = null;
+    try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); claveDesdeUrl = new URLSearchParams(window.location.search).get('clave'); } catch (e) { }
+    // Desde la ficha gratis (botón o QR): ?clave=...&producto=... abre el predio y el pedido.
+    if (claveDesdeUrl && /^\d{10,16}$/.test(claveDesdeUrl.replace(/[\s.\-]/g, ''))) {
+      setTimeout(function () {
+        var inp = document.getElementById('buscar-maps-input'); if (inp) inp.value = claveDesdeUrl;
+        buscarPorClave(claveDesdeUrl.replace(/[\s.\-]/g, ''));
+      }, 300);
+    }
     if (productoDesdeUrl && CATALOGO_PRODUCTOS_FALLBACK.some(function (p) { return p.id === productoDesdeUrl && !p.precioGratis; })) {
       if (!CATALOGO_PRODUCTOS.some(function (p) { return p.id === productoDesdeUrl; })) {
         CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS.concat(CATALOGO_PRODUCTOS_FALLBACK.filter(function (p) { return p.id === productoDesdeUrl; }));
