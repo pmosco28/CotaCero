@@ -945,7 +945,8 @@
     var det = f.d.filter(function (r) { return n(r[5]) != null; }).map(function (r) {
       return { altura: r[0], lote_min: n(r[1]) || 0, frente_min: n(r[2]), densidad_viv_ha: r[3], implantacion: r[4], rf: n(r[5]) || 0, rl: n(r[6]) || 0, rp: n(r[7]) || 0, seccion_via: n(r[8]), ie: n(r[9]) };
     });
-    return { codigo: f.c, sector: f.s, pagina: f.p, notas: f.n || [], adosaPB: !!f.ad, obligatorioPB: !!f.ob, cos: f.cos || null, determinantes: det };
+    var mx = (f.n || []).join(' ').match(/superficie máxima de construcción de (\d+)\s*m2 por piso/i);
+    return { codigo: f.c, sector: f.s, pagina: f.p, anexo: f.x || '6.3', notas: f.n || [], maxM2Piso: mx ? parseFloat(mx[1]) : null, soloUnifamiliar: /únicamente la vivienda unifamiliar/i.test((f.n || []).join(' ')), adosaPB: !!f.ad, obligatorioPB: !!f.ob, cos: f.cos || null, determinantes: det };
   }
   var fichaPITActual = null; // la del predio cargado, si el Anexo 6.3 trae tabla numérica para su PIT
   var frenteLoteActual = 0;  // frente principal del predio (m), para el "frente mínimo" de cada fila
@@ -3557,9 +3558,10 @@
     if (fichaPITActual && !fichaPITActual.determinantes.length) {
       // PIT urbano cuya ficha no fija determinantes (franjas con susceptibilidad alta a remoción de
       // masas o sin aptitud física constructiva, p. ej. UP-BAN-2): no hay volumen edificable.
-      if (!estado.restriccionVolumen) estado.restriccionVolumen = 'La ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + ') no asigna altura, lote mínimo ni retiros: es una zona sin aptitud constructiva o con susceptibilidad alta a remoción de masas. No se muestra volumen; cualquier intervención requiere estudios específicos y el IPRUS.';
+      if (!estado.restriccionVolumen) estado.restriccionVolumen = 'La ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo ' + fichaPITActual.anexo + ', p. ' + fichaPITActual.pagina + ') no asigna altura, lote mínimo ni retiros' + (fichaPITActual.notas.length ? ': ' + fichaPITActual.notas[0].replace(/\.$/, '') + '.' : ': es una zona sin aptitud constructiva o con susceptibilidad alta a remoción de masas.') + ' No se muestra volumen; cualquier intervención requiere estudios específicos y el IPRUS.';
+      estado.fichaSinDeterminantes = fichaPITActual.codigo;
       fichaPITActual = null;
-    }
+    } else estado.fichaSinDeterminantes = null;
     estado.fichaPIT = fichaPITActual;
     areaLoteActual = areaM2;
     frenteLoteActual = frentePrincipal(estado);
@@ -3598,8 +3600,12 @@
         var lmE = parseFloat(estado.ejeIPRUS.loteMin);
         maxPisosPorArea = (!isFinite(lmE) || areaM2 >= lmE) ? estado.ejeIPRUS.pisos : Math.min(estado.ejeIPRUS.pisos, maxPisosPorArea);
         estado.fuenteAltura = 'Altura del eje ' + estado.ejeIPRUS.codigo + ' (' + estado.ejeIPRUS.nombre + '): ' + estado.ejeIPRUS.pisos + ' pisos' + (isFinite(lmE) ? ', lote mínimo ' + lmE + ' m²' : '') + '.';
+      } else if (estado.fichaSinDeterminantes) {
+        estado.fuenteAltura = 'La ficha del PIT ' + estado.fichaSinDeterminantes + ' no asigna altura (zona sin aptitud constructiva).';
+      } else if (esAreaHistorica) {
+        estado.fuenteAltura = 'Zona ' + pitOficial + ': su ficha remite a la Ordenanza de Áreas Históricas y Patrimoniales; valores referenciales.';
       } else if (fichaPITActual) {
-        estado.fuenteAltura = 'Altura según la ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + '), por área' + (frenteLoteActual ? ' y frente' : '') + ' del lote.';
+        estado.fuenteAltura = 'Altura según la ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo ' + fichaPITActual.anexo + ', p. ' + fichaPITActual.pagina + '), por área' + (frenteLoteActual ? ' y frente' : '') + ' del lote.';
       } else if (/^UP-/i.test(pitOficial)) {
         maxPisosPorArea = Math.min(maxPisosPorArea, 3);
         estado.fuenteAltura = 'Zona ' + pitOficial + ': sin tabla verificada, se usa un tope conservador de 3 pisos. Confírmalo con el IPRUS.';
@@ -3647,12 +3653,14 @@
         ? 'Este predio no está digitalizado todavía en el Plan Especial del Centro Histórico (PECH) — se muestra un tope conservador de ' + maxPisosLote + ' piso' + (maxPisosLote === 1 ? '' : 's') + ' mientras se confirma el real.'
         : 'Tope de ' + maxPisosLote + ' piso' + (maxPisosLote === 1 ? '' : 's') + ' según el Plan Especial del Centro Histórico (PECH 2016) para este predio puntual.';
       notaCentro = '<div style="font-size:0.85rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:12px;">' + NORMATIVA_CENTRO_HISTORICO.nota + '<br><br>📏 ' + notaPisosPech + '</div>';
+    } else if (estado.fichaSinDeterminantes) {
+      filasTablaHtml = '';
     } else {
       var nivelesRef = determinantesActivos();
       var tituloTabla = estado.esAreaHistorica
         ? 'Área histórica (Ordenanza 2024), valores referenciales'
         : fichaPITActual
-          ? 'Ficha oficial del PIT ' + fichaPITActual.codigo + ' (' + fichaPITActual.sector + ') · PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + (frenteLoteActual ? ' · frente del lote ≈ ' + frenteLoteActual.toFixed(1) + ' m' : '')
+          ? 'Ficha oficial del PIT ' + fichaPITActual.codigo + ' (' + fichaPITActual.sector + ') · PUGS 2025, Anexo ' + fichaPITActual.anexo + ', p. ' + fichaPITActual.pagina + (frenteLoteActual ? ' · frente del lote ≈ ' + frenteLoteActual.toFixed(1) + ' m' : '')
           : 'Tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
       filasTablaHtml = '<div>' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">' + tituloTabla + '</div>' +
@@ -3856,6 +3864,20 @@
     // Planta baja usa el retiro MÍNIMO fijo (estado.retirosPB), no el de plantas altas (estado.retiros,
     // que cambia según el piso elegido en el slider) — ver mostrarResultado() para por qué.
     var puntosPBm = recortarConRetiros(estado, estado.retirosPB || estado.retiros);
+    // Ficha del PIT con superficie máxima por piso (expansión urbana: "vivienda unifamiliar, 150 m²
+    // por piso"): la huella se encoge hacia su centroide hasta esa área, dentro de la envolvente.
+    var maxM2 = fichaPITActual && fichaPITActual.maxM2Piso;
+    if (maxM2) {
+      var encoger = function (pts) {
+        if (!pts || pts.length < 3) return pts;
+        var A = areaPoligonoM(pts); if (A <= maxM2) return pts;
+        var k = Math.sqrt(maxM2 / A), cx = 0, cy = 0;
+        pts.forEach(function (p) { cx += p[0]; cy += p[1]; }); cx /= pts.length; cy /= pts.length;
+        return pts.map(function (p) { return [cx + (p[0] - cx) * k, cy + (p[1] - cy) * k]; });
+      };
+      puntosPBm = encoger(puntosPBm);
+      if (!esDesdeArrastre) estado.puntosAltasActuales = encoger(estado.puntosAltasActuales);
+    }
     // Degenerado real (no un error de código): si los retiros se comen toda la huella no queda nada
     // edificable — ya pasó con un predio real de muchos lados "frente" muy cerca de un río, que
     // probablemente ni siquiera es un lote destinado a edificación (franja de protección, área verde,
@@ -4219,6 +4241,7 @@
       if (!elD) return;
       var nivel = nv0, dv = dv0;
       var areaLote = areaAnillo(estado.pts);
+      if (fichaPITActual && fichaPITActual.soloUnifamiliar) { resumenNormativa.viv = 1; elD.textContent = '1 vivienda: la ficha ' + fichaPITActual.codigo + ' solo permite vivienda unifamiliar' + (fichaPITActual.maxM2Piso ? ', máx. ' + fichaPITActual.maxM2Piso + ' m² por piso' : ''); return; }
       if (isFinite(dv) && esPiso0 && areaLote) { var vmin = Math.max(1, Math.ceil(dv * areaLote / 10000)); elD.textContent = 'mínimo ' + dv + ' viv/ha (al menos ' + vmin + ' vivienda' + (vmin === 1 ? '' : 's') + '), sin tope por densidad'; return; }
       if (!isFinite(dv) || !areaLote) { elD.textContent = 'sin dato de densidad para este PIT'; return; }
       var viv = Math.max(1, Math.floor(dv * areaLote / 10000));
