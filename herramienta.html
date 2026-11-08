@@ -4083,6 +4083,7 @@
         }
         nuevos.forEach(function (e) { D[e[0]] = e[1]; });
       }
+      if (/[?&]debug=lamina/.test(location.search)) window.__interp = { W: W, H: H, Z0: Z.slice(), D: D, vias: vias, mC: mCalz, mV: mVer, Rm: Rm };
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
