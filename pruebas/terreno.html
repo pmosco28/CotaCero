@@ -232,29 +232,47 @@
     }
     return v;
   }
-  function metodoVias(N, B, red) {
+  // Categorías de vía → rigidez de la rasante y pendiente máxima (diseño vial habitual)
+  var CATEGORIAS = {
+    motorway: [12, 0.06], trunk: [12, 0.06], motorway_link: [10, 0.08], trunk_link: [10, 0.08],
+    primary: [10, 0.08], primary_link: [8, 0.10], secondary: [8, 0.10], secondary_link: [7, 0.12],
+    tertiary: [6, 0.12], tertiary_link: [6, 0.14], residential: [4, 0.18], unclassified: [4, 0.18], living_street: [4, 0.18], service: [3, 0.20], track: [2, 0.25],
+    pedestrian: [3, 0.20], footway: [2, 0.30], path: [1.5, 0.35], cycleway: [3, 0.10], steps: [0.05, 9]
+  };
+  function metodoVias(N, B, red, opc) {
+    opc = opc || {};
     // nodos: OSM + densificados cada 6 m; aristas a lo largo de la vía; cruces = mismo id
-    var pos = {}, vecinos = {}, esc = {};
+    var pos = {}, vecinos = {}, esPuente = {};
     function nodo(id, p) { if (!pos[id]) { pos[id] = p; vecinos[id] = []; } }
     var nuevo = 0;
     red.vias.forEach(function (v) {
-      var debil = v.tipo === 'steps';
+      var cat = CATEGORIAS[v.tipo] || [4, 0.18];
+      var rig = opc.categorias ? cat[0] / 6 : (v.tipo === 'steps' ? 0.05 : 1), smax = opc.categorias ? cat[1] : 9;
       for (var s = 0; s < v.ids.length - 1; s++) {
         var a = v.ids[s], b = v.ids[s + 1], pa = red.nodos[a], pb = red.nodos[b], L = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), n = Math.max(1, Math.ceil(L / 6));
         nodo(a, pa); nodo(b, pb); var prev = a;
         for (var k = 1; k <= n; k++) {
           var id = k === n ? b : ('d' + (nuevo++)), t = k / n; nodo(id, [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t]);
-          vecinos[prev].push([id, debil ? 0.05 : 1]); vecinos[id].push([prev, debil ? 0.05 : 1]); prev = id;
+          if (v.puente && opc.sinPuentes && k < n) esPuente[id] = 1;
+          var d = L / n;
+          vecinos[prev].push([id, rig, smax * d]); vecinos[id].push([prev, rig, smax * d]); prev = id;
         }
       }
     });
     var ids = Object.keys(pos).filter(function (id) { var p = pos[id]; return Math.abs(p[0]) < LADO / 2 && Math.abs(p[1]) < LADO / 2; });
     var dentro = {}; ids.forEach(function (id) { dentro[id] = 1; });
     var obs = {}, z = {}; ids.forEach(function (id) { obs[id] = muestrear(B, N, pos[id][0], pos[id][1]); z[id] = obs[id]; });
-    var W = 1, LAM = 6;
-    for (var it = 0; it < 400; it++) ids.forEach(function (id) {
-      var s = W * obs[id], w = W; vecinos[id].forEach(function (e) { if (!dentro[e[0]]) return; s += LAM * e[1] * z[e[0]]; w += LAM * e[1]; }); z[id] = s / w;
-    });
+    var LAM = 6;
+    for (var it = 0; it < 400; it++) {
+      ids.forEach(function (id) {
+        var W = esPuente[id] ? 0 : 1; // el tablero de un puente no lee el agua de abajo
+        var s = W * obs[id], w = W; vecinos[id].forEach(function (e) { if (!dentro[e[0]]) return; s += LAM * e[1] * z[e[0]]; w += LAM * e[1]; }); if (w > 0) z[id] = s / w;
+      });
+      if (opc.categorias && it % 4 === 3) ids.forEach(function (id) {
+        // pendiente máxima de su categoría: si el modelo la excede, es ruido (salvo escalinatas)
+        vecinos[id].forEach(function (e) { if (!dentro[e[0]]) return; var dz = z[id] - z[e[0]], lim = e[2]; if (Math.abs(dz) > lim) { var ex = (Math.abs(dz) - lim) / 2 * Math.sign(dz); z[id] -= ex; z[e[0]] += ex; } });
+      });
+    }
     // la diferencia con B se fija en los píxeles de calle y se reparte a las manzanas
     var fijos = new Uint8Array(N * N), val = new Float32Array(N * N), cnt = new Float32Array(N * N);
     ids.forEach(function (id) { var k = idx(N, pos[id][0], pos[id][1]); if (k < 0) return; fijos[k] = 1; val[k] += z[id] - obs[id]; cnt[k]++; });
@@ -376,6 +394,17 @@
           for (var q = 0; q < N * N; q++) B[q] = A[q] - kc.b * fb[q] - kc.v * fv[q] - kc.r * fr[q];
           var MV = metodoVias(N, B, red), C = MV.C, D = metodoRios(N, C, red);
           var FS = filtroSuelo(N, A), E = metodoRios(N, metodoVias(N, FS.Z, red).C, red);
+          if (BS.id === 'alos') {
+            var V1 = metodoVias(N, FS.Z, red, { sinPuentes: true }).C, V2 = metodoVias(N, FS.Z, red, { sinPuentes: true, categorias: true }).C;
+            var variantes = [
+              ['F · solo filtro', FS.Z], ['F → vías', V1], ['F → vías → ríos', metodoRios(N, V1, red)],
+              ['F → ríos → vías (orden inverso)', metodoVias(N, metodoRios(N, FS.Z, red), red, { sinPuentes: true }).C],
+              ['F → vías por categoría', V2], ['F → vías por categoría → ríos', metodoRios(N, V2, red)]
+            ];
+            var callesV = new Uint8Array(N * N); metodoVias(N, FS.Z, red).ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k4 = idx(N, p[0] + dx, p[1] + dy); if (k4 >= 0) callesV[k4] = 1; } });
+            ablacion.push({ zona: Z.nombre, filas: [['A · ALOS solo', A]].concat(variantes).map(function (v) { var m1 = metricas(N, v[1], T), m2 = metricas(N, v[1], T, callesV); return [v[0], m1.rmse, m2.rmse, pendienteRMSE(N, v[1], T)]; }) });
+            pintarAblacion();
+          }
           var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
           var mA = metricas(N, A, T), mD = metricas(N, D, T), mE = metricas(N, E, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles), cE = metricas(N, E, T, calles);
           filasZona.push({ base: BS.nombre, A: mA, D: mD, E: mE, cA: cA, cD: cD, cE: cE, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T), pE: pendienteRMSE(N, E, T), obj: FS.fraccionObjeto });
@@ -397,6 +426,16 @@
       pintarResumen();
       if (copD) { var Dd = new Float32Array(N * N); for (var q2 = 0; q2 < N * N; q2++) Dd[q2] = copD[q2] - sesgoCop; zonas3d.push({ nombre: Z.nombre, N: N, rec: Dd, ver: T, red: red }); }
     } catch (e) { log('  ✗ ' + Z.nombre + ': ' + e); }
+  }
+  var ablacion = [];
+  function pintarAblacion() {
+    var cont = document.getElementById('ablacion') || (function () { var d = document.createElement('section'); d.id = 'ablacion'; res.parentNode.insertBefore(d, res); return d; })();
+    var nombres = ablacion[0].filas.map(function (f) { return f[0]; });
+    function prom(i, c) { var v = ablacion.map(function (a) { return a.filas[i][c]; }); return v.reduce(function (x, y) { return x + y; }, 0) / v.length; }
+    var base = prom(0, 1), baseC = prom(0, 2);
+    cont.innerHTML = '<h2>¿Cuánto aporta cada paso y en qué orden? (ALOS, promedio de ' + ablacion.length + ' zonas)</h2><table><tr><th>Secuencia</th><th>RMSE general</th><th>vs. solo</th><th>RMSE en calles</th><th>vs. solo</th><th>RMSE pendiente</th></tr>' +
+      nombres.map(function (n, i) { var a = prom(i, 1), c = prom(i, 2); return '<tr><td>' + n + '</td><td>' + a.toFixed(2) + ' m</td><td>' + Math.round((a / base - 1) * 100) + ' %</td><td>' + c.toFixed(2) + ' m</td><td>' + Math.round((c / baseC - 1) * 100) + ' %</td><td>' + prom(i, 3).toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
+    window.__ablacion = ablacion.map(function (a) { return { zona: a.zona, filas: a.filas.map(function (f) { return [f[0], +f[1].toFixed(2), +f[2].toFixed(2), +f[3].toFixed(1)]; }) }; });
   }
   function pintarResumen() {
     var cont = document.getElementById('resumen') || (function () { var d = document.createElement('section'); d.id = 'resumen'; res.parentNode.insertBefore(d, res); return d; })();
