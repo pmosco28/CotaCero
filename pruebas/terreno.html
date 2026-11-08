@@ -405,7 +405,10 @@
     return m;
   }
   function suavizarManzanas(N, Z, red, alfa, maxHa) {
-    var via = mascaraTodasVias(N, red), comp = new Int32Array(N * N).fill(-1), areas = [], nc = 0;
+    // bordes fijos: vías y también cauces (una quebrada dentro de la manzana no se rellena)
+    var via = mascaraTodasVias(N, red), mr = fraccionRaster(N, function (x, aPx) { x.lineCap = 'round'; x.lineJoin = 'round'; red.rios.forEach(function (r) { x.lineWidth = (r.ancho + 10) / PASO; x.beginPath(); r.pts.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); }); });
+    for (var kr = 0; kr < N * N; kr++) if (mr[kr] > 0.15) via[kr] = 1;
+    var comp = new Int32Array(N * N).fill(-1), areas = [], nc = 0;
     for (var s0 = 0; s0 < N * N; s0++) {
       if (via[s0] || comp[s0] >= 0) continue;
       var pila = [s0], n = 0; comp[s0] = nc;
