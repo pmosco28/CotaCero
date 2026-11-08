@@ -357,12 +357,11 @@
       res.appendChild(cont);
       filas.push({ zona: Z.nombre, t: filasZona.map(function (f) { return [f.base, +f.A.rmse.toFixed(2), +f.D.rmse.toFixed(2), +f.cD.rmse.toFixed(2), +f.pD.toFixed(1)]; }) });
       if (copD) { var Dd = new Float32Array(N * N); for (var q2 = 0; q2 < N * N; q2++) Dd[q2] = copD[q2] - sesgoCop; zonas3d.push({ nombre: Z.nombre, N: N, rec: Dd, ver: T, red: red }); }
-      if (zonas3d.length === 1) mostrar3D(0);
     } catch (e) { log('  ✗ ' + Z.nombre + ': ' + e); }
   }
   var bt = document.getElementById('botones3d');
   zonas3d.forEach(function (z, i) { var b = document.createElement('button'); b.textContent = z.nombre; b.onclick = function () { mostrar3D(i); }; bt.appendChild(b); });
-  marcarBoton(0);
+  try { mostrar3D(0); } catch (e) { log('3D: ' + e); }
   function marcarBoton(i) { if (!bt) return; [].forEach.call(bt.children, function (b, k) { b.classList.toggle('activa', k === i); }); }
 
   // ---------- Maqueta 3D en terrazas ----------
