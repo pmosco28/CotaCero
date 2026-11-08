@@ -4023,6 +4023,79 @@
     //  - vereda: rasante + 20 cm (el salto gráfico del bordillo);
     //  - predios: terreno del MDT, con la corrección de la calle desvaneciéndose en ~6 m hacia adentro
     //    para que las curvas empalmen sin escalones.
+    // ---------- Plataformas de predios y edificios ----------
+    // En una ladera urbana el suelo no es continuo: cada predio y cada edificio es una base plana a la
+    // cota de su acceso (la vereda del frente) y los saltos quedan en los linderos, como muros.
+    //  - el plano que mejor ajusta el terreno dentro del polígono da la pendiente y su dirección;
+    //  - si el desnivel a lo largo supera medio piso (1,5 m) se escalona: 2 plataformas hasta 4,5 m,
+    //    3 de ahí en adelante (bandas de al menos 4 m);
+    //  - la banda que toca una calle toma la cota de esa vereda; si toca dos calles (frente y fondo),
+    //    cada extremo toma la suya y las intermedias se reparten entre ambas; sin acceso, el plano;
+    //  - predios de más de 2.000 m² y los que exigirían más de 3 m de corte/relleno medio no se tocan.
+    function aplicarPlataformas(Z, W, H, Rm, mCalz, mVer) {
+      var esCalle = new Uint8Array(W * H);
+      for (var k = 0; k < W * H; k++) esCalle[k] = (mCalz[k * 4 + 3] > 128 || mVer[k * 4 + 3] > 128) ? 1 : 0;
+      var cvP = document.createElement('canvas'), cxP = cvP.getContext('2d', { willReadFrequently: true });
+      function rasterizar(ring) {
+        var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+        ring.forEach(function (p) { minx = Math.min(minx, p[0]); maxx = Math.max(maxx, p[0]); miny = Math.min(miny, p[1]); maxy = Math.max(maxy, p[1]); });
+        var i0 = Math.max(0, Math.floor(minx + Rm) - 4), i1 = Math.min(W - 1, Math.ceil(maxx + Rm) + 4), j0 = Math.max(0, Math.floor(Rm - maxy) - 4), j1 = Math.min(H - 1, Math.ceil(Rm - miny) + 4);
+        if (i1 <= i0 || j1 <= j0) return null;
+        var w = i1 - i0 + 1, h = j1 - j0 + 1; cvP.width = w; cvP.height = h;
+        function trazo() { cxP.beginPath(); ring.forEach(function (p, i) { var u = p[0] + Rm - i0, v = Rm - p[1] - j0; if (i) cxP.lineTo(u, v); else cxP.moveTo(u, v); }); cxP.closePath(); }
+        cxP.clearRect(0, 0, w, h); cxP.fillStyle = '#000'; trazo(); cxP.fill();
+        var dIn = cxP.getImageData(0, 0, w, h).data;
+        cxP.clearRect(0, 0, w, h); cxP.strokeStyle = '#000'; cxP.lineWidth = 6; cxP.lineJoin = 'round'; trazo(); cxP.stroke();
+        var dBo = cxP.getImageData(0, 0, w, h).data, dentro = [], borde = [];
+        for (var jj = 0; jj < h; jj++) for (var ii = 0; ii < w; ii++) {
+          var q = jj * w + ii, kk = (jj + j0) * W + (ii + i0);
+          if (dIn[q * 4 + 3] > 128) dentro.push(kk); else if (dBo[q * 4 + 3] > 60) borde.push(kk);
+        }
+        return { dentro: dentro, borde: borde };
+      }
+      function xy(k) { return [(k % W) + 0.5 - Rm, Rm - (Math.floor(k / W) + 0.5)]; }
+      function plataforma(ring, maxArea) {
+        if (!ring || ring.length < 3) return;
+        var A = 0; for (var i = 0; i < ring.length; i++) { var a = ring[i], b = ring[(i + 1) % ring.length]; A += a[0] * b[1] - b[0] * a[1]; }
+        A = Math.abs(A) / 2; if (A < 6 || A > maxArea) return;
+        var r = rasterizar(ring); if (!r || r.dentro.length < 6) return;
+        var n = 0, mx = 0, my = 0, mz = 0;
+        r.dentro.forEach(function (k) { if (isNaN(Z[k])) return; var p = xy(k); mx += p[0]; my += p[1]; mz += Z[k]; n++; });
+        if (n < 6) return; mx /= n; my /= n; mz /= n;
+        var sxx = 0, sxy = 0, syy = 0, sxz = 0, syz = 0;
+        r.dentro.forEach(function (k) { if (isNaN(Z[k])) return; var p = xy(k), dx = p[0] - mx, dy = p[1] - my, dz = Z[k] - mz; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; sxz += dx * dz; syz += dy * dz; });
+        var det = sxx * syy - sxy * sxy, bx = det ? (sxz * syy - syz * sxy) / det : 0, by = det ? (syz * sxx - sxz * sxy) / det : 0;
+        var g = Math.hypot(bx, by), ux = g > 1e-6 ? bx / g : 1, uy = g > 1e-6 ? by / g : 0;
+        function tDe(k) { var p = xy(k); return (p[0] - mx) * ux + (p[1] - my) * uy; }
+        var tmin = Infinity, tmax = -Infinity; r.dentro.forEach(function (k) { var t = tDe(k); tmin = Math.min(tmin, t); tmax = Math.max(tmax, t); });
+        var largo = Math.max(1e-6, tmax - tmin), caida = g * largo;
+        var nb = caida < 1.5 ? 1 : caida < 4.5 ? 2 : 3; nb = Math.max(1, Math.min(nb, Math.floor(largo / 4)));
+        function banda(t) { return Math.max(0, Math.min(nb - 1, Math.floor((t - tmin) / largo * nb))); }
+        var plano = [], accS = [], accN = [];
+        for (var bI = 0; bI < nb; bI++) { plano.push(mz + g * (tmin + (bI + 0.5) * largo / nb)); accS.push(0); accN.push(0); }
+        r.borde.forEach(function (k) { if (!esCalle[k] || isNaN(Z[k])) return; var bI2 = banda(tDe(k)); accS[bI2] += Z[k]; accN[bI2]++; });
+        var off = plano.map(function (_, bI3) { return accN[bI3] >= 3 ? accS[bI3] / accN[bI3] - plano[bI3] : NaN; });
+        var conAcceso = off.map(function (o, bI4) { return isNaN(o) ? -1 : bI4; }).filter(function (v) { return v >= 0; });
+        var nivel = plano.map(function (pz, bI5) {
+          if (!conAcceso.length) return pz;
+          if (!isNaN(off[bI5])) return pz + off[bI5];
+          var izq = -1, der = -1; conAcceso.forEach(function (c) { if (c < bI5) izq = c; if (c > bI5 && der < 0) der = c; });
+          var o = izq < 0 ? off[der] : der < 0 ? off[izq] : off[izq] + (off[der] - off[izq]) * (bI5 - izq) / (der - izq);
+          return pz + o;
+        });
+        var movimiento = 0, cnt = 0;
+        r.dentro.forEach(function (k) { if (isNaN(Z[k])) return; movimiento += Math.abs(nivel[banda(tDe(k))] - Z[k]); cnt++; });
+        if (!cnt || movimiento / cnt > 3) return;
+        r.dentro.forEach(function (k) { if (!isNaN(Z[k])) Z[k] = nivel[banda(tDe(k))]; });
+        estadisticaPlataformas.push({ area: Math.round(A), bandas: nb, accesos: conAcceso.length });
+      }
+      estadisticaPlataformas = [];
+      // primero los predios (incluido el lote), luego los edificios encima
+      prediosM.concat(estado.pts ? [estado.pts] : []).forEach(function (rg) { plataforma(rg, 2000); });
+      (huellasEdificios || []).concat((estado.edificacionesLote || []).map(function (e) { return e.pts; })).forEach(function (rg) { plataforma(rg, 5000); });
+      if (/debug=lamina/.test(location.search)) window.__plataformas = estadisticaPlataformas;
+    }
+    var estadisticaPlataformas = [];
     function interpretarSuperficie(X0, Y0, Z0, W0, H0) {
       var x0 = X0[0], dx = X0[1] - X0[0], y0 = Y0[0], dy = Y0[W0] - Y0[0];
       function zMDT(x, y) {
@@ -4108,6 +4181,8 @@
         nuevos.forEach(function (e) { D[e[0]] = e[1]; });
       }
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
+      // 5) plataformas: el terreno se acomoda a predios y edificios (bases planas a la cota de su acceso)
+      try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); } catch (e) { console.warn('Plataformas: se omiten', e); }
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
     (function () {
