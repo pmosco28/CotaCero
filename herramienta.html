@@ -3825,7 +3825,7 @@
       var porVia = [];
       viasSnapeadas.forEach(function (via) {
         if (!esVehicular(via) || via.pts.length < 2) return;
-        var ref = refDeVia(via), h = ref.calzada / 2, W = h + ref.vereda + 8, piezas = [];
+        var ref = refDeVia(via), h = ref.calzada / 2, W = h + ref.vereda + 4, piezas = [];
         var buf = bufferPredios(ref.vereda);
         for (var i = 0; i < via.pts.length - 1; i++) {
           var a = via.pts[i], b = via.pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
@@ -4029,7 +4029,8 @@
         mues.push({ s: acc, p: v.pts[v.pts.length - 1] });
         var z = mues.map(function (m) { return zMDT(m.p[0], m.p[1]); });
         var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - 5); k <= Math.min(z.length - 1, i + 5); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
-        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs };
+        var rf = refDeVia(v);
+        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
       });
       if (!vias.length) return null;
       function rasante(p) {
@@ -4044,7 +4045,10 @@
             acc += L;
           }
         });
-        if (!mejor) return NaN;
+        // solo se corrige cerca del propio eje: un punto lejos de toda vía conocida (otra calle que el
+        // dibujo no tiene, un bajo) conserva el terreno — antes tomaba la rasante de una calle alta
+        // vecina y levantaba la calle de abajo 20 m
+        if (!mejor || dmin > mejor.v.alcance) return NaN;
         var S = mejor.v.s, Zr = mejor.v.z, k = 1; while (k < S.length - 1 && S[k] < mejor.s) k++;
         var f = (mejor.s - S[k - 1]) / ((S[k] - S[k - 1]) || 1);
         return Zr[k - 1] + (Zr[k] - Zr[k - 1]) * f;
@@ -4069,7 +4073,7 @@
         var esC = mCalz[k * 4 + 3] > 128, esV = !esC && mVer[k * 4 + 3] > 128;
         if ((esC || esV) && !isNaN(zt)) {
           var zr = rasante([x, y]);
-          if (!isNaN(zr)) D[k] = (zr + (esV ? 0.2 : 0)) - zt;
+          if (!isNaN(zr)) { var dd = (zr + (esV ? 0.2 : 0)) - zt; if (Math.abs(dd) <= 3) D[k] = dd; }
         }
       }
       // 4) la corrección se desvanece ~6 m hacia los predios (anillos de 1 m)
@@ -4083,7 +4087,6 @@
         }
         nuevos.forEach(function (e) { D[e[0]] = e[1]; });
       }
-      if (/[?&]debug=lamina/.test(location.search)) window.__interp = { W: W, H: H, Z0: Z.slice(), D: D, vias: vias, mC: mCalz, mV: mVer, Rm: Rm };
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
