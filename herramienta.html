@@ -3163,7 +3163,7 @@
     var LAMINA_PX = 2048;
     var laminaCanvas = document.createElement('canvas');
     laminaCanvas.width = laminaCanvas.height = LAMINA_PX;
-    var laminaCtx = laminaCanvas.getContext('2d');
+    var laminaCtx = laminaCanvas.getContext('2d'); try { window.__laminaCotaCero = laminaCanvas; } catch (e) { }
     var pxPorM = LAMINA_PX / (2 * R);
     function aLamina(p) { return [(p[0] + R) * pxPorM, (R - p[1]) * pxPorM]; }
     var texLamina = new THREE.CanvasTexture(laminaCanvas);
