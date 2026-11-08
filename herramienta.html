@@ -3163,13 +3163,14 @@
     var LAMINA_PX = 2048;
     var laminaCanvas = document.createElement('canvas');
     laminaCanvas.width = laminaCanvas.height = LAMINA_PX;
-    var laminaCtx = laminaCanvas.getContext('2d'); try { window.__laminaCotaCero = laminaCanvas; } catch (e) { }
+    var laminaCtx = laminaCanvas.getContext('2d');
     var pxPorM = LAMINA_PX / (2 * R);
     function aLamina(p) { return [(p[0] + R) * pxPorM, (R - p[1]) * pxPorM]; }
     var texLamina = new THREE.CanvasTexture(laminaCanvas);
     texLamina.encoding = THREE.sRGBEncoding;
     texLamina.anisotropy = 8;
-    var matCarton = new THREE.MeshStandardMaterial({ map: texLamina, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0 });
+    // toneMapped:false — la pintura (verdes, río, nombres) conserva su color; con ACES se lavaba.
+    var matCarton = new THREE.MeshStandardMaterial({ map: texLamina, color: cLin(colorMaqueta('cTer')), roughness: 0.92, metalness: 0, toneMapped: false });
     var matCanto = new THREE.MeshStandardMaterial({ color: cLin(colorMaqueta('cSide')), roughness: 0.95, metalness: 0 });
     var geoTapa = new THREE.PlaneGeometry(2 * R, 2 * R);
     geoTapa.rotateX(-Math.PI / 2);
@@ -3546,6 +3547,9 @@
       if (borde) { c.strokeStyle = borde; c.lineWidth = 1.2; c.stroke(); }
     }
     dibujarLamina();
+    // segunda pasada tras el primer cuadro: en algunos navegadores la primera subida de la textura
+    // quedaba a medias (se veía solo una parte de la lámina hasta tocar un control)
+    setTimeout(function () { dibujarLamina(); solicitarRender(); }, 300);
 
     // Corredores viales (calzada + veredas): ningún edificio puede pisarlos.
     var corredores = [];
