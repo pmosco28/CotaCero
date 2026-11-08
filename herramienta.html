@@ -4032,6 +4032,12 @@
         var a = Z0[k], b = Z0[k + 1], c = Z0[k + W0], d = Z0[k + W0 + 1];
         return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
       }
+      // 0) puentes: el tablero no es terreno; bajo él manda el MDT (el cauce) y el puente se dibuja aparte
+      var tramosPuente = [];
+      (estado.puentes || []).forEach(function (pu) { var an = (pu.ancho || 10) / 2 + 2; for (var i = 0; i < pu.pts.length - 1; i++) tramosPuente.push([pu.pts[i], pu.pts[i + 1], an]); });
+      function enPuente(p) {
+        return tramosPuente.some(function (t) { var a = t[0], b = t[1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, u = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0; return Math.hypot(p[0] - a[0] - abx * u, p[1] - a[1] - aby * u) <= t[2]; });
+      }
       // 1) rasantes por vía
       var vias = viasSnapeadas.filter(function (v) { return esVehicular(v) && v.pts.length >= 2; }).map(function (v) {
         var mues = [], acc = 0;
@@ -4041,7 +4047,7 @@
           acc += L;
         }
         mues.push({ s: acc, p: v.pts[v.pts.length - 1] });
-        var z = mues.map(function (m) { return zMDT(m.p[0], m.p[1]); });
+        var z = mues.map(function (m) { return enPuente(m.p) ? NaN : zMDT(m.p[0], m.p[1]); });
         var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - 5); k <= Math.min(z.length - 1, i + 5); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
         var rf = refDeVia(v);
         return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
@@ -4062,7 +4068,7 @@
         // solo se corrige cerca del propio eje: un punto lejos de toda vía conocida (otra calle que el
         // dibujo no tiene, un bajo) conserva el terreno — antes tomaba la rasante de una calle alta
         // vecina y levantaba la calle de abajo 20 m
-        if (!mejor || dmin > mejor.v.alcance) return NaN;
+        if (!mejor || dmin > mejor.v.alcance || enPuente(p)) return NaN;
         var S = mejor.v.s, Zr = mejor.v.z, k = 1; while (k < S.length - 1 && S[k] < mejor.s) k++;
         var f = (mejor.s - S[k - 1]) / ((S[k] - S[k - 1]) || 1);
         return Zr[k - 1] + (Zr[k] - Zr[k - 1]) * f;
