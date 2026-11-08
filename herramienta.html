@@ -1144,9 +1144,12 @@
   async function consultarEntorno(feature, clave) {
     if (!feature || !feature.geometry) return null;
     var base = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326';
-    function wkt(f) { var r = f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; return 'POLYGON((' + r.map(function (c) { return c[0] + ' ' + c[1]; }).join(',') + '))'; }
+    function wkt(f) {
+      // anillos largos se simplifican para que la consulta (GET) no pase el largo máximo de URL
+      try { var nV = (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]).length; if (nV > 60) f = turf.simplify(f, { tolerance: 0.000008, highQuality: true }); } catch (e) { }
+      var r = f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; return 'POLYGON((' + r.map(function (c) { return c[0] + ' ' + c[1]; }).join(',') + '))'; }
     var lote = feature, areaLote = turf.area(lote), w = wkt(lote), wBuf = null;
-    try { wBuf = wkt(turf.buffer(lote, 30, { units: 'meters' })); } catch (e) { wBuf = w; }
+    try { wBuf = wkt(turf.buffer(lote, 30, { units: 'meters', steps: 4 })); } catch (e) { wBuf = w; }
     function pedir(capa, cql, campos) {
       return fetch(base + '&typeName=' + capa + (campos ? '&propertyName=' + campos : '') + '&maxFeatures=200&CQL_FILTER=' + encodeURIComponent(cql))
         .then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }).catch(function () { return []; });
@@ -1204,7 +1207,7 @@
     var en = estado.entorno;
     if (en && en.pendiente) fila('Pendiente', en.pendiente + ' (referencial)');
     if (en && en.afect.length) fila('Afectaciones', en.afect.length + (en.afect.length === 1 ? ' registrada' : ' registradas'), '<small>' + en.afect.map(function (x) { return x.nom + (x.todo ? ' (todo el predio)' : x.dist != null ? ' a ' + x.dist + ' m' : ' · ' + x.m2.toLocaleString('es-EC') + ' m² (' + x.pct + '%)') + (x.det ? ' — ' + escaparSvg(x.det) : ''); }).join('<br>') + '</small>');
-    else if (en) fila('Afectaciones', 'ninguna registrada');
+    else if (en) fila('Afectaciones', 'ninguna registrada' + (estado.frenteARio ? '<small>Da al río; el margen de protección no toca el lote en la capa municipal.</small>' : ''));
     else if (estado.frenteARio) fila('Afectación', 'da al río: margen de protección');
     var a = estado.antecedentes;
     if (a && a.mayor.length) { var m = a.mayor[0]; fila('Permiso de construcción', (vigente(m.fecha_caducidad) ? 'vigente' : 'caducado') + ' · ' + (m.numero_plantas ? m.numero_plantas + ' pisos · ' : '') + (m.area_construccion ? Math.round(m.area_construccion).toLocaleString('es-EC') + ' m²' : '') + '<small>aprobado ' + fechaCorta(m.fecha_aprobacion) + (m.fecha_caducidad ? ', vence ' + fechaCorta(m.fecha_caducidad) : '') + (m.uso ? ' · ' + m.uso : '') + '</small>'); }
@@ -1230,7 +1233,8 @@
     if (estado.division && estado.division.n >= 2) R.push({ t: 'Para dividir: permiso de fraccionamiento (lotización) con la planimetría de la división.', ids: 'lotizacion' });
     R.push({ t: 'El primer paso para construir es el IPRUS (informe de regulación del predio): confirma pisos, retiros y usos.', ids: 'planimetrico-iprus' });
     var en = estado.entorno, af = function (re) { return en && en.afect.filter(function (x) { return re.test(x.nom); })[0]; };
-    if (af(/Margen de protección/) || estado.frenteARio) R.push({ t: 'Parte del predio está en el margen de protección del río o quebrada: ahí no se edifica. Un levantamiento define bien la franja antes de proyectar.', ids: 'levantamiento' });
+    if (af(/Margen de protección/)) R.push({ t: 'Parte del predio está en el margen de protección del río o quebrada: ahí no se edifica. Un levantamiento define bien la franja antes de proyectar.', ids: 'levantamiento' });
+    else if (estado.frenteARio) R.push({ t: 'Tu predio da al río: confirma con un levantamiento dónde termina la franja de protección antes de proyectar.', ids: 'levantamiento' });
     if (af(/inundable|Zona de riesgo/)) R.push({ t: 'Zona con riesgo de inundación: el municipio puede pedir un estudio hidrológico antes del permiso.' });
     var rm = af(/deslizamientos/); if (rm && /alta/i.test(rm.det || '')) R.push({ t: 'Susceptibilidad alta a deslizamientos: hace falta estudio geotécnico (Anexo 6.5 del PUGS) antes de construir.' });
     if (af(/Derecho de vía|obra pública/)) R.push({ t: 'Una parte del predio está reservada para vía u obra pública: confirma en el IPRUS cuánto queda edificable.' });
