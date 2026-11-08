@@ -4172,14 +4172,17 @@
       }
       estadisticaPlataformas = [];
       // primero los predios (incluido el lote), luego los edificios encima
-      // predios grandes: solo si están construidos (un parque o un terreno vacío grande no se aplana)
+      // solo predios CONSTRUIDOS: donde no hay edificio el movimiento de tierras no existe todavía y el
+      // terreno se deja natural (un lote vacío, un parque, una ladera sin casas)
       var centrosEd = (huellasEdificios || []).map(function (h) { return h.reduce(function (a, q) { return [a[0] + q[0] / h.length, a[1] + q[1] / h.length]; }, [0, 0]); });
+      var loteConstruido = (estado.edificacionesLote || []).length > 0 || (mostrarVolumenNormativa && !estado.restriccionVolumen);
       (prediosTerreno || prediosM.concat(estado.pts ? [estado.pts] : [])).forEach(function (rg) {
+        if (estado.centroideLote && puntoDentroDePoligono(estado.centroideLote, rg)) { if (loteConstruido && !estado.particionFrentes) plataforma(rg, 8000, true); return; }
         var construido = centrosEd.some(function (c) { return puntoDentroDePoligono(c, rg); });
-        plataforma(rg, construido ? 8000 : 2000, true);
+        if (construido) plataforma(rg, 8000, true);
       });
       // lote pasante: cada mitad, plataforma a la cota de SU calle (ahí apoya cada bloque normativo)
-      if (estado.particionFrentes) [1, -1].forEach(function (sg) { var h = mitadPoligono(estado.pts, estado.particionFrentes, sg); if (h.length) plataforma(h, 1e9, true, true); });
+      if (estado.particionFrentes && loteConstruido) [1, -1].forEach(function (sg) { var h = mitadPoligono(estado.pts, estado.particionFrentes, sg); if (h.length) plataforma(h, 1e9, true, true); });
       (huellasEdificios || []).concat((estado.edificacionesLote || []).map(function (e) { return e.pts; })).forEach(function (rg) { plataforma(rg, 5000, false); });
       // dientes de sierra: los saltos siguen el raster de 1 m. Un suavizado 3×3 solo donde hay salto
       // (dos pasadas) convierte la escalera de píxeles en un muro con talud corto, y las curvas salen lisas
@@ -4284,16 +4287,19 @@
       try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); } catch (e) { console.warn('Plataformas: se omiten', e); }
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
-    (function () {
+    // El terreno se rearma (MDT y predios ya en caché) al mostrar u ocultar el volumen normativo: las
+    // plataformas del lote solo existen si hay algo construido encima (real o el volumen normativo).
+    var prediosCtxPromesa = null;
+    function construirTerreno() {
       var sw = estado.metrosALatLng([-R - 12, -R - 12]), ne = estado.metrosALatLng([R + 12, R + 12]);
       // predios de TODA la maqueta (los vecinos solo cubren 40 m alrededor del lote): solo geometría,
       // para que cada predio del contexto tenga su plataforma
       var urlPrediosCtx = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&propertyName=geom&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=3000&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + [sw[1], sw[0], ne[1], ne[0]].join(',') + ",'EPSG:4326')");
-      var prediosCtx = fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) {
+      var prediosCtx = prediosCtxPromesa || (prediosCtxPromesa = fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) {
         var out = [];
         (d.features || []).forEach(function (f) { try { var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates; polys.forEach(function (pc) { var r = pc[0].map(function (c) { return estado.aMetros(c); }); if (r.length >= 3) out.push(r); }); } catch (e) { } });
         return out;
-      }).catch(function () { return null; });
+      }).catch(function () { return null; }));
       Promise.all([cargarMDT(sw[1], sw[0], ne[1], ne[0]), prediosCtx]).then(function (res) {
         var g = res[0]; if (res[1] && res[1].length) prediosTerreno = res[1];
         // suavizado 3x3 (quita el escalonado del raster) y paso a metros locales
@@ -4315,7 +4321,8 @@
         cotaMinMaxLamina = [zmin, zmax];
         dibujarLamina(); solicitarRender();
       }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
-    })();
+    }
+    construirTerreno();
     // ---------- Maqueta en terrazas de 1 m (como la de cartón por capas) ----------
     // Cada capa es la región con cota ≥ L, extruida 1 m, con la lámina impresa encima. Todo lo que
     // está sobre el terreno (edificios, árboles, lote, volumen) se apoya en la terraza que le toca.
@@ -4926,6 +4933,7 @@
         btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
         btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa';
         detalleNorm.hidden = !mostrarVolumenNormativa;
+        if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
         solicitarRender();
       });
       var btnComprar = p.querySelector('.maq-comprar');
