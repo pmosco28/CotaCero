@@ -167,7 +167,7 @@
   .maq-tramites { display: grid; gap: 8px; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; text-align: left; }
   .maq-tramite { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; cursor: pointer; }
   .maq-tramite input { position: absolute; opacity: 0; pointer-events: none; }
-  .maq-tramite i { display: grid; box-sizing: border-box; width: 15px; height: 15px; margin-top: 2px; border: 1px solid #1C1A16; border-radius: 4px; display: grid; place-items: center; }
+  .maq-tramite i { display: grid; box-sizing: border-box; width: 15px; min-width: 15px; height: 15px; flex: none; margin-top: 2px; border: 1px solid #1C1A16; border-radius: 4px; display: grid; place-items: center; }
   .maq-tramite input:checked + i { background: #1C1A16; }
   .maq-tramite input:checked + i::after { content: ''; width: 7px; height: 4px; border: 1.6px solid #f3f1ec; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
   .maq-tramite span { display: grid; line-height: 1.25; } .maq-tramite b { font-weight: 500; font-size: 0.8rem; } .maq-tramite small { font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
