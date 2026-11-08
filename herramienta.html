@@ -2857,9 +2857,12 @@
         : 'Tope de ' + maxPisosLote + ' piso' + (maxPisosLote === 1 ? '' : 's') + ' según el Plan Especial del Centro Histórico (PECH 2016) para este predio puntual.';
       notaCentro = '<div style="font-size:0.85rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:12px;">' + NORMATIVA_CENTRO_HISTORICO.nota + '<br><br>📏 ' + notaPisosPech + '</div>';
     } else {
-      var nivelesRef = NORMATIVA_REFERENCIA.determinantes;
+      var nivelesRef = determinantesActivos();
+      var tituloTabla = estado.esAreaHistorica
+        ? 'Determinantes de aprovechamiento — área histórica (Ordenanza 2024), referenciales'
+        : 'Determinantes de aprovechamiento — tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
       filasTablaHtml = '<div>' +
-        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">Determinantes de aprovechamiento — ' + NORMATIVA_REFERENCIA.sector + ', ' + NORMATIVA_REFERENCIA.tratamiento + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">' + tituloTabla + '</div>' +
         '<table class="determ"><thead><tr><th>Altura</th><th>Lote mín.</th><th>Implantación</th><th>Retiros F/L/P</th><th>Densidad</th></tr></thead><tbody>' +
         nivelesRef.map(function (n) {
           var r = rangoPisos(n);
