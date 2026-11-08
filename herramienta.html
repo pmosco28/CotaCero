@@ -3558,7 +3558,7 @@
     if (fichaPITActual && !fichaPITActual.determinantes.length) {
       // PIT urbano cuya ficha no fija determinantes (franjas con susceptibilidad alta a remoción de
       // masas o sin aptitud física constructiva, p. ej. UP-BAN-2): no hay volumen edificable.
-      if (!estado.restriccionVolumen) estado.restriccionVolumen = 'La ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo ' + fichaPITActual.anexo + ', p. ' + fichaPITActual.pagina + ') no asigna altura, lote mínimo ni retiros' + (fichaPITActual.notas.length ? ': ' + fichaPITActual.notas[0].replace(/\.$/, '') + '.' : ': es una zona sin aptitud constructiva o con susceptibilidad alta a remoción de masas.') + ' No se muestra volumen; cualquier intervención requiere estudios específicos y el IPRUS.';
+      if (!estado.restriccionVolumen) estado.restriccionVolumen = 'La ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo ' + fichaPITActual.anexo + ', p. ' + fichaPITActual.pagina + ') no asigna altura, lote mínimo ni retiros' + (fichaPITActual.notas.length ? '. ' + fichaPITActual.notas[0].replace(/\.$/, '') + '.' : ': es una zona sin aptitud constructiva o con susceptibilidad alta a remoción de masas.') + ' No se muestra volumen; cualquier intervención requiere estudios específicos y el IPRUS.';
       estado.fichaSinDeterminantes = fichaPITActual.codigo;
       fichaPITActual = null;
     } else estado.fichaSinDeterminantes = null;
@@ -3601,7 +3601,7 @@
         maxPisosPorArea = (!isFinite(lmE) || areaM2 >= lmE) ? estado.ejeIPRUS.pisos : Math.min(estado.ejeIPRUS.pisos, maxPisosPorArea);
         estado.fuenteAltura = 'Altura del eje ' + estado.ejeIPRUS.codigo + ' (' + estado.ejeIPRUS.nombre + '): ' + estado.ejeIPRUS.pisos + ' pisos' + (isFinite(lmE) ? ', lote mínimo ' + lmE + ' m²' : '') + '.';
       } else if (estado.fichaSinDeterminantes) {
-        estado.fuenteAltura = 'La ficha del PIT ' + estado.fichaSinDeterminantes + ' no asigna altura (zona sin aptitud constructiva).';
+        estado.fuenteAltura = 'La ficha del PIT ' + estado.fichaSinDeterminantes + ' no asigna altura ni retiros.';
       } else if (esAreaHistorica) {
         estado.fuenteAltura = 'Zona ' + pitOficial + ': su ficha remite a la Ordenanza de Áreas Históricas y Patrimoniales; valores referenciales.';
       } else if (fichaPITActual) {
