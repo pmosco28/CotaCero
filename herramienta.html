@@ -92,6 +92,15 @@
     font-size: 0.78rem; color: var(--ink-soft); pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
   }
   .mapa-cargando.visible { opacity: 1; }
+  /* Celular: el mapa a todo el ancho (la columna del icono 3D solo tiene sentido en pantallas
+     anchas) y con el difuminado solo en los bordes, no un círculo chico al centro. Alto máximo de
+     70vh para que siempre quede pantalla arriba/abajo para desplazar la página con el dedo. */
+  @media (max-width: 640px) {
+    .mapa-stage:not(.modo-3d) .icono-3d-col { display: none; }
+    .mapa-stage:not(.modo-3d) .mapa-col { flex: 1 1 100%; }
+    .mapa-ventana { aspect-ratio: auto; height: min(70vh, 560px); }
+    .mapa-fade { background: radial-gradient(ellipse at center, transparent 62%, var(--paper) 100%); }
+  }
   .icono-3d-col {
     flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
