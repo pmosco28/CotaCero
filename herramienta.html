@@ -159,6 +159,19 @@
   .maq-unir, .maq-deshacer { font: inherit; font-size: 0.76rem; font-weight: 500; text-transform: none; letter-spacing: 0; padding: 7px 8px; background: transparent; color: #1C1A16; border: 1px solid #1C1A16; border-radius: 8px; cursor: pointer; }
   .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
   .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
+  .maq-productos { display: grid; gap: 6px; }
+  .maq-panel .maq-comprar.secundario { background: transparent; color: #1C1A16; border: 1px solid #1C1A16; }
+  .maq-panel .maq-comprar.secundario:hover { background: #1C1A16; color: #f3f1ec; }
+  .maq-estudio { border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+  .maq-estudio-tit { font-size: 0.66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .maq-estudio .maq-union { border: 0; padding: 0; font-weight: 300; }
+  .maq-estudio .maq-union b { font-weight: 700; }
+  .maq-dividir { font: inherit; font-size: 0.76rem; font-weight: 500; text-transform: none; letter-spacing: 0; padding: 7px 8px; background: transparent; color: #1C1A16; border: 1px solid #1C1A16; border-radius: 8px; cursor: pointer; }
+  .maq-dividir:hover, .maq-dividir.activa { background: #1C1A16; color: #f3f1ec; }
+  .maq-acabados { display: flex; align-items: center; gap: 7px; font-size: 0.66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #6d6a63; }
+  .maq-acabados span { margin-right: auto; }
+  .maq-acabado { position: relative; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(28,26,22,.3); cursor: pointer; padding: 0; }
+  .maq-acabado.activa { outline: 1.5px solid #1C1A16; outline-offset: 2px; }
   .maq-union { font-size: 0.78rem; line-height: 1.45; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; background: transparent; }
   .maq-union-btns { display: flex; gap: 6px; margin-top: 6px; } .maq-union-btns button { flex: 1; }
   .maq-terreno button { flex: 1; font: inherit; font-size: 0.72rem; padding: 6px 8px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; cursor: pointer; }
@@ -1352,6 +1365,77 @@
   // Lote con DOS FRENTES OPUESTOS (pasante): la normativa rige desde cada calle, así que el edificio
   // se parte en dos bloques a mitad de fondo; cada uno cuenta sus pisos desde la vereda de SU calle
   // (en ladera: dos bloques de distinta altura absoluta) y cada uno resuelve sus propios patios.
+  // ---------- Dividir un lote en lotes mínimos según la normativa ----------
+  // Franjas perpendiculares al frente principal, de IGUAL ÁREA, tantas como permitan a la vez el lote
+  // mínimo (área) y el frente mínimo. Si el área daría muchos más lotes que el frente, el terreno pide
+  // una vía interna: eso ya es un diseño de lotización (producto pagado), no se dibuja solo.
+  function recortarSemiplanoU(poly, M, u, signo) {
+    if (!poly || poly.length < 3) return [];
+    var out = [];
+    function f(p) { return signo * ((p[0] - M[0]) * u[0] + (p[1] - M[1]) * u[1]); }
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b);
+      if (fa <= 0) out.push(a);
+      if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { var t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    }
+    return out.length >= 3 ? out : [];
+  }
+  function areaPoligonoM(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+  function calcularDivision(estado) {
+    var tabla = determinantesActivos(), fila = tabla[0];
+    var loteMin = fila.lote_min, frenteMin = fila.frente_min || 6;
+    if (estado.ejeIPRUS && isFinite(parseFloat(estado.ejeIPRUS.loteMin))) {
+      loteMin = parseFloat(estado.ejeIPRUS.loteMin);
+      tabla.forEach(function (t) { if (t.lote_min <= loteMin) frenteMin = t.frente_min || frenteMin; });
+    }
+    // frente principal: el grupo de lados "frente" más largo
+    var grupos = {};
+    for (var i = 0; i < estado.nLados; i++) {
+      if (estado.tipoLado[i] !== 'frente') continue;
+      var g = estado.numeroFrente[i] || 1, a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados];
+      (grupos[g] = grupos[g] || []).push([a, b]);
+    }
+    var mejor = null, Lmejor = 0;
+    Object.keys(grupos).forEach(function (k) { var L = grupos[k].reduce(function (s, sg) { return s + Math.hypot(sg[1][0] - sg[0][0], sg[1][1] - sg[0][1]); }, 0); if (L > Lmejor) { Lmejor = L; mejor = grupos[k]; } });
+    var A = areaPoligonoM(estado.pts);
+    var res = { n: 0, area: A, loteMin: loteMin, frenteMin: frenteMin, frente: Lmejor, lotes: [], cortes: [] };
+    if (!mejor) return res;
+    var p0 = mejor[0][0], p1 = mejor[mejor.length - 1][1], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+    var u = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L];
+    var nArea = Math.floor(A / loteMin), nFrente = Math.floor(Lmejor / frenteMin);
+    res.nPorArea = nArea; res.nPorFrente = nFrente;
+    var ts = estado.pts.map(function (p) { return (p[0] - p0[0]) * u[0] + (p[1] - p0[1]) * u[1]; });
+    var tmin = Math.min.apply(null, ts), tmax = Math.max.apply(null, ts);
+    function areaHasta(t) { return areaPoligonoM(recortarSemiplanoU(estado.pts, [p0[0] + u[0] * t, p0[1] + u[1] * t], u, 1)); }
+    for (var n = Math.min(nArea, nFrente, 12); n >= 2; n--) {
+      var cortes = [];
+      for (var k = 1; k < n; k++) {
+        var objetivo = A * k / n, lo = tmin, hi = tmax;
+        for (var it = 0; it < 40; it++) { var mid = (lo + hi) / 2; if (areaHasta(mid) < objetivo) lo = mid; else hi = mid; }
+        cortes.push((lo + hi) / 2);
+      }
+      var lotes = [], ok = true, tPrev = null;
+      cortes.concat([null]).forEach(function (tc) {
+        var lote = estado.pts.slice();
+        if (tc != null) lote = recortarSemiplanoU(lote, [p0[0] + u[0] * tc, p0[1] + u[1] * tc], u, 1);
+        if (tPrev != null) lote = recortarSemiplanoU(lote, [p0[0] + u[0] * tPrev, p0[1] + u[1] * tPrev], u, -1);
+        var aL = areaPoligonoM(lote);
+        // frente de cada lote: ancho de la franja medido sobre la línea de frente
+        var ancho = (tc != null ? tc : Math.max.apply(null, [0, L])) - (tPrev != null ? tPrev : 0);
+        if (aL < loteMin * 0.98 || ancho < frenteMin * 0.95) ok = false;
+        lotes.push({ pts: lote, area: aL });
+        tPrev = tc;
+      });
+      if (ok) {
+        res.n = n; res.lotes = lotes;
+        res.cortes = cortes.map(function (tc) { var M = [p0[0] + u[0] * tc, p0[1] + u[1] * tc], nrm = [-u[1], u[0]]; return [[M[0] - nrm[0] * 400, M[1] - nrm[1] * 400], [M[0] + nrm[0] * 400, M[1] + nrm[1] * 400]]; });
+        break;
+      }
+    }
+    // con vía interna (se ceden ~25 % para vía y áreas verdes) cabrían aprox. estos lotes
+    res.nConVia = Math.floor(A * 0.75 / loteMin);
+    return res;
+  }
   function particionDosFrentes(estado) {
     var grupos = {};
     for (var i = 0; i < estado.nLados; i++) {
@@ -3017,6 +3101,14 @@
   // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
   // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
   var introHechaPara = null;
+  // Acabados de maqueta: paletas completas (más claro que elegir color por color)
+  var ACABADOS = {
+    blanco: { nombre: 'Blanco', c: { cTer: '#f3f1ec', cSide: '#d9d2c4', cBld: '#faf9f6', cRes: '#4f95c4', cSand: '#a9b78c', cCan: '#c9d0bd' } },
+    carton: { nombre: 'Cartón', c: { cTer: '#ddcdb0', cSide: '#b99d72', cBld: '#f4eee3', cRes: '#6f9cc0', cSand: '#b6bd94', cCan: '#a3ad85' } },
+    madera: { nombre: 'Madera', c: { cTer: '#e2c7a2', cSide: '#a87f52', cBld: '#fbf7f0', cRes: '#5f8fb5', cSand: '#a9b48a', cCan: '#7f9064' } },
+    concreto: { nombre: 'Concreto', c: { cTer: '#d8d8d4', cSide: '#9e9e99', cBld: '#f6f6f4', cRes: '#7a98ad', cSand: '#b3b9a9', cCan: '#8f9a86' } }
+  };
+  var acabadoActual = 'blanco'; try { acabadoActual = localStorage.getItem('cotacero-acabado') || 'blanco'; } catch (e) { }
   var ICONOS_MAQ = {arboles: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>', rio: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c3-2 5 2 9 0s6 2 9 0M3 15c3-2 5 2 9 0s6 2 9 0"/></svg>', lineas: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/></svg>', edificios: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-3v14M10 20V4l8 3v13M3 20h18"/></svg>', curvas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4-5 14-5 18 0M5 13c4-5 10-5 14 0M8 8c2-3 6-3 8 0"/></svg>', foto: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>', tin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l6-9 4 5 3-4 5 8z"/></svg>', terrazas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 15h12M8 11h8M10 7h4"/></svg>', unir: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="8" height="10"/><rect x="13" y="7" width="8" height="10"/><path d="M10 12h4"/></svg>', avisar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v3.5M12 13.5v.3"/></svg>', conjunto: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>', lote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M9 11l3-1.5 3 1.5v3l-3 1.5-3-1.5z"/></svg>', planta: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="M4 11h7v9M11 4v4"/></svg>', info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.4"/></svg>'};
   async function ejeIPRUSDelPredio(estado) {
     var bb = turf.bbox(turf.buffer(estado.featureReg, 0.03, { units: 'kilometers' }));
@@ -3703,7 +3795,7 @@
       destinoVol = grupoVolumen;
     });
     scene.add(grupoVolumen);
-    if (estado.restriccionVolumen) mostrarVolumenNormativa = false;
+    if (estado.restriccionVolumen || estado.division) mostrarVolumenNormativa = false;
     grupoVolumen.visible = mostrarVolumenNormativa;
     // Densidad → referencia de m²: en Cuenca el IPRUS ya no trae COS/CUS; trae altura, lote mínimo,
     // retiros y Densidad Neta de Vivienda (viv/ha). Viviendas = densidad × área del lote (ha). Se
@@ -4179,6 +4271,18 @@
         }
       }
       if (typeof dibujarCurvas === 'function') dibujarCurvas(c);
+      if (estado.division && estado.division.lotes.length > 1) {
+        c.save();
+        c.font = '300 ' + Math.round(1.5 * pxPorM) + 'px "Inter Tight", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        estado.division.lotes.forEach(function (l, i) {
+          c.beginPath(); l.pts.forEach(function (p, j) { var q = aLamina(p); if (j) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath();
+          c.setLineDash([0.9 * pxPorM, 0.6 * pxPorM]); c.strokeStyle = '#1C1A16'; c.lineWidth = Math.max(1.5, 0.18 * pxPorM); c.stroke();
+          var cx = 0, cy = 0; l.pts.forEach(function (p) { cx += p[0] / l.pts.length; cy += p[1] / l.pts.length; });
+          var q = aLamina([cx, cy]); c.setLineDash([]); c.lineWidth = 4; c.strokeStyle = 'rgba(255,255,255,.9)';
+          var tx = 'L' + (i + 1) + ' · ' + Math.round(l.area) + ' m²'; c.strokeText(tx, q[0], q[1]); c.fillStyle = '#1C1A16'; c.fillText(tx, q[0], q[1]);
+        });
+        c.restore();
+      }
       if (loteEnLamina && estado.pts && estado.pts.length >= 3) {
         c.beginPath(); estado.pts.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath();
         c.fillStyle = 'rgba(232,140,90,0.38)'; c.fill();
@@ -5109,8 +5213,10 @@
 
         (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
         (function () {
-          var sg = productoSugerido(estado);
-          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '" data-tip="' + (sg.titulo + ': ' + sg.sub).replace(/"/g, '&quot;') + '" data-tip-largo><span>' + (sg.corto || sg.titulo) + '</span>' + (precioDeProducto(sg.id) ? '<em>' + precioDeProducto(sg.id) + '</em>' : '') + '</button>' : '') +
+          var ps = productosSugeridos(estado);
+          return (ps.length ? '<div class="maq-productos">' + ps.map(function (sg, i) {
+            return '<button type="button" class="maq-comprar' + (i ? ' secundario' : '') + '" data-producto="' + sg.id + '" data-tip="' + (sg.titulo + ': ' + sg.sub).replace(/"/g, '&quot;') + '" data-tip-largo><span>' + (sg.corto || sg.titulo) + '</span>' + (precioDeProducto(sg.id) ? '<em>' + precioDeProducto(sg.id) + '</em>' : '') + '</button>';
+          }).join('') + '</div>' : '') +
             '<div class="maq-ficha"><input type="email" class="maq-ficha-correo" placeholder="Tu correo para la ficha gratis" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar ficha PDF</button><div class="maq-ficha-msg" hidden></div>' +
             '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
         })() +
@@ -5122,12 +5228,23 @@
             '<div class="maq-aprox">Aproximado. ' + (estado.fuenteAltura || '') + (particionFrentes ? ' Lote con dos frentes: dos bloques, cada uno con sus pisos desde su propia calle.' : '') + '</div>' +
           '</div>' +
         '</div>' +
-        (estado.esUnion
-          ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
-              (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
-              '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div>' +
-              '<div class="maq-union-btns"><button type="button" class="maq-unir">Unir otro lote</button><button type="button" class="maq-deshacer">Volver a mi lote</button></div></div>'
-          : '') +
+        '<div class="maq-estudio"><div class="maq-estudio-tit">Estudio urbano</div>' +
+          (estado.esUnion
+            ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
+                (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
+                '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div></div>'
+            : '') +
+          (estado.division
+            ? '<div class="maq-union">' + (estado.division.n >= 2
+                ? '<b>' + estado.division.n + ' lotes</b> de ~' + Math.round(estado.division.area / estado.division.n) + ' m² hacia la calle' +
+                  '<div class="maq-nota">Lote mínimo ' + estado.division.loteMin + ' m², frente mínimo ' + estado.division.frenteMin + ' m.' + (estado.division.nConVia > estado.division.n + 1 ? ' Con una vía interna podrían salir unos ' + estado.division.nConVia + ': eso pide un diseño de lotización.' : '') + ' Fraccionar requiere permiso municipal.</div>'
+                : 'Este lote no alcanza para dividirse: necesita al menos 2 × ' + estado.division.loteMin + ' m² y 2 × ' + estado.division.frenteMin + ' m de frente.' + (estado.division.nConVia >= 2 ? '<div class="maq-nota">Con una vía interna podrían salir unos ' + estado.division.nConVia + ' lotes: eso pide un diseño de lotización.</div>' : '')) + '</div>'
+            : '') +
+          '<div class="maq-union-btns">' +
+            (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
+              : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
+          '</div>' +
+        '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
           '<label class="ico" data-tip="Río"><input type="checkbox" data-capa="rio" checked>' + ICONOS_MAQ.rio + '</label>' +
@@ -5140,11 +5257,10 @@
           '<button type="button" class="ico' + (modoTerreno === 'tin' ? ' activa' : '') + '" data-terreno="tin" data-tip="Terreno">' + ICONOS_MAQ.tin + '</button>' +
           '<button type="button" class="ico' + (modoTerreno !== 'tin' ? ' activa' : '') + '" data-terreno="terrazas" data-tip="Maqueta en capas">' + ICONOS_MAQ.terrazas + '</button>' +
           '<span class="maq-sep"></span>' +
-          (estado.esUnion ? '' : '<button type="button" class="ico maq-unir" data-tip="Unir con un lote vecino">' + ICONOS_MAQ.unir + '</button>') +
           '<a class="ico maq-avisar" data-tip="¿Falta una construcción? Avísanos" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">' + ICONOS_MAQ.avisar + '</a>' +
         '</div>' +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto" data-tip="Conjunto">' + ICONOS_MAQ.conjunto + '</button><button type="button" data-vista="lote" data-tip="Lote">' + ICONOS_MAQ.lote + '</button><button type="button" data-vista="planta" data-tip="Planta">' + ICONOS_MAQ.planta + '</button></div>' +
-        '<details class="maq-col"><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>';
+        '<div class="maq-acabados"><span>Acabado</span>' + Object.keys(ACABADOS).map(function (k) { var A = ACABADOS[k]; return '<button type="button" class="maq-acabado' + (acabadoActual === k ? ' activa' : '') + '" data-acabado="' + k + '" data-tip="' + A.nombre + '" style="background:linear-gradient(135deg,' + A.c.cTer + ' 0 50%,' + A.c.cSide + ' 50% 100%)"></button>'; }).join('') + '</div>';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
       var btnNorm = p.querySelector('.maq-normativa'), detalleNorm = p.querySelector('.maq-norma-detalle');
@@ -5161,9 +5277,14 @@
         solicitarRender();
       });
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
+      var btnDiv = p.querySelector('.maq-dividir');
+      if (btnDiv) btnDiv.addEventListener('click', function () {
+        estado.division = estado.division ? null : calcularDivision(estado);
+        if (estado.division && estado.division.n < 2) estado.division.lotes = [];
+        recomputarYRenderizar(estado);
+      });
       var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
-      var btnComprar = p.querySelector('.maq-comprar');
-      if (btnComprar) btnComprar.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(btnComprar.getAttribute('data-producto')); });
+      p.querySelectorAll('.maq-comprar').forEach(function (bc) { bc.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(bc.getAttribute('data-producto')); }); });
       var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
       try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
       btnFicha.addEventListener('click', function () {
@@ -5289,30 +5410,18 @@
           } else tipEd.hidden = true;
         });
       });
-      var COLS = [['cTer', 'Terreno', [matCarton]], ['cSide', 'Cantos', [matCanto]], ['cBld', 'Edificios', [mat]], ['cRes', 'Río', 'lamina'], ['cSand', 'Áreas verdes', 'lamina'], ['cCan', 'Copas', [matCopa]], ['cBg', 'Fondo', null]];
-      var cont = p.querySelector('.maq-colores');
-      function aplicar(id, v) {
-        var c = COLS.filter(function (x) { return x[0] === id; })[0]; if (!c) return;
-        if (c[2] === 'lamina') dibujarLamina();
-        else if (c[2]) c[2].forEach(function (m) { m.color.copy(cLin(v)); });
-        else canvas.style.background = 'radial-gradient(120% 90% at 50% 35%, ' + v + ' 0%, ' + v + ' 20%, #d9dad8 100%)';
-        solicitarRender();
+      function aplicarAcabado(k) {
+        var A = ACABADOS[k]; if (!A) return;
+        acabadoActual = k; coloresMaqueta = Object.assign({}, A.c);
+        try { localStorage.setItem('cotacero-maqueta-colores', JSON.stringify(coloresMaqueta)); localStorage.setItem('cotacero-acabado', k); } catch (e) { }
+        [matTerraza, matCarton].forEach(function (m) { m.color.copy(cLin(A.c.cTer)); });
+        matCanto.color.copy(cLin(A.c.cSide));
+        grupoTIN.children.forEach(function (o, i) { if (i > 0 && o.material) o.material.color.copy(cLin(A.c.cSide)); });
+        mat.color.copy(cLin(A.c.cBld)); matCopa.color.copy(cLin(A.c.cCan));
+        dibujarLamina(); solicitarRender();
+        p.querySelectorAll('.maq-acabado').forEach(function (b) { b.classList.toggle('activa', b.getAttribute('data-acabado') === k); });
       }
-      COLS.forEach(function (c) {
-        var l = document.createElement('label');
-        l.innerHTML = '<input type="color" value="' + colorMaqueta(c[0]) + '"><span>' + c[1] + '</span>';
-        cont.appendChild(l);
-        if (c[0] === 'cBg' && coloresMaqueta.cBg) aplicar('cBg', coloresMaqueta.cBg);
-        l.querySelector('input').addEventListener('input', function (e) {
-          coloresMaqueta[c[0]] = e.target.value; aplicar(c[0], e.target.value);
-          try { localStorage.setItem('cotacero-maqueta-colores', JSON.stringify(coloresMaqueta)); } catch (err) { }
-        });
-      });
-      p.querySelector('.maq-reset').addEventListener('click', function () {
-        coloresMaqueta = {}; try { localStorage.removeItem('cotacero-maqueta-colores'); } catch (e) { }
-        cont.querySelectorAll('input').forEach(function (inp, i) { inp.value = PALETA_MAQUETA[COLS[i][0]]; aplicar(COLS[i][0], PALETA_MAQUETA[COLS[i][0]]); });
-        canvas.style.background = '';
-      });
+      p.querySelectorAll('.maq-acabado').forEach(function (b) { b.addEventListener('click', function () { aplicarAcabado(b.getAttribute('data-acabado')); }); });
     })();
 
     renderer.render(scene, camera);
@@ -5957,6 +6066,19 @@
     if (estado.frenteARio) return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
     return { id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
   }
+  // Productos que se ofrecen en la barra según lo que el cliente está estudiando: el primero es el
+  // principal (terracota), los demás van en contorno.
+  function productosSugeridos(estado) {
+    var base = productoSugerido(estado), lista = [];
+    if (estado.division && estado.division.n >= 2) {
+      lista.push({ id: 'lotizacion', corto: 'Permiso de lotización', titulo: 'Permiso de fraccionamiento / lotización', sub: 'Planimetría de la división + trámite ante el municipio' });
+      lista.push({ id: 'diseno-lotizacion', corto: 'Diseño de lotización', titulo: 'Diseño de lotización', sub: 'Lotes, vía interna y áreas verdes para aprovechar mejor el terreno' });
+    } else if (estado.esUnion) {
+      lista.push(base);
+      lista.push({ id: 'planimetrico-iprus', corto: 'IPRUS', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' });
+    } else if (base) lista.push(base);
+    return lista.filter(Boolean);
+  }
   function urlProductoPredio(estado, idProducto) {
     var base = location.origin + location.pathname;
     return base + (estado.esUnion ? '?claves=' + encodeURIComponent(estado.claves.join(',')) : '?clave=' + encodeURIComponent(estado.clave)) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
@@ -6563,6 +6685,10 @@
       descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
     { id: 'unificacion', nombre: 'Unificación de lotes', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría del lote unificado y gestión del trámite de unificación de predios ante el GAD Municipal de Cuenca.' },
+    { id: 'lotizacion', nombre: 'Permiso de lotización', precioBase: '', nota: 'por trámite',
+      descripcion: 'Planimetría de la división del predio y gestión del permiso de fraccionamiento o lotización ante el GAD Municipal de Cuenca.' },
+    { id: 'diseno-lotizacion', nombre: 'Diseño de lotización', precioBase: '', nota: 'según el terreno',
+      descripcion: 'Diseño de lotes, vía interna y áreas verdes para terrenos grandes, listo para el trámite municipal.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
