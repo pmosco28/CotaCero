@@ -941,6 +941,48 @@
     cacheMDT[clave] = g;
     return g;
   }
+  // Une los segmentos sueltos de marching squares en polilíneas y las suaviza (Chaikin, 2 pasadas):
+  // sin esto, los bordes de la grilla de 1 m se ven como escalones.
+  function polilineasDeSegmentos(segs) {
+    function clave(p) { return Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); }
+    var porPunto = {}, usado = new Array(segs.length);
+    segs.forEach(function (sg, i) { [0, 1].forEach(function (e) { var k = clave(sg[e]); (porPunto[k] = porPunto[k] || []).push(i); }); });
+    function siguiente(p, i0) {
+      var l = porPunto[clave(p)] || [];
+      for (var k = 0; k < l.length; k++) if (!usado[l[k]] && l[k] !== i0) return l[k];
+      return -1;
+    }
+    var lineas = [];
+    for (var i = 0; i < segs.length; i++) {
+      if (usado[i]) continue;
+      usado[i] = true;
+      var linea = [segs[i][0], segs[i][1]];
+      [1, 0].forEach(function (lado) {
+        while (true) {
+          var extremo = lado ? linea[linea.length - 1] : linea[0];
+          var j = siguiente(extremo, -1); if (j < 0) break;
+          usado[j] = true;
+          var a = segs[j][0], b = segs[j][1], otro = clave(a) === clave(extremo) ? b : a;
+          if (lado) linea.push(otro); else linea.unshift(otro);
+        }
+      });
+      lineas.push(linea);
+    }
+    return lineas.map(function (L) {
+      var cerrada = L.length > 3 && clave(L[0]) === clave(L[L.length - 1]);
+      for (var it = 0; it < 2; it++) {
+        var n = [];
+        if (!cerrada) n.push(L[0]);
+        for (var k = 0; k < L.length - 1; k++) {
+          var a = L[k], b = L[k + 1];
+          n.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+        }
+        if (!cerrada) n.push(L[L.length - 1]); else n.push(n[0]);
+        L = n;
+      }
+      return L;
+    }).filter(function (L) { var len = 0; for (var k = 1; k < L.length; k++) len += Math.hypot(L[k][0] - L[k - 1][0], L[k][1] - L[k - 1][1]); return len > 4; });
+  }
   // Segmentos de curva por marching squares sobre la grilla (ya en metros locales).
   function curvasDeGrilla(X, Y, Z, W, H, niveles) {
     var segs = [];
@@ -966,7 +1008,7 @@
           case 10: if (centro > L) { lista.push([top(), der()]); lista.push([izq(), abj()]); } else { lista.push([izq(), top()]); lista.push([abj(), der()]); } break;
         }
       }
-      segs.push({ nivel: L, segs: lista });
+      segs.push({ nivel: L, segs: lista, lineas: polilineasDeSegmentos(lista) });
     });
     return segs;
   }
@@ -4071,8 +4113,9 @@
         var maestra = cn.nivel % 5 === 0;
         x.strokeStyle = maestra ? 'rgba(122,92,60,0.75)' : 'rgba(122,92,60,0.38)';
         x.lineWidth = maestra ? 2.2 : 1.1;
+        x.lineJoin = 'round';
         x.beginPath();
-        cn.segs.forEach(function (sg) { var a = aLamina(sg[0]), b = aLamina(sg[1]); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); });
+        cn.lineas.forEach(function (L) { L.forEach(function (p, i) { var q = aLamina(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); });
         x.stroke();
       });
       // cotas de las maestras, pocas y con halo
@@ -4080,9 +4123,10 @@
       var puestas = [];
       curvasLamina.forEach(function (cn) {
         if (cn.nivel % 5 !== 0) return;
-        cn.segs.forEach(function (sg, i) {
-          if (i % 23 !== 7) return;
-          var a = aLamina(sg[0]), b = aLamina(sg[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        cn.lineas.forEach(function (L) {
+          if (L.length < 12) return;
+          var mi = Math.floor(L.length / 2);
+          var a = aLamina(L[mi - 3]), b = aLamina(L[mi + 3]), m = aLamina(L[mi]);
           if (puestas.some(function (q) { return Math.hypot(q[0] - m[0], q[1] - m[1]) < 40 * pxPorM; })) return;
           puestas.push(m);
           var ang = Math.atan2(b[1] - a[1], b[0] - a[0]); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
