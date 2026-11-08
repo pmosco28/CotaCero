@@ -3311,7 +3311,12 @@
     if (mapaStage) mapaStage.classList.remove('modo-3d');
     // El contenedor de Leaflet estuvo oculto (display:none vía .mapa-col) — sin invalidateSize()
     // el mapa queda con las dimensiones/posición de tiles de la última vez que SÍ era visible.
-    setTimeout(function () { mapa.invalidateSize(); }, 60);
+    // el mapa estuvo oculto: recalcula su tamaño y vuelve a encuadrar el predio (el fitBounds que se
+    // hizo mientras estaba oculto quedó con un tamaño de 0 px y lo dejaba fuera de cuadro)
+    setTimeout(function () {
+      mapa.invalidateSize();
+      try { if (capaPredio.getLayers().length) mapa.fitBounds(capaPredio.getBounds(), { padding: [60, 60], maxZoom: 19, animate: false }); } catch (e) { }
+    }, 80);
   }
   if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
