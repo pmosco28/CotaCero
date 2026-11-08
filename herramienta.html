@@ -3533,11 +3533,14 @@
   // Selección con el polígono ya conocido (lupa táctil): mismo flujo que consultarPredio, sin volver
   // a consultar el catastro
   async function seleccionarPredioFeature(f) {
+    turnoConsulta++;
     panelEmpty.style.display = 'none';
     prediosUnion = [f]; resumenAntesDeUnir = null; modoUnir = false;
     await mostrarResultado(f);
   }
+  var turnoConsulta = 0;
   async function consultarPredio(latlng) {
+    var miConsulta = ++turnoConsulta;
     if (marcadorClic) mapa.removeLayer(marcadorClic);
     marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#1C1A16', fillColor: '#1C1A16', fillOpacity: 1 }).addTo(mapa);
 
@@ -3558,6 +3561,7 @@
         panel.innerHTML = '<div class="panel-empty"><span class="icon">🤷</span>No encontramos un predio catastrado en ese punto. Prueba dentro de una manzana urbana.</div>';
         return;
       }
+      if (miConsulta !== turnoConsulta) return; // ya se pidió otro punto
       prediosUnion = [data.features[0]]; resumenAntesDeUnir = null; modoUnir = false;
       await mostrarResultado(data.features[0]);
     } catch (err) {
@@ -3630,7 +3634,12 @@
     });
     return mejor;
   }
+  // Turno de la última selección: si se elige otro predio mientras el anterior todavía se está
+  // calculando (consultas al catastro y a los ejes), el cálculo viejo se descarta al volver de cada
+  // espera, en vez de terminar después y pisar el predio nuevo.
+  var turnoResultado = 0;
   async function mostrarResultado(feature, desdeUnion) {
+    var miTurno = ++turnoResultado;
     if (!modoUnir) { capaUnion.clearLayers(); var buX = document.getElementById('barraUnion'); if (buX) buX.hidden = true; }
     capaVertices.clearLayers(); capaManzana.clearLayers();
     capaVias.clearLayers(); capaVecinos.clearLayers();
@@ -3645,6 +3654,7 @@
     var estado;
     try {
       estado = await construirEstadoPredio(feature);
+      if (miTurno !== turnoResultado) return;
     } catch (err) {
       console.error('No se pudo clasificar el predio', err);
       panel.innerHTML = '<div class="panel-empty"><span class="icon">⚠️</span>No se pudo clasificar este predio (frente/lateral/posterior). Prueba con otro lote.</div>';
@@ -3707,6 +3717,7 @@
     var maxPisosLote;
     estado.ejeIPRUS = null;
     if (!esCentroHistorico) { try { estado.ejeIPRUS = await ejeIPRUSDelPredio(estado); } catch (e) { console.warn('Ejes IPRUS no disponibles', e); } }
+    if (miTurno !== turnoResultado) return;
     if (esCentroHistorico) {
       estado.retiros = { frente: 0, lateral: 0, posterior: 0 };
       estado.retirosPB = { frente: 0, lateral: 0, posterior: 0 };
@@ -4150,7 +4161,9 @@
   // `bloquesPB`/`bloquesAltasFinal`/`bloquesPatios`: arrays, uno por bloque (ver dividirEnBloques) —
   // el caso normal (un lote que no necesita partirse en varios edificios) es un array de longitud 1,
   // así que todo el resto de la función se comporta exactamente igual que antes de soportar bloques.
+  var generacionEscena = 0;
   function dibujarVolumetria(estado, bloquesPB, bloquesAltasFinal, bloquesPatios) {
+    var miEscena = ++generacionEscena;
     // Si ya hay un render anterior orbitando, cancelar su loop y sus listeners antes de reemplazar
     // el canvas (si no, quedan corriendo en segundo plano apuntando a un canvas que ya no existe).
     if (volAnimId) { cancelAnimationFrame(volAnimId); volAnimId = null; }
@@ -5720,9 +5733,13 @@
     // se pide un frame nuevo cuando algo realmente cambió (arrastre, pellizco, hora, sombras), y
     // volAnimId guarda el frame pendiente para no encolar varios de golpe.
     function solicitarRender() {
+      // una escena vieja (de un predio anterior) no vuelve a pintar el lienzo aunque le llegue tarde
+      // la foto aérea o el MDT
+      if (miEscena !== generacionEscena) return;
       if (volAnimId) return;
       volAnimId = requestAnimationFrame(function () {
         volAnimId = null;
+        if (miEscena !== generacionEscena) return;
         renderer.render(scene, camera);
         actualizarOverlay();
       });
@@ -5749,6 +5766,7 @@
       if (!objs.length) objs = [grupoVolumen];
       var t0 = performance.now(), D = 950;
       (function paso() {
+        if (miEscena !== generacionEscena) return;
         var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
         objs.forEach(function (o) { o.scale.y = Math.max(0.001, e); });
         renderer.render(scene, camera); actualizarOverlay();
@@ -5831,17 +5849,19 @@
     // Pellizco con dos dedos (iPad / celular)
     var toques = {}, distPellizco = 0, radioPellizco = 0;
     function distToques() { var k = Object.keys(toques); if (k.length < 2) return 0; var a = toques[k[0]], b = toques[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
-    canvas.addEventListener('pointerdown', function (e) {
+    function pinDown(e) {
       if (e.pointerType !== 'touch') return;
       toques[e.pointerId] = { x: e.clientX, y: e.clientY };
       if (Object.keys(toques).length === 2) { distPellizco = distToques(); radioPellizco = radius; arrastrando = false; }
-    });
-    canvas.addEventListener('pointermove', function (e) {
+    }
+    function pinMove(e) {
       if (!toques[e.pointerId]) return;
       toques[e.pointerId] = { x: e.clientX, y: e.clientY };
       if (Object.keys(toques).length === 2 && distPellizco > 0) { var d = distToques(); if (d > 0) ajustarZoom(radioPellizco * distPellizco / d); }
-    });
-    ['pointerup', 'pointercancel'].forEach(function (ev) { canvas.addEventListener(ev, function (e) { delete toques[e.pointerId]; if (Object.keys(toques).length < 2) distPellizco = 0; }); });
+    }
+    function pinUp(e) { delete toques[e.pointerId]; if (Object.keys(toques).length < 2) distPellizco = 0; }
+    canvas.addEventListener('pointerdown', pinDown); canvas.addEventListener('pointermove', pinMove);
+    canvas.addEventListener('pointerup', pinUp); canvas.addEventListener('pointercancel', pinUp);
     canvas.style.cursor = 'grab';
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', onDown);
@@ -5853,6 +5873,8 @@
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('pointerdown', pinDown); canvas.removeEventListener('pointermove', pinMove);
+      canvas.removeEventListener('pointerup', pinUp); canvas.removeEventListener('pointercancel', pinUp);
       if (chkSombras && onChkSombrasChange) chkSombras.removeEventListener('change', onChkSombrasChange);
       if (rangoHora && onRangoHoraInput) rangoHora.removeEventListener('input', onRangoHoraInput);
     };
@@ -6142,7 +6164,7 @@
           var th1 = theta, r1 = radius, th0 = th1 - 0.9, r0 = r1 * 1.35, t0 = performance.now(), D = 2400, cancelada = false;
           canvas.addEventListener('pointerdown', function () { cancelada = true; }, { once: true });
           (function paso() {
-            if (cancelada) return;
+            if (cancelada || miEscena !== generacionEscena) return;
             var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
             theta = th0 + (th1 - th0) * e; radius = r0 + (r1 - r0) * e;
             actualizarCamara(); renderer.render(scene, camera); actualizarOverlay();
