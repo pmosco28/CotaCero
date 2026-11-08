@@ -744,6 +744,21 @@
   .checkout-btns { display: grid; gap: 8px; margin-top: 6px; }
   .checkout-btns a { display: block; text-align: center; text-decoration: none; font-weight: 700; padding: 12px; border-radius: 10px; }
   .checkout-pagar { background: #B2502E; color: #fff; } .checkout-wa { background: #1C1A16; color: #fff; }
+  .ficha-lista { list-style: none; margin: 0; padding: 0; display: grid; }
+  .ficha-lista li { display: grid; grid-template-columns: 9.5em 1fr auto; gap: 2px 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid rgba(28,26,22,.08); font-size: 0.8rem; }
+  .ficha-lista li span { font-weight: 300; color: #5E5B55; } .ficha-lista li b { font-weight: 600; }
+  .ficha-lista li small { grid-column: 2 / -1; font-weight: 300; font-size: 0.7rem; color: #5E5B55; display: block; }
+  .ficha-copiar { font: inherit; font-size: 0.68rem; border: 1px solid #1C1A16; background: transparent; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+  .maq-recos ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.78rem; font-weight: 300; line-height: 1.4; }
+  .maq-recos a { color: #1C1A16; font-weight: 600; white-space: nowrap; }
+  .maq-ficha-fila { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .maq-ficha-fila .maq-ficha-btn { font: inherit; font-weight: 600; padding: 0 14px; border-radius: 8px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; cursor: pointer; }
+  .ped-item { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 0 6px; padding: 6px 0; border-bottom: 1px solid rgba(28,26,22,.08); }
+  .ped-item .maq-tramite { grid-column: 1; }
+  .ped-info { grid-column: 2; grid-row: 1; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #b8b3aa; background: transparent; color: #5E5B55; font-size: 0.66rem; cursor: pointer; padding: 0; margin-top: 1px; }
+  .ped-info.activo { background: #1C1A16; color: #f3f1ec; border-color: #1C1A16; }
+  .ped-desc { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 300; color: #5E5B55; padding: 4px 0 2px 24px; line-height: 1.4; }
+  .ped-por { color: #8F3F23 !important; }
   .ped-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: rgba(28,26,22,.06); padding: 3px; border-radius: 10px; }
   .ped-tab { font: inherit; font-size: 0.74rem; font-weight: 500; padding: 7px 4px; border: 0; border-radius: 8px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; line-height: 1.2; }
   .ped-tab.activo { background: #1C1A16; color: #f3f1ec; }
@@ -1047,6 +1062,82 @@
       [['principal', 3], ['complementario', 2], ['restringido', 1]].forEach(function (t) { if (u[t[0]].some(function (c) { return d[1].test(c); })) nivel = Math.max(nivel, t[1]); });
       return { nombre: d[0], nivel: nivel, texto: nivel >= 2 ? 'Sí' : nivel === 1 ? 'Con condiciones' : 'No' };
     });
+  }
+  // Antecedentes municipales del predio (capas de Control Municipal en la IDE): permisos de
+  // construcción mayor y menor, aprobación de planos y licencias urbanísticas. Se piden SOLO campos
+  // sin datos personales (propertyName): nada de propietarios, solicitantes, cédulas ni funcionarios.
+  async function consultarAntecedentes(claves) {
+    claves = (claves || []).filter(function (c) { return /^\d{10,16}$/.test(String(c)); });
+    if (!claves.length) return null;
+    var base = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json';
+    var lista = function (campo) { return campo + ' IN (' + claves.map(function (c) { return "'" + c + "'"; }).join(',') + ')'; };
+    function pedir(capa, campos, campoClave) {
+      return fetch(base + '&typeName=' + capa + '&propertyName=' + campos + '&CQL_FILTER=' + encodeURIComponent(lista(campoClave)))
+        .then(function (r) { return r.json(); }).then(function (d) { return (d.features || []).map(function (f) { return f.properties; }); }).catch(function () { return []; });
+    }
+    var r = await Promise.all([
+      pedir('ws_control:construccion_mayor', 'clave,estado,tipo_intervencion,uso,numero_plantas,fecha_aprobacion,fecha_caducidad,area_construccion', 'clave'),
+      pedir('ws_control:construccion_menor', 'clave,estado,fecha_aprobacion,fecha_caducidad,area_construccion', 'clave'),
+      pedir('ws_control:planos', 'clave_catastral,estado,descripcion,fecha_ingreso,fecha_caducidad', 'clave_catastral'),
+      pedir('ws_control:licencias', 'clave,fecha_aprobacion,fecha_caducidad', 'clave')
+    ]);
+    var porFecha = function (k) { return function (a, b) { return String(b[k] || '').localeCompare(String(a[k] || '')); }; };
+    return { mayor: r[0].sort(porFecha('fecha_aprobacion')), menor: r[1].sort(porFecha('fecha_aprobacion')), planos: r[2].sort(porFecha('fecha_ingreso')), licencias: r[3].sort(porFecha('fecha_aprobacion')) };
+  }
+  function fechaCorta(iso) { if (!iso || /^0001/.test(iso)) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function vigente(iso) { var d = new Date(iso); return iso && !isNaN(d) && d > new Date(); }
+  function arreglarTexto(t) { return String(t || '').replace(/\uFFFD/g, 'Ó').replace(/EDIFICACIÓN/i, 'edificación').trim(); }
+  // Ficha del predio en lista: lo que el cliente necesita tener a mano
+  function htmlFichaPredio(estado, resumen) {
+    var f = [], clave = estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '');
+    var fila = function (k, v, extra) { if (v !== '' && v != null) f.push('<li><span>' + k + '</span><b>' + v + '</b>' + (extra || '') + '</li>'); };
+    fila('Clave catastral', escaparSvg(clave), clave ? '<button type="button" class="ficha-copiar" data-copiar="' + escaparSvg(clave) + '" aria-label="Copiar clave">Copiar</button>' : '');
+    var area = Math.round(areaAnillo(estado.pts));
+    fila('Área del lote', area.toLocaleString('es-EC') + ' m²' + (frenteLoteActual ? ' · frente ' + frenteLoteActual.toFixed(1) + ' m' : ''));
+    fila('Zona', (estado.pitOficial || '—') + (estado.usos && estado.usos.ambito ? ' · ' + estado.usos.ambito : (estado.usoSuelo && estado.usoSuelo.ambitos ? ' · ' + estado.usoSuelo.ambitos : '')));
+    if (!estado.restriccionVolumen) {
+      var nv = nivelParaPisos(estado.pisos);
+      fila('Pisos permitidos', 'hasta ' + estado.maxPisosLote + (estado.pisosMejorArea && estado.pisosMejorArea < estado.maxPisosLote ? ' (más área con ' + estado.pisosMejorArea + ')' : ''));
+      fila('Altura aprox.', (estado.pisos * 3) + ' m con ' + estado.pisos + (estado.pisos === 1 ? ' piso' : ' pisos'));
+      fila('Retiros', 'frontal ' + estado.retiros.frente + ' m · lateral ' + estado.retiros.lateral + ' m · posterior ' + estado.retiros.posterior + ' m');
+      if (nv && nv.implantacion) fila('Implantación', nv.implantacion);
+      if (resumen) fila('Construible', resumen.m2.toLocaleString('es-EC') + ' m² con ' + estado.pisos + (estado.pisos === 1 ? ' piso' : ' pisos'));
+      if (resumen && resumen.viv) fila('Viviendas', 'hasta ' + resumen.viv);
+      else if (nv && /≥|mayor/i.test(String(nv.densidad_viv_ha || ''))) fila('Viviendas', 'sin tope por densidad');
+      if (nv && nv.lote_min) fila('Lote mínimo', nv.lote_min + ' m²' + (nv.frente_min ? ' · frente ' + nv.frente_min + ' m' : ''));
+    }
+    if (estado.frenteARio) fila('Afectación', 'da al río: margen de protección');
+    var a = estado.antecedentes;
+    if (a && a.mayor.length) { var m = a.mayor[0]; fila('Permiso de construcción', (vigente(m.fecha_caducidad) ? 'vigente' : 'caducado') + ' · ' + (m.numero_plantas ? m.numero_plantas + ' pisos · ' : '') + (m.area_construccion ? Math.round(m.area_construccion).toLocaleString('es-EC') + ' m²' : '') + '<small>aprobado ' + fechaCorta(m.fecha_aprobacion) + (m.fecha_caducidad ? ', vence ' + fechaCorta(m.fecha_caducidad) : '') + (m.uso ? ' · ' + m.uso : '') + '</small>'); }
+    else if (a && a.menor.length) { var mn = a.menor[0]; fila('Permiso menor', (vigente(mn.fecha_caducidad) ? 'vigente' : 'caducado') + '<small>aprobado ' + fechaCorta(mn.fecha_aprobacion) + (mn.area_construccion ? ' · ' + mn.area_construccion + ' m²' : '') + '</small>'); }
+    if (a && a.planos.length && !(a.mayor.length)) fila('Planos aprobados', fechaCorta(a.planos[0].fecha_ingreso) + (vigente(a.planos[0].fecha_caducidad) ? ' (vigentes)' : ''));
+    return '<ul class="ficha-lista">' + f.join('') + '</ul>';
+  }
+  // Qué gestionar, según lo que se sabe del predio. Cada punto puede llevar a los productos.
+  function recomendacionesGestion(estado) {
+    var R = [], a = estado.antecedentes, r = estado.restriccionVolumen || '';
+    var mayor = a && a.mayor[0];
+    if (mayor && vigente(mayor.fecha_caducidad)) {
+      R.push({ t: 'Ya tiene permiso de construcción mayor aprobado (' + (mayor.numero_plantas ? mayor.numero_plantas + ' pisos, ' : '') + Math.round(mayor.area_construccion || 0).toLocaleString('es-EC') + ' m²), vigente hasta ' + fechaCorta(mayor.fecha_caducidad) + '. Si vas a construir, hazlo dentro de ese plazo o pide su actualización.' });
+      R.push({ t: 'Para vender o escriturar por departamentos: declaratoria de propiedad horizontal ante Control Municipal (pide planos aprobados, el permiso, IPRUS, reglamento y cuadro de alícuotas) y luego su inscripción en el Registro de la Propiedad.', ids: 'propiedad-horizontal' });
+      return R;
+    }
+    if (mayor) R.push({ t: 'Tuvo un permiso de construcción mayor aprobado el ' + fechaCorta(mayor.fecha_aprobacion) + ' que ya caducó. Consulta en Control Municipal si se puede actualizar antes de empezar de cero.' });
+    if (/propiedad pública/.test(r) || estado.sinVia || (estado.solapes && estado.solapes.area >= 2)) { R.push({ t: 'Antes de construir hay que regularizar el predio en Avalúos y Catastros, con un levantamiento georreferenciado.', ids: 'levantamiento,regularizacion' }); return R; }
+    if (/patrimonial/i.test(r)) { R.push({ t: 'Es una edificación patrimonial: cualquier obra pasa por la Dirección de Áreas Históricas (IPRUS de áreas históricas, levantamiento arquitectónico y anteproyecto).', ids: 'planimetrico-iprus,levantamiento-arquitectonico' }); return R; }
+    if (estado.fichaSinDeterminantes) { R.push({ t: 'La norma no asigna altura aquí: antes de cualquier proyecto hace falta un estudio específico (plan parcial o estudio de riesgo) y el IPRUS.', ids: 'analisis-sitio' }); return R; }
+    if (estado.esUnion) R.push({ t: 'Para construir sobre los lotes unidos, primero la unificación de predios ante el municipio.', ids: 'unificacion' });
+    if (estado.division && estado.division.n >= 2) R.push({ t: 'Para dividir: permiso de fraccionamiento (lotización) con la planimetría de la división.', ids: 'lotizacion' });
+    R.push({ t: 'El primer paso para construir es el IPRUS (informe de regulación del predio): confirma pisos, retiros y usos.', ids: 'planimetrico-iprus' });
+    if (estado.frenteARio) R.push({ t: 'Tu predio da al río: un levantamiento topográfico define bien el margen de protección antes de proyectar.', ids: 'levantamiento' });
+    R.push({ t: 'Después: planos aprobados y permiso de construcción mayor ante Control Municipal.', ids: 'permiso-construccion' });
+    if (estado.fichaPIT && estado.fichaPIT.aero && estado.maxPisosLote >= 10) R.push({ t: 'Sobre 10 pisos la ficha pide un estudio aeronáutico.' });
+    return R;
+  }
+  function htmlRecomendaciones(estado) {
+    var R = recomendacionesGestion(estado); if (!R.length) return '';
+    return '<div class="maq-recos"><div class="maq-estudio-tit">Qué te toca gestionar</div><ol>' +
+      R.map(function (x) { return '<li>' + x.t + (x.ids ? ' <a href="#" data-pedir="' + x.ids + '">Lo hacemos por ti</a>' : '') + '</li>'; }).join('') + '</ol></div>';
   }
   function htmlUsosCliente(u) {
     var a = usosAmigables(u); if (!a.length) return '';
@@ -3796,7 +3887,9 @@
 
     var maxPisosLote;
     estado.ejeIPRUS = null;
+    var antecedentesP = consultarAntecedentes(estado.esUnion ? estado.claves : [estado.clave]).catch(function () { return null; });
     if (!esCentroHistorico) { try { estado.ejeIPRUS = await ejeIPRUSDelPredio(estado); } catch (e) { console.warn('Ejes IPRUS no disponibles', e); } }
+    estado.antecedentes = await antecedentesP;
     if (miTurno !== turnoResultado) return;
     if (esCentroHistorico) {
       estado.retiros = { frente: 0, lateral: 0, posterior: 0 };
@@ -5972,16 +6065,19 @@
         (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         '<div class="maq-acciones">' +
-          (estado.restriccionVolumen ? '' : '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span><small>qué puedes construir</small></button>') +
+          '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span><small>' + (estado.restriccionVolumen ? 'datos del predio' : 'qué puedes construir') + '</small></button>' +
           '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis urbano</span><small>' + (estado.esUnion ? estado.claves.length + ' lotes unidos' : 'unir, dividir, sol') + '</small></button>' +
-          '<button type="button" class="maq-acc maq-acc-pedir" data-acc="pedir"><span>Solicitar</span><small>trámites, archivos, estudios</small></button>' +
+          '<button type="button" class="maq-acc" data-acc="pedir"><span>Solicitar</span><small>trámites, archivos, estudios</small></button>' +
         '</div>' +
-        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma && !estado.restriccionVolumen ? '' : ' hidden') + '>' +
+        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' +
           '<div class="maq-norma-detalle">' +
-            '<div class="maq-pisos-slot"></div>' +
-            '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
-            '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>' +
+            (estado.restriccionVolumen ? '' : '<div class="maq-pisos-slot"></div>') +
+            htmlFichaPredio(estado, resumenNormativa) +
+            (estado.restriccionVolumen ? '' : '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>') +
             htmlUsosCliente(estado.usos) +
+            htmlRecomendaciones(estado) +
+            '<div class="maq-ficha"><div class="maq-estudio-tit">Ficha PDF gratis</div><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar</button></div><div class="maq-ficha-msg" hidden></div>' +
+              '<div class="maq-ficha-nota">Todo lo de arriba, con el detalle técnico. Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>' +
           '</div>' +
         '</div>' +
         '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' +
@@ -6037,7 +6133,7 @@
         b.addEventListener('click', function () {
           var k = b.getAttribute('data-acc');
           secAbierta[k] = !secAbierta[k];
-          if (k === 'norma') {
+          if (k === 'norma' && !estado.restriccionVolumen) {
             mostrarVolumenNormativa = secAbierta.norma;
             grupoVolumen.visible = mostrarVolumenNormativa;
             grupoExistente.visible = !mostrarVolumenNormativa;
@@ -6049,7 +6145,7 @@
           if (secAbierta[k]) { var sec = p.querySelector('.maq-sec[data-sec="' + k + '"]'); if (sec && window.matchMedia('(max-width: 640px)').matches) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
         });
       });
-      secAbierta.norma = mostrarVolumenNormativa && !estado.restriccionVolumen;
+      if (!estado.restriccionVolumen) secAbierta.norma = mostrarVolumenNormativa;
       pintarAcciones();
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
@@ -6984,8 +7080,8 @@
   // uno separado en precio fijo y a convenir. Lo de precio fijo se suma al carrito (botón junto al de
   // WhatsApp); lo a convenir se manda como pedido de cotización.
   var GRUPOS_PEDIDO = [
-    { id: 'construir', tit: 'Para construir', sub: 'Documentación legal y municipal', ids: ['planimetrico-iprus', 'planimetrico', 'levantamiento', 'croquis', 'permiso-construccion', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
-    { id: 'archivos', tit: 'Archivos y maquetas', sub: 'Para estudiantes y estudios de arquitectura', ids: ['contexto-cad', 'entorno-mejorado'] },
+    { id: 'construir', tit: 'Para construir', sub: 'Documentación legal y municipal', ids: ['planimetrico-iprus', 'planimetrico', 'levantamiento', 'croquis', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
+    { id: 'archivos', tit: 'Archivos y maquetas', sub: 'Para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
     { id: 'analisis', tit: 'Análisis urbanos', sub: 'Para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'asoleamiento', 'diseno-lotizacion'] }
   ];
   // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
@@ -7001,14 +7097,15 @@
   function htmlSolicitar(estado) {
     var rec = tramitesRecomendados(estado), recIds = rec.map(function (x) { return x.id; });
     if (!estado.tramitesSel || estado.tramitesSelPara !== recIds.join(',')) {
-      estado.tramitesSel = {}; rec.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = recIds.join(',');
+      estado.tramitesSel = {}; rec.forEach(function (x) { estado.tramitesSel[x.id] = false; }); estado.tramitesSelPara = recIds.join(',');
     }
     var subRec = {}; rec.forEach(function (x) { subRec[x.id] = x.sub; });
     function item(id) {
       var p = productoPorId(id); if (!p) return '';
       if (p.soloRecomendado && recIds.indexOf(id) < 0) return '';
       var n = precioNumero(id), esRec = recIds.indexOf(id) >= 0;
-      return '<label class="maq-tramite' + (esRec ? ' rec' : '') + '"><input type="checkbox" data-tramite="' + id + '"' + (estado.tramitesSel[id] ? ' checked' : '') + '><i></i><span><b>' + p.nombre + (esRec ? ' <u>recomendado</u>' : '') + '</b><small>' + (subRec[id] || p.descripcion || '') + '</small></span><em>' + (n ? '$' + n : 'cotizar') + '</em></label>';
+      return '<div class="ped-item' + (esRec ? ' rec' : '') + '"><label class="maq-tramite"><input type="checkbox" data-tramite="' + id + '"' + (estado.tramitesSel[id] ? ' checked' : '') + '><i></i><span><b>' + p.nombre + '</b>' + (esRec ? '<small class="ped-por">Recomendado: ' + subRec[id] + '</small>' : '') + '</span><em>' + (n ? '$' + n : 'cotizar') + '</em></label>' +
+        (p.descripcion ? '<button type="button" class="ped-info" aria-label="Qué incluye">?</button><div class="ped-desc" hidden>' + p.descripcion + '</div>' : '') + '</div>';
     }
     var tabs = GRUPOS_PEDIDO.map(function (g) { return '<button type="button" class="ped-tab' + (g.id === grupoPedidoAbierto ? ' activo' : '') + '" data-grupo="' + g.id + '">' + g.tit + '</button>'; }).join('');
     var grupos = GRUPOS_PEDIDO.map(function (g) {
@@ -7017,9 +7114,7 @@
       return '<div class="ped-grupo" data-grupo="' + g.id + '"' + (g.id === grupoPedidoAbierto ? '' : ' hidden') + '><div class="maq-nota">' + g.sub + '</div>' +
         (fijos ? '<div class="ped-sub">Precio fijo</div>' + fijos : '') + (conv ? '<div class="ped-sub">A convenir</div>' + conv : '') + '</div>';
     }).join('');
-    return '<div class="maq-ficha"><div class="maq-estudio-tit">Gratis con tu correo</div><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><div class="maq-ficha-dos"><button type="button" class="maq-ficha-btn">Ficha PDF</button><button type="button" class="maq-3d-btn">Modelo 3D</button></div><div class="maq-ficha-msg" hidden></div>' +
-        '<div class="maq-ficha-nota">Al descargar aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>' +
-      '<div class="ped-tabs">' + tabs + '</div>' + grupos +
+    return '<div class="ped-tabs">' + tabs + '</div>' + grupos +
       '<div class="ped-resumen"></div>';
   }
   function conectarSolicitar(p, estado) {
@@ -7031,6 +7126,20 @@
       });
     });
     p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; actualizarCarrito(estado, p); }); });
+    p.querySelectorAll('.ficha-copiar').forEach(function (b) { b.addEventListener('click', function () { try { navigator.clipboard.writeText(b.getAttribute('data-copiar')); b.textContent = 'Copiada'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); } catch (e) { } }); });
+    p.querySelectorAll('.ped-info').forEach(function (b) { b.addEventListener('click', function () { var d = b.nextElementSibling; d.hidden = !d.hidden; b.classList.toggle('activo', !d.hidden); }); });
+    // "Solicitar" desde una recomendación: abre la sección, la pestaña del producto y lo marca
+    p.querySelectorAll('[data-pedir]').forEach(function (a) {
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        a.getAttribute('data-pedir').split(',').forEach(function (id) { estado.tramitesSel[id] = true; var cb = p.querySelector('[data-tramite="' + id + '"]'); if (cb) cb.checked = true; });
+        var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(a.getAttribute('data-pedir').split(',')[0]) >= 0; })[0];
+        if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
+        var bA = p.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
+        actualizarCarrito(estado, p);
+        var sec = p.querySelector('.maq-sec[data-sec="pedir"]'); if (sec) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80);
+      });
+    });
     actualizarCarrito(estado, p);
   }
   // Carrito: botón junto al de WhatsApp con el total de lo de precio fijo marcado
@@ -7047,7 +7156,7 @@
       b.addEventListener('click', function () { abrirCheckout(estadoSeleccionado); });
     }
     b.hidden = !it.length;
-    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>' + (fijos.length ? 'Pagar $' + tot.toLocaleString('es-EC') : 'Cotizar') + (it.length > 1 ? ' · ' + it.length : '') + '</span>';
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>' + 'Tu pedido' + (fijos.length ? ' · $' + tot.toLocaleString('es-EC') : '') + ' (' + it.length + ')' + '</span>';
     document.body.classList.toggle('con-carrito', !!it.length);
   }
   function abrirCheckout(estado) {
@@ -7258,6 +7367,10 @@
       notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio +
       (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
       construirBloqueUsoSuelo(estado.usoSuelo, estado.usos) +
+      (function () {
+        var R = recomendacionesGestion(estado); if (!R.length) return '';
+        return '<div class="seccion-titulo">Qué te toca gestionar</div><ol class="recos-pdf">' + R.map(function (x) { return '<li>' + x.t + '</li>'; }).join('') + '</ol>';
+      })() +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
       (notasTexto ? '<div class="seccion-titulo">Particularidades encontradas</div><div class="notas-texto">' + escapar(notasTexto) + '</div>' : '') +
@@ -7751,6 +7864,10 @@
       descripcion: 'Levantamiento georreferenciado y gestión ante Avalúos y Catastros para oficializar el predio: regularización de excedentes o diferencias de superficie (error de cabida), actualización catastral de superficie o rectificación de datos del terreno; y, si no tiene acceso, la servidumbre de paso. Frecuente en zonas periurbanas y rurales.' },
     { id: 'permiso-construccion', nombre: 'Permiso de construcción', precioBase: '', nota: 'según el proyecto',
       descripcion: 'Planos arquitectónicos y gestión del permiso de construcción ante el GAD Municipal de Cuenca.' },
+    { id: 'modelo-3d', nombre: 'Modelo 3D del predio y su entorno (.glb)', precioBase: '', nota: 'por predio',
+      descripcion: 'La maqueta que ves aquí (terreno, edificios, árboles y volumen normativo) en metros, lista para Blender, Rhino o SketchUp.' },
+    { id: 'propiedad-horizontal', nombre: 'Declaratoria de propiedad horizontal', precioBase: '', nota: 'por trámite',
+      descripcion: 'Cuadro de áreas y alícuotas, reglamento y gestión ante Control Municipal; requiere planos aprobados y permiso de construcción. Luego se inscribe en el Registro de la Propiedad.' },
     { id: 'contexto-cad', nombre: 'Maqueta de contexto editable (DWG / SKP)', precioBase: '', nota: 'según el área',
       descripcion: 'Terreno, curvas, lotes, vías y edificios del entorno en DWG y SketchUp, listos para empezar un proyecto o una entrega académica.' },
     { id: 'entorno-mejorado', nombre: 'Entorno mejorado', precioBase: '', nota: 'según el área',
