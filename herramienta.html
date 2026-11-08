@@ -94,6 +94,8 @@
     -webkit-mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%);
     mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%); }
   .mapa-lupa.visible { opacity: 1; }
+  .lupa-punto { position: absolute; z-index: 460; left: var(--mx, 50%); top: var(--my, 50%); width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #1C1A16; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .lupa-punto.visible { opacity: 1; }
   /* iPad/iPhone: sin el menú ni la lupa de texto del sistema al mantener el dedo sobre el mapa */
   .mapa-ventana, .mapa-ventana * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .mapa-lupa .leaflet-container, .mapa-lupa.leaflet-container { background: transparent; }
@@ -779,7 +781,7 @@
   </details>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div id="lupaPunto" class="lupa-punto" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
@@ -1003,18 +1005,57 @@
     // encendía la lupa justo cuando ya no se estaba tocando
     cont.addEventListener('pointermove', function (ev) {
       if (ev.pointerType !== 'mouse') return;
+      if (!modoDibujo && !modoUnir) window.__resalteDePunto(ev.clientX, ev.clientY);
       var r = cont.getBoundingClientRect();
       el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
       el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
     });
-    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); });
+    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); resaltar(null); });
+    mapa.on('zoomend', function () { if (mapa.getZoom() < 17) resaltar(null); });
     // Celular: mantener el dedo ~0,5 s sin moverlo enciende la lupa; mientras el dedo sigue apoyado
     // se arrastra la lupa (el mapa no se mueve). Al levantar el dedo vuelve la navegación normal y ese
     // toque no selecciona predio. La lupa va un poco arriba del dedo para que el dedo no la tape.
-    var tLupa = null, lupaTactil = false, x0 = 0, y0 = 0;
-    function ponerLupa(t) {
+    var tLupa = null, lupaTactil = false, x0 = 0, y0 = 0, punto = document.getElementById('lupaPunto');
+    // Predios de la vista (una sola consulta por encuadre, de cerca): el resaltado al apuntar se
+    // resuelve en el navegador, sin pedir nada al servidor en cada movimiento.
+    var prediosVista = { clave: '', feats: [], cargando: null }, resaltadoF = null;
+    var estiloResalte = { color: '#E8B517', weight: 3, fill: false, interactive: false };
+    var resalteMain = L.geoJSON(null, { style: estiloResalte }).addTo(mapa), resalteLupa = L.geoJSON(null, { style: estiloResalte }).addTo(mapaLupa);
+    function cargarPrediosVista() {
+      if (mapa.getZoom() < 17) return null;
+      var b = mapa.getBounds().pad(0.3), k = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(function (v) { return v.toFixed(4); }).join(',');
+      if (prediosVista.clave === k) return prediosVista.cargando;
+      prediosVista.clave = k;
+      prediosVista.cargando = fetch('https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=2500&bbox=' + k + ',EPSG:4326')
+        .then(function (r) { return r.json(); }).then(function (d) { prediosVista.feats = (d.features || []).map(function (f) { return { f: f, bb: turf.bbox(f) }; }); return prediosVista.feats; })
+        .catch(function () { prediosVista.clave = ''; return []; });
+      return prediosVista.cargando;
+    }
+    function predioEn(ll) {
+      var pt = turf.point([ll.lng, ll.lat]);
+      for (var i = 0; i < prediosVista.feats.length; i++) {
+        var o = prediosVista.feats[i], bb = o.bb;
+        if (ll.lng < bb[0] || ll.lng > bb[2] || ll.lat < bb[1] || ll.lat > bb[3]) continue;
+        try { if (turf.booleanPointInPolygon(pt, o.f)) return o.f; } catch (e) { }
+      }
+      return null;
+    }
+    function resaltar(f) {
+      if (f === resaltadoF) return;
+      resaltadoF = f; resalteMain.clearLayers(); resalteLupa.clearLayers();
+      if (f) { resalteMain.addData(f); resalteLupa.addData(f); }
+    }
+    window.__resalteDePunto = function (clientX, clientY) {
       var r = cont.getBoundingClientRect();
-      el.style.setProperty('--mx', (t.clientX - r.left) + 'px'); el.style.setProperty('--my', (t.clientY - r.top - 70) + 'px');
+      if (mapa.getZoom() < 17) { resaltar(null); return; }
+      cargarPrediosVista();
+      resaltar(predioEn(mapa.containerPointToLatLng([clientX - r.left, clientY - r.top])));
+    };
+    function ponerLupa(t) {
+      var r = cont.getBoundingClientRect(), mx = t.clientX - r.left, my = t.clientY - r.top - 70;
+      el.style.setProperty('--mx', mx + 'px'); el.style.setProperty('--my', my + 'px');
+      punto.style.setProperty('--mx', mx + 'px'); punto.style.setProperty('--my', my + 'px');
+      window.__resalteDePunto(t.clientX, t.clientY - 70);
     }
     cont.addEventListener('touchstart', function (ev) {
       if (ev.touches.length !== 1 || modoDibujo || mapa.getZoom() < 16) return;
@@ -1022,7 +1063,8 @@
       clearTimeout(tLupa);
       tLupa = setTimeout(function () {
         lupaTactil = true; mapa.dragging.disable();
-        ponerLupa({ clientX: x0, clientY: y0 }); el.classList.add('visible');
+        var cp = cargarPrediosVista(); if (cp) cp.then(function () { window.__resalteDePunto(x0, y0 - 70); });
+        ponerLupa({ clientX: x0, clientY: y0 }); el.classList.add('visible'); punto.classList.add('visible');
         if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) { }
       }, 500);
     }, { passive: true });
@@ -1033,7 +1075,12 @@
     }, { passive: false });
     function finTactil() {
       clearTimeout(tLupa);
-      if (lupaTactil) { lupaTactil = false; el.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600; }
+      if (lupaTactil) {
+        lupaTactil = false; el.classList.remove('visible'); punto.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600;
+        // el predio que quedó resaltado bajo el punto se selecciona al soltar el dedo
+        var f = resaltadoF; resaltar(null);
+        if (f && typeof seleccionarPredioFeature === 'function') seleccionarPredioFeature(f);
+      }
     }
     cont.addEventListener('touchend', finTactil); cont.addEventListener('touchcancel', finTactil);
     mapa.on('zoomend', function () { if (mapa.getZoom() < 17) el.classList.remove('visible'); });
@@ -3298,6 +3345,13 @@
     return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
   }
 
+  // Selección con el polígono ya conocido (lupa táctil): mismo flujo que consultarPredio, sin volver
+  // a consultar el catastro
+  async function seleccionarPredioFeature(f) {
+    panelEmpty.style.display = 'none';
+    prediosUnion = [f]; resumenAntesDeUnir = null; modoUnir = false;
+    await mostrarResultado(f);
+  }
   async function consultarPredio(latlng) {
     if (marcadorClic) mapa.removeLayer(marcadorClic);
     marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#1C1A16', fillColor: '#1C1A16', fillOpacity: 1 }).addTo(mapa);
