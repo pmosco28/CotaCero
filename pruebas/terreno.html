@@ -36,9 +36,9 @@
   <ul class="soft">
     <li><b>Verdad:</b> MDT municipal (IDE Cuenca, <span class="mono">ide:catastros_mdt4326</span>, ~3 m), leído por WCS.</li>
     <li><b>A · Global 30 m:</b> AWS Terrain Tiles (Tilezen; en Ecuador proviene de SRTM 30 m), interpolación bilineal.</li>
-    <li><b>B · + edificios:</b> los modelos satelitales miden techos y copas; se resta k × (fracción construida en 30 m). k se calibra SOLO en la zona plana (El Ejido) y se aplica igual a las demás.</li>
+    <li><b>B · + edificios y vegetación:</b> los modelos satelitales miden techos y copas. Se resta un sesgo proporcional a la fracción construida, a la vegetación de OSM (parques, bosques, hileras de árboles) y a la franja de ribera (35 m a cada lado del río). Los tres coeficientes se calibran SOLO en El Ejido y se aplican igual a las otras zonas: Barranco y Cristo Rey son validación fuera de muestra.</li>
     <li><b>C · + vías:</b> red de calles de OSM como líneas de rasante: cada nodo se ajusta a B con continuidad a lo largo de la vía y misma cota en los cruces (mínimos cuadrados por relajación); las escalinatas pueden quebrar. La diferencia con B se reparte a las manzanas por difusión.</li>
-    <li><b>D · + ríos:</b> el cauce baja siempre en el sentido del agua (mínimo acumulado aguas abajo) y talla un valle con taludes de 1:3 hacia las orillas, sin subir nunca el terreno.</li>
+    <li><b>D · + ríos:</b> el cauce baja siempre en el sentido del agua (mínimo acumulado aguas abajo) y talla el cauce con taludes 1:1 hasta 20 m de la orilla, sin subir nunca el terreno.</li>
     <li><b>Métricas:</b> se descuenta el sesgo medio (los modelos usan distinto origen vertical) y se mide el error cuadrático medio (RMSE), el error al 95 % y la pendiente.</li>
   </ul>
   <p class="soft">Datos: IDE del GAD Municipal de Cuenca · AWS Terrain Tiles (Tilezen, SRTM: NASA/USGS) · © colaboradores de OpenStreetMap (ODbL).</p>
@@ -107,7 +107,7 @@
     var sw = P.aG(-LADO / 2 - 60, -LADO / 2 - 60), ne = P.aG(LADO / 2 + 60, LADO / 2 + 60);
     var xml = new DOMParser().parseFromString(await (await fetch('https://api.openstreetmap.org/api/0.6/map?bbox=' + [sw[0], sw[1], ne[0], ne[1]].join(','))).text(), 'text/xml');
     var nodos = {}; xml.querySelectorAll('node').forEach(function (n) { nodos[n.getAttribute('id')] = P.aM(+n.getAttribute('lon'), +n.getAttribute('lat')); });
-    var vias = [], rios = [], edif = [];
+    var vias = [], rios = [], edif = [], veg = [], hileras = [];
     xml.querySelectorAll('way').forEach(function (w) {
       var t = {}; w.querySelectorAll('tag').forEach(function (g) { t[g.getAttribute('k')] = g.getAttribute('v'); });
       var ids = [].map.call(w.querySelectorAll('nd'), function (n) { return n.getAttribute('ref'); }).filter(function (id) { return nodos[id]; });
@@ -115,8 +115,10 @@
       if (t.highway && !/^(proposed|construction|platform)$/.test(t.highway) && t.tunnel !== 'yes') vias.push({ ids: ids, tipo: t.highway, puente: !!(t.bridge && t.bridge !== 'no') });
       if (t.waterway && /^(river|stream|canal|ditch)$/.test(t.waterway)) rios.push({ pts: ids.map(function (i) { return nodos[i]; }), ancho: t.waterway === 'river' ? 25 : 4 });
       if (t.building && ids.length >= 3) edif.push(ids.map(function (i) { return nodos[i]; }));
+      if (ids.length >= 3 && (/^(park|garden)$/.test(t.leisure || '') || /^(grass|forest|recreation_ground|meadow|orchard)$/.test(t.landuse || '') || /^(wood|scrub)$/.test(t.natural || ''))) veg.push(ids.map(function (i) { return nodos[i]; }));
+      if (t.natural === 'tree_row') hileras.push(ids.map(function (i) { return nodos[i]; }));
     });
-    return { nodos: nodos, vias: vias, rios: rios, edif: edif };
+    return { nodos: nodos, vias: vias, rios: rios, edif: edif, veg: veg, hileras: hileras };
   }
 
   // ---------- utilidades de grilla ----------
@@ -126,6 +128,39 @@
     i = Math.max(0, Math.min(N - 2, i)); j = Math.max(0, Math.min(N - 2, j));
     var tx = Math.min(1, Math.max(0, fi - i)), ty = Math.min(1, Math.max(0, fj - j)), k = j * N + i;
     return (Z[k] * (1 - tx) + Z[k + 1] * tx) * (1 - ty) + (Z[k + N] * (1 - tx) + Z[k + N + 1] * tx) * ty;
+  }
+  function fraccionRaster(N, dibujar) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.fillStyle = '#000'; x.strokeStyle = '#000';
+    function aPx(p) { return [(p[0] + LADO / 2) / PASO, (LADO / 2 - p[1]) / PASO]; }
+    dibujar(x, aPx);
+    var d = x.getImageData(0, 0, N, N).data, f = new Float32Array(N * N); for (var k = 0; k < N * N; k++) f[k] = d[k * 4 + 3] / 255;
+    var r = 5, o = new Float32Array(N * N);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var sm = 0, n = 0; for (var dj = -r; dj <= r; dj++) for (var di = -r; di <= r; di++) { var jj = j + dj, ii = i + di; if (jj < 0 || ii < 0 || jj >= N || ii >= N) continue; sm += f[jj * N + ii]; n++; } o[j * N + i] = sm / n; }
+    return o;
+  }
+  function fraccionVegetacion(N, red) {
+    return fraccionRaster(N, function (x, aPx) {
+      red.veg.forEach(function (r) { x.beginPath(); r.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.closePath(); x.fill(); });
+      x.lineWidth = 12 / PASO; x.lineCap = 'round';
+      red.hileras.forEach(function (r) { x.beginPath(); r.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); });
+    });
+  }
+  function fraccionRibera(N, red) {
+    // franja de 35 m a cada lado de los ríos: en Cuenca las orillas son arboladas
+    return fraccionRaster(N, function (x, aPx) {
+      x.lineCap = 'round'; x.lineJoin = 'round';
+      red.rios.forEach(function (r) { x.lineWidth = (r.ancho + 70) / PASO; x.beginPath(); r.pts.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); });
+    });
+  }
+  // regresión lineal múltiple pequeña (mínimos cuadrados normales, 3 variables + constante)
+  function regresion(X, y) {
+    var m = X[0].length + 1, A = [], b = new Array(m).fill(0), i, j, k;
+    for (i = 0; i < m; i++) A.push(new Array(m).fill(0));
+    for (k = 0; k < y.length; k++) { var row = [1].concat(X[k]); for (i = 0; i < m; i++) { b[i] += row[i] * y[k]; for (j = 0; j < m; j++) A[i][j] += row[i] * row[j]; } }
+    for (i = 0; i < m; i++) A[i][i] += 1e-6 * y.length;
+    for (i = 0; i < m; i++) { var piv = A[i][i]; for (j = i + 1; j < m; j++) { var f = A[j][i] / piv; for (k = i; k < m; k++) A[j][k] -= f * A[i][k]; b[j] -= f * b[i]; } }
+    var x = new Array(m).fill(0); for (i = m - 1; i >= 0; i--) { var sm = b[i]; for (j = i + 1; j < m; j++) sm -= A[i][j] * x[j]; x[i] = sm / A[i][i]; }
+    return x;
   }
   function fraccionConstruida(N, edif) {
     var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.fillStyle = '#000';
@@ -191,8 +226,8 @@
       for (var j = 0; j < N; j++) for (var i2 = 0; i2 < N; i2++) {
         var x = -LADO / 2 + (i2 + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, best = Infinity, bz = 0;
         for (var q = 0; q < dentro.length; q += 2) { var d = Math.hypot(dentro[q][0] - x, dentro[q][1] - y); if (d < best) { best = d; bz = zw[q]; } }
-        if (best > med + 45) continue;
-        var objetivo = bz + Math.max(0, best - med) / 3; // talud 1:3
+        if (best > med + 20) continue;
+        var objetivo = bz + Math.max(0, best - med); // talud 1:1, solo junto al cauce
         var k2 = j * N + i2; if (objetivo < D[k2]) D[k2] = objetivo;
       }
     });
@@ -237,20 +272,21 @@
       var V = await verdad(Z, P), N = V.N, T = V.z;
       log('  modelo global 30 m…'); var A = await global30(P, N);
       log('  OpenStreetMap…'); var red = await osm(P);
-      var fb = fraccionConstruida(N, red.edif);
+      var fb = fraccionConstruida(N, red.edif), fv = fraccionVegetacion(N, red), fr = fraccionRibera(N, red);
       if (kGlobal === null) {
-        // calibración de k SOLO en la primera zona (plana): pendiente de (A−T) contra fracción construida
-        var mA = metricas(N, A, T), sx = 0, sy = 0, sxx = 0, sxy = 0, n = 0;
-        for (var k = 0; k < N * N; k++) { if (isNaN(T[k])) continue; var xx = fb[k], yy = A[k] - T[k] - mA.sesgo; sx += xx; sy += yy; sxx += xx * xx; sxy += xx * yy; n++; }
-        kGlobal = (n * sxy - sx * sy) / (n * sxx - sx * sx); if (!isFinite(kGlobal) || kGlobal < 0) kGlobal = 0;
-        log('  k calibrado = ' + kGlobal.toFixed(1) + ' m por fracción construida');
+        // calibración SOLO en la primera zona: (A − T) = c + kb·edificios + kv·vegetación + kr·ribera
+        var Xs = [], ys = [];
+        for (var k = 0; k < N * N; k += 2) { if (isNaN(T[k]) || isNaN(A[k])) continue; Xs.push([fb[k], fv[k], fr[k]]); ys.push(A[k] - T[k]); }
+        var coef = regresion(Xs, ys);
+        kGlobal = { b: Math.max(0, coef[1]), v: Math.max(0, coef[2]), r: Math.max(0, coef[3]) };
+        log('  calibración: edificios ' + kGlobal.b.toFixed(1) + ' m · vegetación ' + kGlobal.v.toFixed(1) + ' m · ribera ' + kGlobal.r.toFixed(1) + ' m');
       }
-      var B = new Float32Array(N * N); for (var q = 0; q < N * N; q++) B[q] = A[q] - kGlobal * fb[q];
+      var B = new Float32Array(N * N); for (var q = 0; q < N * N; q++) B[q] = A[q] - kGlobal.b * fb[q] - kGlobal.v * fv[q] - kGlobal.r * fr[q];
       log('  vías…'); var MV = metodoVias(N, B, red), C = MV.C;
       log('  ríos…'); var D = metodoRios(N, C, red);
       // máscara de calles (≤ 6 m de un eje)
       var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
-      var metodos = [['A · global 30 m', A], ['B · + edificios', B], ['C · + vías', C], ['D · + ríos', D]];
+      var metodos = [['A · global 30 m', A], ['B · + edificios y vegetación', B], ['C · + vías', C], ['D · + ríos', D]];
       var tabla = metodos.map(function (m) { var a = metricas(N, m[1], T), s = metricas(N, m[1], T, calles); return { nombre: m[0], M: m[1], todo: a, calles: s, pend: pendienteRMSE(N, m[1], T) }; });
       var mejorR = Math.min.apply(null, tabla.map(function (t) { return t.todo.rmse; }));
       var html = '<h2>' + Z.nombre + '</h2><table><tr><th>Método</th><th>Sesgo medio</th><th>RMSE</th><th>Error 95 %</th><th>RMSE en calles</th><th>RMSE pendiente</th></tr>' +
