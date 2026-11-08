@@ -470,6 +470,8 @@
   .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
   .btn-ghost:hover { background: var(--line-soft); }
   .pedir-predio { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-volver-3d { background: none; border: none; padding: 0; margin: 0 0 10px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--terracotta-dark); cursor: pointer; }
+  .btn-volver-3d:hover { text-decoration: underline; }
   .pedir-predio .btn { flex: 1 1 200px; }
 
   /* ---------- sections ---------- */
@@ -4783,7 +4785,7 @@
     activarPlanoInteractivo(rep, estado, areaM2);
     activarEdicionCroquis(rep);
 
-    document.getElementById('btn-croquis-cerrar').addEventListener('click', cerrarPreviewCroquis);
+    document.getElementById('btn-croquis-cerrar').addEventListener('click', function () { cerrarPreviewCroquis(); volverAVista3D(); });
 
     document.getElementById('btn-croquis-descargar').addEventListener('click', function (ev) {
       pedirCodigoAcceso(ev.currentTarget, function () { imprimirCroquisActivo(estado); });
@@ -4898,6 +4900,18 @@
   // Asignada dentro del bloque del catálogo (más abajo); la usan los botones "Pedir … de este
   // predio" de la ficha del resultado.
   var pedirProductoParaPredio = function () {};
+  // La volumetría no es un producto de la barra: ES la página (el gancho gratuito). Desde cualquier
+  // producto se vuelve a ella con este botón, o tocando de nuevo el chip activo.
+  function volverAVista3D() {
+    productoActivo = 'volumetria';
+    aplicarProductoActivo();
+    var destino = document.getElementById('mapaStage');
+    if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function htmlBotonVolver() {
+    return '<button type="button" class="btn-volver-3d js-volver-3d">← ' +
+      (estadoSeleccionado ? 'Volver a mi predio' : 'Volver al mapa') + '</button>';
+  }
   // Botón fijo de WhatsApp: el mensaje lleva la clave catastral del predio elegido (si hay uno).
   var WHATSAPP_NUMERO = '593999163505';
   function actualizarWhatsApp(clave) {
@@ -4911,7 +4925,9 @@
 
   if (barraCont && detalleCont) {
     function renderBarra() {
-      barraCont.innerHTML = CATALOGO_PRODUCTOS.map(function (p) {
+      barraCont.innerHTML = CATALOGO_PRODUCTOS.filter(function (p) {
+        return !p.precioGratis && p.id !== 'volumetria';
+      }).map(function (p) {
         var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
         return '<button type="button" class="chip-producto' + (p.id === productoActivo ? ' activa' : '') + '" data-id="' + p.id + '">' +
           '<span class="chip-icono">' + (ICONOS_PRODUCTO[p.id] || '') + '</span>' +
@@ -4945,7 +4961,7 @@
         '</p>' +
         '<p class="pd-nota" id="sol-doc-aviso" style="margin-top:4px; color:var(--terracotta); display:none"></p>'
         : '';
-      detalleCont.innerHTML =
+      detalleCont.innerHTML = htmlBotonVolver() +
         '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
           '<span class="badge badge-demo">Por encargo</span></div>' +
         '<p class="pd-desc">' + producto.descripcion + '</p>' +
@@ -5213,7 +5229,7 @@
         if (toolEl) toolEl.style.display = 'none';
         if (!estadoSeleccionado) {
           cerrarPreviewCroquis();
-          detalleCont.innerHTML =
+          detalleCont.innerHTML = htmlBotonVolver() +
             '<div class="pd-head"><h3><span class="chip-icono">' + ICONOS_PRODUCTO.croquis + '</span>Croquis de sitio</h3></div>' +
             '<p class="pd-desc">Elige un predio en el mapa, arriba, para generar su croquis.</p>';
           detalleCont.hidden = false;
@@ -5278,9 +5294,14 @@
         .catch(function (e) { console.warn('No se pudo refrescar el catálogo, se mantiene el local', e); });
     }
 
+    detalleCont.addEventListener('click', function (ev) {
+      if (ev.target.closest('.js-volver-3d')) volverAVista3D();
+    });
+
     barraCont.addEventListener('click', function (ev) {
       var btn = ev.target.closest('.chip-producto');
-      if (!btn || productoActivo === btn.dataset.id) return;
+      if (!btn) return;
+      if (productoActivo === btn.dataset.id) { volverAVista3D(); return; }
       productoActivo = btn.dataset.id;
       aplicarProductoActivo();
       var destino = productoActivo === 'croquis'
