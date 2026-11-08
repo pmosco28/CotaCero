@@ -809,6 +809,9 @@
 <div id="reporte-pdf" class="reporte-pdf"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -933,12 +936,16 @@
   // directo a los servidores de Google (uso no permitido por sus términos).
   var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
-  // Base: "Mapa Base" oficial del GAD (IDE Cuenca, WMS): predios, vías y nombres de calles. Se
-  // muestra en escala de grises (filtro CSS) para que el mapa sea blanco y negro, como un plano.
-  var capaBase = L.tileLayer.wms(IDE_CUENCA_WMS, {
-    layers: 'ide_interno:mapa_base', format: 'image/png', transparent: false, version: '1.1.1',
-    tileSize: 512, zoomOffset: 0, maxZoom: 20, className: 'capa-base-plano', attribution: 'Mapa base: GAD Municipal de Cuenca (IDE)'
-  }).addTo(mapa);
+  // Base: OpenFreeMap, estilo Positron (datos de OpenStreetMap): calles con nombre, parques y ríos,
+  // claro y en grises. Gratis también para uso comercial, sin clave ni límite de vistas; exige citar
+  // OpenStreetMap/OpenMapTiles (MapLibre lo agrega solo). Respaldo si MapLibre no carga: teselas
+  // estándar de OSM en gris.
+  var capaBase;
+  if (L.maplibreGL && window.maplibregl) {
+    capaBase = L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/positron', attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Datos de <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' }).addTo(mapa);
+  } else {
+    capaBase = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'capa-base-plano', attribution: '© OpenStreetMap' }).addTo(mapa);
+  }
   // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
   // en sí no se puede acelerar (depende del servidor del IDE Cuenca), pero sí dar una señal de que algo está
   // pasando en vez de un círculo vacío/a medias que se siente roto. 'loading'/'load' son eventos
