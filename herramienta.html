@@ -2574,17 +2574,38 @@
         if (d > dPeor) { dPeor = d; peor = c; }
       });
       if (!peor) break;
-      var h = lado / 2;
-      var patio = [[-h, -h], [h, -h], [h, h], [-h, h]].map(function (q) { return [peor[0] + q[0] * cosA - q[1] * sinA, peor[1] + q[0] * sinA + q[1] * cosA]; });
+      // Un patio por zona oscura, del tamaño que la ilumina entera (no varios patios mínimos picados):
+      // se toma la zona oscura alrededor del punto más oscuro y el patio crece hasta que todo quede a
+      // menos de PROF_LUZ_M de él; nunca menor que el mínimo de la norma.
+      var oscuras = celdas.filter(function (c) {
+        if (Math.hypot(c[0] - peor[0], c[1] - peor[1]) > 25) return false;
+        if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return false;
+        return distLuz(c, patios) > PROF_LUZ_M;
+      });
+      var us = oscuras.map(function (c) { return (c[0] - peor[0]) * cosA + (c[1] - peor[1]) * sinA; });
+      var vs = oscuras.map(function (c) { return -(c[0] - peor[0]) * sinA + (c[1] - peor[1]) * cosA; });
+      var u0 = Math.min.apply(null, us.concat([0])), u1 = Math.max.apply(null, us.concat([0]));
+      var v0 = Math.min.apply(null, vs.concat([0])), v1 = Math.max.apply(null, vs.concat([0]));
+      var au = Math.max(lado, (u1 - u0) - 2 * PROF_LUZ_M + 2 * paso), av = Math.max(lado, (v1 - v0) - 2 * PROF_LUZ_M + 2 * paso);
+      var cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+      function rect(cu_, cv_, au_, av_) {
+        return [[-au_ / 2, -av_ / 2], [au_ / 2, -av_ / 2], [au_ / 2, av_ / 2], [-au_ / 2, av_ / 2]].map(function (q) {
+          var u = cu_ + q[0], v = cv_ + q[1];
+          return [peor[0] + u * cosA - v * sinA, peor[1] + u * sinA + v * cosA];
+        });
+      }
+      var dentro = function (pt) { return pt.every(function (q) { return puntoDentroDePoligono(q, puntosEnvolvente); }); };
+      var patio = rect(cu, cv, au, av);
+      if (!dentro(patio)) patio = rect(0, 0, lado, lado);
       // el patio tiene que quedar dentro de la planta (cerrado), si no, se descarta el intento
-      if (!patio.every(function (q) { return puntoDentroDePoligono(q, puntosEnvolvente); })) {
+      if (!dentro(patio)) {
         celdas = celdas.filter(function (c) { return c !== peor; });
         it--; if (!celdas.length) break; continue;
       }
       patios.push(patio);
     }
     var area = 0;
-    patios.forEach(function (pt) { area += lado * lado; });
+    patios.forEach(function (pt) { var A = 0; for (var i = 0; i < pt.length; i++) { var q = pt[i], r = pt[(i + 1) % pt.length]; A += q[0] * r[1] - r[0] * q[1]; } area += Math.abs(A) / 2; });
     return { final: puntosEnvolvente, patios: patios, patiosColocados: patios.length, numPatios: patios.length, patioMinimo: lado, areaZona: area };
   }
 
