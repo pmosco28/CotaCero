@@ -726,15 +726,22 @@
     body { padding-bottom: 76px; }
   }
   @media print { .btn-whatsapp { display: none !important; } }
-  .btn-carrito { position: fixed; bottom: 20px; right: 268px; z-index: 1500; display: inline-flex; align-items: center; gap: 8px; font: 600 0.92rem 'Inter Tight', sans-serif; padding: 12px 18px; border-radius: 999px; border: 0; background: #B2502E; color: #fff; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
-  .btn-carrito[hidden] { display: none; }
-  .btn-carrito svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-flot { position: fixed; bottom: 20px; z-index: 1500; display: inline-flex; align-items: center; gap: 8px; font: 600 0.92rem 'Inter Tight', sans-serif; padding: 12px 18px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+  .btn-flot[hidden] { display: none; }
+  .btn-flot svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn-ficha { right: 268px; background: #fff; color: #1C1A16; border: 1.5px solid #1C1A16; }
+  .btn-carrito { right: 268px; background: #B2502E; color: #fff; border: 0; }
+  body.con-carrito .btn-ficha { right: 470px; }
+  .btn-carrito i { font-style: normal; font-size: 0.72rem; background: #fff; color: #B2502E; border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; }
   @media (max-width: 640px) {
-    .btn-carrito { left: 12px; right: auto; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 14px 16px; }
-    body.con-carrito .btn-whatsapp { left: auto; width: 56px; padding: 14px 0; } body.con-carrito .btn-whatsapp span { display: none; }
-    body.con-carrito .btn-carrito { right: 80px; justify-content: center; }
+    body.con-ficha .btn-whatsapp { left: auto; width: 56px; padding: 14px 0; } body.con-ficha .btn-whatsapp span { display: none; }
+    .btn-flot { bottom: calc(12px + env(safe-area-inset-bottom)); padding: 14px 16px; justify-content: center; }
+    .btn-ficha { left: 12px; right: 80px; }
+    .btn-carrito { left: auto; right: 80px; }
+    body.con-carrito .btn-ficha { right: auto; width: 56px; padding: 14px 0; } body.con-carrito .btn-ficha span { display: none; }
+    body.con-carrito .btn-carrito { left: 80px; }
   }
-  @media print { .btn-carrito, .checkout { display: none !important; } }
+  @media print { .btn-flot, .checkout { display: none !important; } }
   .checkout { position: fixed; inset: 0; z-index: 2000; background: rgba(28,26,22,.45); display: grid; place-items: center; padding: 16px; }
   .checkout-caja { position: relative; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: #f6f5f2; border-radius: 14px; padding: 18px; display: grid; gap: 10px; font-size: 0.86rem; color: #1C1A16; }
   .checkout-x { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 1.4rem; cursor: pointer; color: #5E5B55; }
@@ -752,6 +759,11 @@
   .maq-recos ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.78rem; font-weight: 300; line-height: 1.4; }
   .maq-recos a { color: #1C1A16; font-weight: 600; white-space: nowrap; }
   .maq-ficha-fila { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .maq-norma .maq-ficha { background: #1C1A16; color: #f3f1ec; border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+  .maq-norma .maq-ficha .maq-estudio-tit { color: #f3f1ec; font-size: 0.74rem; }
+  .maq-norma .maq-ficha .maq-ficha-nota, .maq-norma .maq-ficha .maq-ficha-nota a { color: #c9c4ba; }
+  .maq-norma .maq-ficha .maq-ficha-btn { background: #B2502E; border-color: #B2502E; color: #fff; }
+  .maq-norma .maq-ficha .maq-ficha-msg { color: #f3f1ec; }
   .maq-ficha-fila .maq-ficha-btn { font: inherit; font-weight: 600; padding: 0 14px; border-radius: 8px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; cursor: pointer; }
   .ped-item { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 0 6px; padding: 6px 0; border-bottom: 1px solid rgba(28,26,22,.08); }
   .ped-item .maq-tramite { grid-column: 1; }
@@ -759,6 +771,32 @@
   .ped-info.activo { background: #1C1A16; color: #f3f1ec; border-color: #1C1A16; }
   .ped-desc { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 300; color: #5E5B55; padding: 4px 0 2px 24px; line-height: 1.4; }
   .ped-por { color: #8F3F23 !important; }
+  .tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .tp-card { position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 8px 10px; align-content: start; padding: 12px; border: 1px solid rgba(28,26,22,.14); border-radius: 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+  .tp-card.en-pedido { border-color: #1C1A16; box-shadow: inset 0 0 0 1px #1C1A16; }
+  .tp-card.abierta { grid-column: 1 / -1; }
+  .tp-card.destello, .maq-ficha.destello { animation: destello 1.2s ease; }
+  @keyframes destello { 0%, 100% { box-shadow: 0 0 0 0 rgba(178,80,46,0); } 30% { box-shadow: 0 0 0 4px rgba(178,80,46,.35); } }
+  .tp-badge { position: absolute; top: -8px; right: 10px; background: #B2502E; color: #fff; font-size: 0.58rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+  .tp-ico { width: 40px; height: 40px; border-radius: 10px; background: #f0eee9; display: grid; place-items: center; color: #1C1A16; }
+  .tp-ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .tp-txt { display: grid; gap: 2px; align-content: center; } .tp-txt b { font-weight: 600; font-size: 0.84rem; line-height: 1.2; } .tp-txt small { font-weight: 300; font-size: 0.72rem; color: #5E5B55; line-height: 1.3; }
+  .tp-pie { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
+  .tp-precio { flex: 1; font-weight: 700; font-size: 0.9rem; }
+  .tp-mas, .tp-add { font: inherit; font-size: 0.74rem; font-weight: 600; height: 30px; padding: 0 10px; border-radius: 8px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .tp-mas { border: 1px solid rgba(28,26,22,.2); background: transparent; color: #1C1A16; }
+  .tp-add { border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; }
+  .tp-card.en-pedido .tp-add { background: transparent; color: #1C1A16; }
+  .tp-det { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 300; line-height: 1.45; color: #2b2a27; border-top: 1px solid rgba(28,26,22,.08); padding-top: 8px; }
+  .tp-det p { margin: 0 0 8px; }
+  .tp-vars { display: grid; gap: 6px; }
+  .tp-var { display: grid !important; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: start !important; padding: 8px; border: 1px solid rgba(28,26,22,.12); border-radius: 8px; cursor: pointer; }
+  .tp-var:has(input:checked) { border-color: #1C1A16; background: #f6f5f2; }
+  .tp-var input { margin-top: 3px; accent-color: #1C1A16; } .tp-var span { display: grid; gap: 2px; } .tp-var b { font-weight: 600; font-size: 0.8rem; } .tp-var small { font-size: 0.7rem; color: #5E5B55; }
+  .tp-var em { font-style: normal; font-weight: 700; font-size: 0.78rem; white-space: nowrap; }
+  .ped-grupo-sub { font-size: 0.74rem; font-weight: 300; color: #5E5B55; margin-bottom: 8px; }
+  .ped-tab { display: grid !important; justify-items: center; gap: 3px; } .ped-tab svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 640px) { .tp-grid { grid-template-columns: 1fr; } }
   .ped-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: rgba(28,26,22,.06); padding: 3px; border-radius: 10px; }
   .ped-tab { font: inherit; font-size: 0.74rem; font-weight: 500; padding: 7px 4px; border: 0; border-radius: 8px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; line-height: 1.2; }
   .ped-tab.activo { background: #1C1A16; color: #f3f1ec; }
@@ -1084,6 +1122,63 @@
     var porFecha = function (k) { return function (a, b) { return String(b[k] || '').localeCompare(String(a[k] || '')); }; };
     return { mayor: r[0].sort(porFecha('fecha_aprobacion')), menor: r[1].sort(porFecha('fecha_aprobacion')), planos: r[2].sort(porFecha('fecha_ingreso')), licencias: r[3].sort(porFecha('fecha_aprobacion')) };
   }
+  // Afectaciones y condicionantes del PUGS que tocan el predio (capas iprus:afectacion_* y especiales),
+  // con m² y % del lote; zonas enormes (recarga hídrica, bosque protector, aeropuerto) solo presencia.
+  // También la pendiente dominante (ws_dgpt:pendientes_canton_2010) y los edificios aprobados en la
+  // manzana (permisos de construcción mayor, sin datos personales).
+  var CAPAS_AFECTACION = [
+    { capa: 'iprus:afectacion_margen_proteccion', nom: 'Margen de protección de río o quebrada', grave: true },
+    { capa: 'iprus:afectacion_inundacion', nom: 'Zona inundable', grave: true },
+    { capa: 'iprus:afectacion_remocion_masas', nom: 'Susceptibilidad a deslizamientos', campo: 'amenaza_1' },
+    { capa: 'iprus:afectacion_pendiente_no_apta', nom: 'Pendiente no apta para construir', grave: true },
+    { capa: 'iprus:afectacion_derecho_via', nom: 'Derecho de vía', campo: 'detalle', grave: true },
+    { capa: 'iprus:afectacion_obra_publica', nom: 'Reservado para obra pública', campo: 'nombre', grave: true },
+    { capa: 'iprus:afectacion_interes_paisajistico', nom: 'Interés paisajístico', campo: 'descrip' },
+    { capa: 'iprus:afectacion_area_aporte_hidrico_etapa', nom: 'Área de aporte hídrico (agua potable)' },
+    { capa: 'dahp_indicadores_territoriales:zonas_riesgo', nom: 'Zona de riesgo', campo: 'descripcio' },
+    { capa: 'iprus:afectacion_alta_tension', nom: 'Línea de alta tensión', linea: true },
+    { capa: 'iprus:especial_recarga_hidrica', nom: 'Zona de recarga hídrica', grande: 'nam' },
+    { capa: 'iprus:especial_bosque_protector', nom: 'Bosque protector', grande: 'descripcio' },
+    { capa: 'ws_planificacion_pdot:especial_zona_restriccion_aeropuerto', nom: 'Zona de restricción del aeropuerto', grande: 'fid' }
+  ];
+  async function consultarEntorno(feature, clave) {
+    if (!feature || !feature.geometry) return null;
+    var base = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326';
+    function wkt(f) { var r = f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; return 'POLYGON((' + r.map(function (c) { return c[0] + ' ' + c[1]; }).join(',') + '))'; }
+    var lote = feature, areaLote = turf.area(lote), w = wkt(lote), wBuf = null;
+    try { wBuf = wkt(turf.buffer(lote, 30, { units: 'meters' })); } catch (e) { wBuf = w; }
+    function pedir(capa, cql, campos) {
+      return fetch(base + '&typeName=' + capa + (campos ? '&propertyName=' + campos : '') + '&maxFeatures=200&CQL_FILTER=' + encodeURIComponent(cql))
+        .then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }).catch(function () { return []; });
+    }
+    function interArea(f) { try { var i = turf.intersect(turf.flatten(f).features[0].geometry ? f : f, lote); return i ? turf.area(i) : 0; } catch (e) { var t = 0; try { turf.flatten(f).features.forEach(function (p) { var i2 = turf.intersect(p, lote); if (i2) t += turf.area(i2); }); } catch (e2) { } return t; } }
+    var tareas = CAPAS_AFECTACION.map(function (c) {
+      if (c.grande) return pedir(c.capa, 'INTERSECTS(geom,SRID=4326;' + w + ')', c.grande).then(function (fs) { return fs.length ? { nom: c.nom, todo: true } : null; });
+      if (c.linea) return pedir(c.capa, 'INTERSECTS(geom,SRID=4326;' + wBuf + ')').then(function (fs) {
+        if (!fs.length) return null; var d = Infinity;
+        fs.forEach(function (f) { try { turf.flatten(f).features.forEach(function (l) { turf.explode(lote).features.forEach(function (pt) { d = Math.min(d, turf.pointToLineDistance(pt, l, { units: 'meters' })); }); }); } catch (e) { } });
+        return { nom: c.nom, dist: isFinite(d) ? Math.round(d) : null, grave: d < 15 };
+      });
+      return pedir(c.capa, 'INTERSECTS(geom,SRID=4326;' + w + ')').then(function (fs) {
+        var m2 = 0, det = [];
+        fs.forEach(function (f) { m2 += interArea(f); var v = c.campo && f.properties[c.campo]; if (v && det.indexOf(v) < 0) det.push(String(v)); });
+        if (m2 < 1) return null;
+        return { nom: c.nom, m2: Math.round(m2), pct: Math.min(100, Math.round(100 * m2 / areaLote)), det: det.slice(0, 2).join(', '), grave: !!c.grave };
+      });
+    });
+    var pend = pedir('ws_dgpt:pendientes_canton_2010', 'INTERSECTS(geom,SRID=4326;' + w + ')').then(function (fs) {
+      var por = {}; fs.forEach(function (f) { var k = f.properties.rango_pen; if (k) por[k] = (por[k] || 0) + interArea(f); });
+      var mejor = null; Object.keys(por).forEach(function (k) { if (!mejor || por[k] > por[mejor]) mejor = k; }); return mejor;
+    });
+    var manzana = String(clave || '').length >= 13 ? String(clave).slice(0, 7) : '';
+    var vecinos = manzana ? fetch(base + '&typeName=ws_control:construccion_mayor&propertyName=clave,numero_plantas,fecha_aprobacion&CQL_FILTER=' + encodeURIComponent("clave LIKE '" + manzana + "%'"))
+      .then(function (r) { return r.json(); }).then(function (d) {
+        var lim = new Date(); lim.setFullYear(lim.getFullYear() - 3);
+        return (d.features || []).map(function (f) { return f.properties; }).filter(function (x) { return x.clave !== clave && new Date(x.fecha_aprobacion) > lim; });
+      }).catch(function () { return []; }) : Promise.resolve([]);
+    var r = await Promise.all([Promise.all(tareas), pend, vecinos]);
+    return { afect: r[0].filter(Boolean), pendiente: r[1], vecinos: r[2] };
+  }
   function fechaCorta(iso) { if (!iso || /^0001/.test(iso)) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: 'numeric' }); }
   function vigente(iso) { var d = new Date(iso); return iso && !isNaN(d) && d > new Date(); }
   function arreglarTexto(t) { return String(t || '').replace(/\uFFFD/g, 'Ó').replace(/EDIFICACIÓN/i, 'edificación').trim(); }
@@ -1106,10 +1201,15 @@
       else if (nv && /≥|mayor/i.test(String(nv.densidad_viv_ha || ''))) fila('Viviendas', 'sin tope por densidad');
       if (nv && nv.lote_min) fila('Lote mínimo', nv.lote_min + ' m²' + (nv.frente_min ? ' · frente ' + nv.frente_min + ' m' : ''));
     }
-    if (estado.frenteARio) fila('Afectación', 'da al río: margen de protección');
+    var en = estado.entorno;
+    if (en && en.pendiente) fila('Pendiente', en.pendiente + ' (referencial)');
+    if (en && en.afect.length) fila('Afectaciones', en.afect.length + (en.afect.length === 1 ? ' registrada' : ' registradas'), '<small>' + en.afect.map(function (x) { return x.nom + (x.todo ? ' (todo el predio)' : x.dist != null ? ' a ' + x.dist + ' m' : ' · ' + x.m2.toLocaleString('es-EC') + ' m² (' + x.pct + '%)') + (x.det ? ' — ' + escaparSvg(x.det) : ''); }).join('<br>') + '</small>');
+    else if (en) fila('Afectaciones', 'ninguna registrada');
+    else if (estado.frenteARio) fila('Afectación', 'da al río: margen de protección');
     var a = estado.antecedentes;
     if (a && a.mayor.length) { var m = a.mayor[0]; fila('Permiso de construcción', (vigente(m.fecha_caducidad) ? 'vigente' : 'caducado') + ' · ' + (m.numero_plantas ? m.numero_plantas + ' pisos · ' : '') + (m.area_construccion ? Math.round(m.area_construccion).toLocaleString('es-EC') + ' m²' : '') + '<small>aprobado ' + fechaCorta(m.fecha_aprobacion) + (m.fecha_caducidad ? ', vence ' + fechaCorta(m.fecha_caducidad) : '') + (m.uso ? ' · ' + m.uso : '') + '</small>'); }
     else if (a && a.menor.length) { var mn = a.menor[0]; fila('Permiso menor', (vigente(mn.fecha_caducidad) ? 'vigente' : 'caducado') + '<small>aprobado ' + fechaCorta(mn.fecha_aprobacion) + (mn.area_construccion ? ' · ' + mn.area_construccion + ' m²' : '') + '</small>'); }
+    if (en && en.vecinos.length) { var pz = en.vecinos.map(function (x) { return x.numero_plantas; }).filter(Boolean).sort(function (x, y) { return x - y; }); fila('En tu manzana', en.vecinos.length + (en.vecinos.length === 1 ? ' edificio aprobado' : ' edificios aprobados') + ' en 3 años' + (pz.length ? ' · ' + pz.join(', ') + ' pisos' : '')); }
     if (a && a.planos.length && !(a.mayor.length)) fila('Planos aprobados', fechaCorta(a.planos[0].fecha_ingreso) + (vigente(a.planos[0].fecha_caducidad) ? ' (vigentes)' : ''));
     return '<ul class="ficha-lista">' + f.join('') + '</ul>';
   }
@@ -1129,7 +1229,13 @@
     if (estado.esUnion) R.push({ t: 'Para construir sobre los lotes unidos, primero la unificación de predios ante el municipio.', ids: 'unificacion' });
     if (estado.division && estado.division.n >= 2) R.push({ t: 'Para dividir: permiso de fraccionamiento (lotización) con la planimetría de la división.', ids: 'lotizacion' });
     R.push({ t: 'El primer paso para construir es el IPRUS (informe de regulación del predio): confirma pisos, retiros y usos.', ids: 'planimetrico-iprus' });
-    if (estado.frenteARio) R.push({ t: 'Tu predio da al río: un levantamiento topográfico define bien el margen de protección antes de proyectar.', ids: 'levantamiento' });
+    var en = estado.entorno, af = function (re) { return en && en.afect.filter(function (x) { return re.test(x.nom); })[0]; };
+    if (af(/Margen de protección/) || estado.frenteARio) R.push({ t: 'Parte del predio está en el margen de protección del río o quebrada: ahí no se edifica. Un levantamiento define bien la franja antes de proyectar.', ids: 'levantamiento' });
+    if (af(/inundable|Zona de riesgo/)) R.push({ t: 'Zona con riesgo de inundación: el municipio puede pedir un estudio hidrológico antes del permiso.' });
+    var rm = af(/deslizamientos/); if (rm && /alta/i.test(rm.det || '')) R.push({ t: 'Susceptibilidad alta a deslizamientos: hace falta estudio geotécnico (Anexo 6.5 del PUGS) antes de construir.' });
+    if (af(/Derecho de vía|obra pública/)) R.push({ t: 'Una parte del predio está reservada para vía u obra pública: confirma en el IPRUS cuánto queda edificable.' });
+    if (af(/aeropuerto/)) R.push({ t: 'Está en la zona de restricción del aeropuerto: la altura puede requerir autorización de Aviación Civil.' });
+    if (af(/recarga hídrica|Bosque protector/)) R.push({ t: 'Está en una zona de protección ambiental (recarga hídrica o bosque protector): confirma en el IPRUS las condiciones adicionales.' });
     R.push({ t: 'Después: planos aprobados y permiso de construcción mayor ante Control Municipal.', ids: 'permiso-construccion' });
     if (estado.fichaPIT && estado.fichaPIT.aero && estado.maxPisosLote >= 10) R.push({ t: 'Sobre 10 pisos la ficha pide un estudio aeronáutico.' });
     return R;
@@ -3888,8 +3994,11 @@
     var maxPisosLote;
     estado.ejeIPRUS = null;
     var antecedentesP = consultarAntecedentes(estado.esUnion ? estado.claves : [estado.clave]).catch(function () { return null; });
+    var entornoP = consultarEntorno(feature, estado.esUnion ? estado.claves[0] : estado.clave).catch(function () { return null; });
     if (!esCentroHistorico) { try { estado.ejeIPRUS = await ejeIPRUSDelPredio(estado); } catch (e) { console.warn('Ejes IPRUS no disponibles', e); } }
     estado.antecedentes = await antecedentesP;
+    estado.entorno = await entornoP;
+    if (miTurno !== turnoResultado) return;
     if (miTurno !== turnoResultado) return;
     if (esCentroHistorico) {
       estado.retiros = { frente: 0, lateral: 0, posterior: 0 };
@@ -6076,7 +6185,7 @@
             (estado.restriccionVolumen ? '' : '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>') +
             htmlUsosCliente(estado.usos) +
             htmlRecomendaciones(estado) +
-            '<div class="maq-ficha"><div class="maq-estudio-tit">Ficha PDF gratis</div><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar</button></div><div class="maq-ficha-msg" hidden></div>' +
+            '<div class="maq-ficha"><div class="maq-estudio-tit">Descarga gratis la ficha de tu predio (PDF)</div><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar</button></div><div class="maq-ficha-msg" hidden></div>' +
               '<div class="maq-ficha-nota">Todo lo de arriba, con el detalle técnico. Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>' +
           '</div>' +
         '</div>' +
@@ -6132,7 +6241,11 @@
       p.querySelectorAll('.maq-acc').forEach(function (b) {
         b.addEventListener('click', function () {
           var k = b.getAttribute('data-acc');
-          secAbierta[k] = !secAbierta[k];
+          var abrir = !secAbierta[k];
+          // interruptores: una sola sección abierta a la vez (el volumen normativo no se apaga al
+          // pasar a otra sección; solo al cerrar Normativa)
+          Object.keys(secAbierta).forEach(function (x) { secAbierta[x] = false; });
+          secAbierta[k] = abrir;
           if (k === 'norma' && !estado.restriccionVolumen) {
             mostrarVolumenNormativa = secAbierta.norma;
             grupoVolumen.visible = mostrarVolumenNormativa;
@@ -6145,7 +6258,7 @@
           if (secAbierta[k]) { var sec = p.querySelector('.maq-sec[data-sec="' + k + '"]'); if (sec && window.matchMedia('(max-width: 640px)').matches) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
         });
       });
-      if (!estado.restriccionVolumen) secAbierta.norma = mostrarVolumenNormativa;
+      if (!estado.restriccionVolumen && mostrarVolumenNormativa && !secAbierta.lotes && !secAbierta.pedir) secAbierta.norma = true;
       pintarAcciones();
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
@@ -7076,46 +7189,111 @@
     return lista.filter(Boolean);
   }
   // Lista de trámites recomendados según el predio y el estudio. sel = marcado por defecto.
-  // ---------- Solicitar: tres grupos (para construir / archivos y maquetas / análisis urbanos), cada
-  // uno separado en precio fijo y a convenir. Lo de precio fijo se suma al carrito (botón junto al de
-  // WhatsApp); lo a convenir se manda como pedido de cotización.
+  // ---------- Solicitar como tienda: categorías con ícono, tarjetas de producto (ícono, nombre,
+  // una línea, precio, botón Agregar) y un desplegable con el detalle y, si las hay, las variantes
+  // (p. ej. levantamiento: información pública gratis / dron / LiDAR). Lo de precio fijo suma al
+  // pedido; lo "a convenir" se cotiza. El pedido se abre con el botón junto a WhatsApp.
+  var ICO_T = {
+    doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 15h6M9 18h4"/>',
+    curvas: '<path d="M3 17c3-4 6-4 9-1s6 3 9-1M3 12c3-4 6-4 9-1s6 3 9-1M3 7c3-3 6-3 9 0s6 3 9 0"/>',
+    pin: '<path d="M12 21s-6-6.5-6-11a6 6 0 0 1 12 0c0 4.5-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
+    sello: '<path d="M5 20h14M7 16h10l-1-4H8z"/><path d="M10 12V8a2 2 0 1 1 4 0v4"/>',
+    edificio: '<path d="M5 21V4h9v17M14 9h5v12M3 21h18M8 7h3M8 10h3M8 13h3M8 16h3"/>',
+    poligono: '<path d="M4 8l6-4 9 3-2 11-11 2z"/><path d="M9 13l2 2 4-4"/>',
+    unir: '<rect x="3" y="7" width="8" height="10"/><rect x="13" y="7" width="8" height="10"/><path d="M10 12h4"/>',
+    lotes: '<rect x="3" y="3" width="18" height="18"/><path d="M3 12h18M12 3v18"/>',
+    columnas: '<path d="M3 21h18M4 9h16M12 3l9 6H3zM6 9v10M10 9v10M14 9v10M18 9v10"/>',
+    cubo: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
+    camara: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M9 7l1.5-3h3L15 7"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/>',
+    grafico: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    lupa: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>'
+  };
+  function icoT(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICO_T[k] || ICO_T.doc) + '</svg>'; }
+  // Ficha de tienda por producto: ícono, una línea corta y variantes (precio '' = a cotizar; 0 = gratis)
+  var TIENDA_INFO = {
+    'planimetrico-iprus': { ico: 'doc', corta: 'Plano del predio + gestión del IPRUS' },
+    'planimetrico': { ico: 'doc', corta: 'Plano del predio en formato municipal' },
+    'levantamiento': { ico: 'curvas', corta: 'Linderos, curvas y detalles del terreno', variantes: [
+      { id: 'publico', nombre: 'Información pública', precio: 0, desc: 'Lo que ya ves aquí: modelo de terreno del municipio (celdas de ~3 m) y curvas cada 1 m referenciales. Sirve para decidir y para un anteproyecto; no reemplaza un levantamiento para planos aprobados. Va en la ficha PDF gratis.' },
+      { id: 'dron', nombre: 'Dron con fotogrametría', precio: '80', desc: 'Vuelo del predio y su entorno inmediato con puntos de control GNSS: ortofoto actualizada, nube de puntos y curvas cada 25 cm. Bueno para terrenos abiertos y con pendiente.' },
+      { id: 'lidar', nombre: 'LiDAR', precio: '', desc: 'Escáner láser: mide bajo vegetación y capta fachadas y detalles con precisión centimétrica. Para terrenos con árboles, edificaciones existentes o cuando se necesita el mayor detalle.' }
+    ] },
+    'croquis': { ico: 'pin', corta: 'Ubicación en A4 para crédito o trámites' },
+    'permiso-construccion': { ico: 'sello', corta: 'Planos y permiso de construcción mayor' },
+    'propiedad-horizontal': { ico: 'edificio', corta: 'Para vender o escriturar por departamentos' },
+    'regularizacion': { ico: 'poligono', corta: 'Excedentes, error de cabida, actualización catastral' },
+    'unificacion': { ico: 'unir', corta: 'Juntar tus lotes en uno ante el municipio' },
+    'lotizacion': { ico: 'lotes', corta: 'Permiso para dividir tu lote' },
+    'certificacion-patrimonial': { ico: 'columnas', corta: 'Certificado patrimonial (fuera del Centro Histórico)' },
+    'levantamiento-arquitectonico': { ico: 'columnas', corta: 'Estado actual de la edificación' },
+    'anteproyecto-historico': { ico: 'columnas', corta: 'Para aprobación de Áreas Históricas' },
+    'permiso-menor-historico': { ico: 'columnas', corta: 'Mantenimiento y reparaciones en área histórica' },
+    'modelo-3d': { ico: 'cubo', corta: 'Esta maqueta en .glb para Blender, Rhino o SketchUp' },
+    'contexto-cad': { ico: 'cubo', corta: 'Entorno editable en DWG y SketchUp' },
+    'entorno-mejorado': { ico: 'camara', corta: 'Fachadas y detalles levantados con fotos en sitio' },
+    'analisis-sitio': { ico: 'lupa', corta: 'Equipamientos, accesibilidad y entorno' },
+    'cabida': { ico: 'grafico', corta: 'Qué y cuánto conviene construir' },
+    'asoleamiento': { ico: 'sol', corta: 'Sol y sombras todo el año, por fachada' },
+    'diseno-lotizacion': { ico: 'lotes', corta: 'Lotes, vía interna y áreas verdes' }
+  };
   var GRUPOS_PEDIDO = [
-    { id: 'construir', tit: 'Para construir', sub: 'Documentación legal y municipal', ids: ['planimetrico-iprus', 'planimetrico', 'levantamiento', 'croquis', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
-    { id: 'archivos', tit: 'Archivos y maquetas', sub: 'Para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
-    { id: 'analisis', tit: 'Análisis urbanos', sub: 'Para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'asoleamiento', 'diseno-lotizacion'] }
+    { id: 'construir', tit: 'Construir', ico: 'sello', sub: 'Documentación legal y municipal para construir o saber qué construir', ids: ['planimetrico-iprus', 'levantamiento', 'planimetrico', 'croquis', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
+    { id: 'archivos', tit: 'Archivos', ico: 'cubo', sub: 'Maquetas y archivos para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
+    { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'asoleamiento', 'diseno-lotizacion'] }
   ];
   // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
   // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
   var CONFIG_PAGO = { url: '' };
   var grupoPedidoAbierto = 'construir';
   function productoPorId(id) { return (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0] || null; }
-  function precioNumero(id) { var p = productoPorId(id); var n = p ? parseFloat(String(p.precioBase || '').replace(/[^0-9.]/g, '')) : NaN; return isFinite(n) && n > 0 ? n : 0; }
+  function aNum(v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : NaN; }
+  function precioNumero(id) { var n = aNum((productoPorId(id) || {}).precioBase); return n > 0 ? n : 0; }
+  function variantesDe(id) { return (TIENDA_INFO[id] && TIENDA_INFO[id].variantes) || null; }
+  function precioTexto(id) {
+    var v = variantesDe(id);
+    if (v) { var ns = v.map(function (x) { return aNum(x.precio); }).filter(function (n) { return n > 0; }); return ns.length ? 'desde $' + Math.min.apply(null, ns) : 'cotizar'; }
+    var n = precioNumero(id); return n ? '$' + n : 'cotizar';
+  }
+  // selección: estado.tramitesSel[id] = true (producto simple) o el id de la variante elegida
   function itemsSeleccionados(estado) {
     var sel = estado && estado.tramitesSel || {};
-    return Object.keys(sel).filter(function (k) { return sel[k]; }).map(function (k) { var p = productoPorId(k); return { id: k, nombre: p ? p.nombre : k, precio: precioNumero(k) }; });
+    return Object.keys(sel).filter(function (k) { return sel[k]; }).map(function (k) {
+      var p = productoPorId(k), v = variantesDe(k), nombre = p ? p.nombre : k, precio = precioNumero(k);
+      if (v && typeof sel[k] === 'string') { var x = v.filter(function (y) { return y.id === sel[k]; })[0]; if (x) { nombre += ' · ' + x.nombre; precio = aNum(x.precio) > 0 ? aNum(x.precio) : 0; } }
+      return { id: k, nombre: nombre, precio: precio };
+    });
   }
   function htmlSolicitar(estado) {
     var rec = tramitesRecomendados(estado), recIds = rec.map(function (x) { return x.id; });
     if (!estado.tramitesSel || estado.tramitesSelPara !== recIds.join(',')) {
-      estado.tramitesSel = {}; rec.forEach(function (x) { estado.tramitesSel[x.id] = false; }); estado.tramitesSelPara = recIds.join(',');
+      estado.tramitesSel = {}; estado.tramitesSelPara = recIds.join(',');
     }
     var subRec = {}; rec.forEach(function (x) { subRec[x.id] = x.sub; });
-    function item(id) {
+    function tarjeta(id) {
       var p = productoPorId(id); if (!p) return '';
       if (p.soloRecomendado && recIds.indexOf(id) < 0) return '';
-      var n = precioNumero(id), esRec = recIds.indexOf(id) >= 0;
-      return '<div class="ped-item' + (esRec ? ' rec' : '') + '"><label class="maq-tramite"><input type="checkbox" data-tramite="' + id + '"' + (estado.tramitesSel[id] ? ' checked' : '') + '><i></i><span><b>' + p.nombre + '</b>' + (esRec ? '<small class="ped-por">Recomendado: ' + subRec[id] + '</small>' : '') + '</span><em>' + (n ? '$' + n : 'cotizar') + '</em></label>' +
-        (p.descripcion ? '<button type="button" class="ped-info" aria-label="Qué incluye">?</button><div class="ped-desc" hidden>' + p.descripcion + '</div>' : '') + '</div>';
+      var info = TIENDA_INFO[id] || {}, v = info.variantes, esRec = recIds.indexOf(id) >= 0, sel = estado.tramitesSel[id];
+      var det = '<p>' + (p.descripcion || '') + '</p>' + (v ? '<div class="tp-vars">' + v.map(function (x) {
+        var n = aNum(x.precio), gratis = x.precio === 0;
+        return '<label class="tp-var"><input type="radio" name="var-' + id + '" value="' + x.id + '"' + (sel === x.id ? ' checked' : '') + '><span><b>' + x.nombre + '</b><small>' + x.desc + '</small></span><em>' + (gratis ? 'gratis' : n > 0 ? '$' + n : 'cotizar') + '</em></label>';
+      }).join('') + '</div>' : '');
+      return '<article class="tp-card' + (sel ? ' en-pedido' : '') + (esRec ? ' rec' : '') + '" data-prod="' + id + '">' +
+        (esRec ? '<span class="tp-badge">Recomendado</span>' : '') +
+        '<div class="tp-ico">' + icoT(info.ico) + '</div>' +
+        '<div class="tp-txt"><b>' + p.nombre + '</b><small>' + (esRec && subRec[id] ? subRec[id] : (info.corta || '')) + '</small></div>' +
+        '<div class="tp-pie"><span class="tp-precio">' + precioTexto(id) + '</span>' +
+          '<button type="button" class="tp-mas" aria-expanded="false">Detalles</button>' +
+          (v ? '' : '<button type="button" class="tp-add">' + (sel ? '✓ Agregado' : (precioNumero(id) ? 'Agregar' : 'Cotizar')) + '</button>') + '</div>' +
+        '<div class="tp-det" hidden>' + det + '</div>' +
+      '</article>';
     }
-    var tabs = GRUPOS_PEDIDO.map(function (g) { return '<button type="button" class="ped-tab' + (g.id === grupoPedidoAbierto ? ' activo' : '') + '" data-grupo="' + g.id + '">' + g.tit + '</button>'; }).join('');
+    var tabs = GRUPOS_PEDIDO.map(function (g) { return '<button type="button" class="ped-tab' + (g.id === grupoPedidoAbierto ? ' activo' : '') + '" data-grupo="' + g.id + '">' + icoT(g.ico) + '<span>' + g.tit + '</span></button>'; }).join('');
     var grupos = GRUPOS_PEDIDO.map(function (g) {
       var orden = g.ids.slice().sort(function (a2, b2) { return (recIds.indexOf(a2) < 0) - (recIds.indexOf(b2) < 0); });
-      var fijos = orden.filter(function (id) { return precioNumero(id); }).map(item).join(''), conv = orden.filter(function (id) { return !precioNumero(id); }).map(item).join('');
-      return '<div class="ped-grupo" data-grupo="' + g.id + '"' + (g.id === grupoPedidoAbierto ? '' : ' hidden') + '><div class="maq-nota">' + g.sub + '</div>' +
-        (fijos ? '<div class="ped-sub">Precio fijo</div>' + fijos : '') + (conv ? '<div class="ped-sub">A convenir</div>' + conv : '') + '</div>';
+      return '<div class="ped-grupo" data-grupo="' + g.id + '"' + (g.id === grupoPedidoAbierto ? '' : ' hidden') + '><div class="ped-grupo-sub">' + g.sub + '</div><div class="tp-grid">' + orden.map(tarjeta).join('') + '</div></div>';
     }).join('');
-    return '<div class="ped-tabs">' + tabs + '</div>' + grupos +
-      '<div class="ped-resumen"></div>';
+    return '<div class="ped-tabs">' + tabs + '</div>' + grupos + '<div class="ped-resumen"></div>';
   }
   function conectarSolicitar(p, estado) {
     p.querySelectorAll('.ped-tab').forEach(function (t) {
@@ -7125,39 +7303,68 @@
         p.querySelectorAll('.ped-grupo').forEach(function (g) { g.hidden = g.getAttribute('data-grupo') !== grupoPedidoAbierto; });
       });
     });
-    p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; actualizarCarrito(estado, p); }); });
+    function pintarTarjeta(card) {
+      var id = card.getAttribute('data-prod'), sel = estado.tramitesSel[id];
+      card.classList.toggle('en-pedido', !!sel);
+      var b = card.querySelector('.tp-add'); if (b) b.textContent = sel ? '✓ Agregado' : (precioNumero(id) ? 'Agregar' : 'Cotizar');
+    }
+    p.querySelectorAll('.tp-card').forEach(function (card) {
+      var id = card.getAttribute('data-prod'), det = card.querySelector('.tp-det'), mas = card.querySelector('.tp-mas');
+      mas.addEventListener('click', function () { det.hidden = !det.hidden; mas.setAttribute('aria-expanded', String(!det.hidden)); mas.textContent = det.hidden ? 'Detalles' : 'Cerrar'; card.classList.toggle('abierta', !det.hidden); });
+      var add = card.querySelector('.tp-add');
+      if (add) add.addEventListener('click', function () { estado.tramitesSel[id] = !estado.tramitesSel[id]; pintarTarjeta(card); actualizarCarrito(estado, p); });
+      card.querySelectorAll('.tp-var input').forEach(function (r) {
+        r.addEventListener('change', function () {
+          if (r.value === 'publico') { estado.tramitesSel[id] = false; r.checked = false; abrirFichaGratis(); }
+          else estado.tramitesSel[id] = r.value;
+          pintarTarjeta(card); actualizarCarrito(estado, p);
+        });
+      });
+    });
     p.querySelectorAll('.ficha-copiar').forEach(function (b) { b.addEventListener('click', function () { try { navigator.clipboard.writeText(b.getAttribute('data-copiar')); b.textContent = 'Copiada'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); } catch (e) { } }); });
-    p.querySelectorAll('.ped-info').forEach(function (b) { b.addEventListener('click', function () { var d = b.nextElementSibling; d.hidden = !d.hidden; b.classList.toggle('activo', !d.hidden); }); });
-    // "Solicitar" desde una recomendación: abre la sección, la pestaña del producto y lo marca
+    // "Lo hacemos por ti" desde una recomendación: abre la tienda en la categoría del producto y lo agrega
     p.querySelectorAll('[data-pedir]').forEach(function (a) {
       a.addEventListener('click', function (ev) {
         ev.preventDefault();
-        a.getAttribute('data-pedir').split(',').forEach(function (id) { estado.tramitesSel[id] = true; var cb = p.querySelector('[data-tramite="' + id + '"]'); if (cb) cb.checked = true; });
-        var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(a.getAttribute('data-pedir').split(',')[0]) >= 0; })[0];
-        if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
+        var ids = a.getAttribute('data-pedir').split(',');
+        ids.forEach(function (id) { var v = variantesDe(id); estado.tramitesSel[id] = v ? (v.filter(function (x) { return aNum(x.precio) > 0; })[0] || v[1] || v[0]).id : true; var c = p.querySelector('.tp-card[data-prod="' + id + '"]'); if (c) { pintarTarjeta(c); var r = c.querySelector('.tp-var input[value="' + estado.tramitesSel[id] + '"]'); if (r) r.checked = true; } });
+        var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(ids[0]) >= 0; })[0];
         var bA = p.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
+        if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
         actualizarCarrito(estado, p);
-        var sec = p.querySelector('.maq-sec[data-sec="pedir"]'); if (sec) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80);
+        var c0 = p.querySelector('.tp-card[data-prod="' + ids[0] + '"]'); if (c0) setTimeout(function () { c0.scrollIntoView({ behavior: 'smooth', block: 'center' }); c0.classList.add('destello'); setTimeout(function () { c0.classList.remove('destello'); }, 1400); }, 120);
       });
     });
     actualizarCarrito(estado, p);
   }
-  // Carrito: botón junto al de WhatsApp con el total de lo de precio fijo marcado
+  // Botones flotantes junto a WhatsApp: "Ficha gratis" (siempre que haya un predio) y "Tu pedido"
+  function abrirFichaGratis() {
+    var p = document.querySelector('.maq-panel'); if (!p) return;
+    var b = p.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
+    var f = p.querySelector('.maq-ficha'); if (!f) return;
+    setTimeout(function () { f.scrollIntoView({ behavior: 'smooth', block: 'center' }); f.classList.add('destello'); setTimeout(function () { f.classList.remove('destello'); }, 1400); var i = f.querySelector('input'); if (i && !i.value) try { i.focus({ preventScroll: true }); } catch (e) { } }, 120);
+  }
+  function botonFlotante(id, clase, alClic) {
+    var b = document.getElementById(id);
+    if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = clase; document.body.appendChild(b); b.addEventListener('click', alClic); }
+    return b;
+  }
   function actualizarCarrito(estado, p) {
     var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
     var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
     var res = p && p.querySelector('.ped-resumen');
-    if (res) res.innerHTML = it.length ? '<span>' + (fijos.length ? '<b>$' + tot.toLocaleString('es-EC') + '</b> en ' + fijos.length + (fijos.length === 1 ? ' servicio' : ' servicios') : '') + (fijos.length && conv.length ? ' + ' : '') + (conv.length ? conv.length + ' por cotizar' : '') + '</span><button type="button" class="ped-continuar">Continuar</button>' : '<span class="maq-nota">Marca lo que necesitas.</span>';
-    var bc = res && res.querySelector('.ped-continuar'); if (bc) bc.addEventListener('click', function () { abrirCheckout(estado); });
-    var b = document.getElementById('btn-carrito');
-    if (!b) {
-      b = document.createElement('button'); b.type = 'button'; b.id = 'btn-carrito'; b.className = 'btn-carrito';
-      document.body.appendChild(b);
-      b.addEventListener('click', function () { abrirCheckout(estadoSeleccionado); });
+    if (res) {
+      res.innerHTML = it.length ? '<span>' + (fijos.length ? '<b>$' + tot.toLocaleString('es-EC') + '</b> · ' + fijos.length + (fijos.length === 1 ? ' servicio' : ' servicios') : '') + (fijos.length && conv.length ? ' + ' : '') + (conv.length ? conv.length + ' por cotizar' : '') + '</span><button type="button" class="ped-continuar">Ver mi pedido</button>' : '<span class="maq-nota">Agrega lo que necesitas; lo revisas antes de enviar.</span>';
+      var bc = res.querySelector('.ped-continuar'); if (bc) bc.addEventListener('click', function () { abrirCheckout(estado); });
     }
+    var bF = botonFlotante('btn-ficha', 'btn-flot btn-ficha', abrirFichaGratis);
+    bF.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 10v7M9 14l3 3 3-3"/></svg><span>Ficha gratis</span>';
+    bF.hidden = !estado;
+    var b = botonFlotante('btn-carrito', 'btn-flot btn-carrito', function () { abrirCheckout(estadoSeleccionado); });
     b.hidden = !it.length;
-    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>' + 'Tu pedido' + (fijos.length ? ' · $' + tot.toLocaleString('es-EC') : '') + ' (' + it.length + ')' + '</span>';
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>Tu pedido' + (fijos.length ? ' · $' + tot.toLocaleString('es-EC') : '') + '</span><i>' + it.length + '</i>';
     document.body.classList.toggle('con-carrito', !!it.length);
+    document.body.classList.toggle('con-ficha', !!estado);
   }
   function abrirCheckout(estado) {
     if (!estado) return;
@@ -7169,9 +7376,10 @@
     m = document.createElement('div'); m.id = 'checkout'; m.className = 'checkout';
     m.innerHTML = '<div class="checkout-caja" role="dialog" aria-label="Tu pedido"><button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">Tu pedido · predio ' + id + '</div>' +
       (fijos.length ? '<div class="ped-sub">Precio fijo</div><ul>' + fijos.map(function (x) { return '<li><span>' + x.nombre + '</span><b>$' + x.precio + '</b></li>'; }).join('') + '<li class="tot"><span>Total</span><b>$' + tot.toLocaleString('es-EC') + '</b></li></ul>' : '') +
-      (conv.length ? '<div class="ped-sub">A convenir</div><ul>' + conv.map(function (x) { return '<li><span>' + x.nombre + '</span><b>cotizar</b></li>'; }).join('') + '</ul><div class="maq-nota">Te enviamos la cotización por WhatsApp o correo.</div>' : '') +
+      (conv.length ? '<div class="ped-sub">A cotizar</div><ul>' + conv.map(function (x) { return '<li><span>' + x.nombre + '</span><b>cotizar</b></li>'; }).join('') + '</ul><div class="maq-nota">Te enviamos la cotización por WhatsApp o correo.</div>' : '') +
+      (it.length ? '' : '<div class="maq-nota">Todavía no agregaste nada.</div>') +
       '<div class="checkout-btns">' + (fijos.length && CONFIG_PAGO.url ? '<a class="checkout-pagar" target="_blank" rel="noopener" href="' + CONFIG_PAGO.url + '">Pagar $' + tot.toLocaleString('es-EC') + ' con tarjeta</a>' : '') +
-      '<a class="checkout-wa" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent(txt) + '">' + (fijos.length && !CONFIG_PAGO.url ? 'Confirmar y pagar por WhatsApp' : conv.length && !fijos.length ? 'Pedir cotización por WhatsApp' : 'Enviar pedido por WhatsApp') + '</a></div></div>';
+      (it.length ? '<a class="checkout-wa" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent(txt) + '">' + (fijos.length && !CONFIG_PAGO.url ? 'Confirmar y pagar por WhatsApp' : conv.length && !fijos.length ? 'Pedir cotización por WhatsApp' : 'Enviar pedido por WhatsApp') + '</a>' : '') + '</div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
   }
