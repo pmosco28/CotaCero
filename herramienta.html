@@ -4037,7 +4037,7 @@
           }
           // girar 35° para ver también la esquina/profundidad, no solo la fachada plana
           var g = 0.6, rx = nx * Math.cos(g) - ny * Math.sin(g), ry = nx * Math.sin(g) + ny * Math.cos(g);
-          theta = Math.atan2(rx, -ry); phi = 0.62;
+          theta = Math.atan2(rx, -ry); phi = 0.5;
           var c = estado.centroideLote;
           radius = Math.max(maxDim * 2.6, 95); target.set(c[0], 4, -c[1]);
         },
