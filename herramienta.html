@@ -107,7 +107,7 @@
     /* Degradado sutil desde la derecha (donde antes quedaba un tercio de fondo plano vacío sobre los
        edificios) — vuelve a var(--paper) antes de la mitad, así sigue fundiéndose con el resto de la
        página y no se nota como una franja de color aparte. */
-    background: linear-gradient(to left, var(--line-soft) 0%, var(--paper) 55%);
+    background: radial-gradient(120% 95% at 50% 30%, #F3F1EC 0%, #DCD9D2 80%);
     cursor: grab; display: block;
   }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
@@ -803,7 +803,7 @@
   var marcadorClic = null;
   // Estado del estudio de sombras — persiste entre predios para no reiniciar la preferencia del
   // usuario cada vez que elige un lote nuevo.
-  var sombrasActivas = false;
+  var sombrasActivas = true;
   var horaSol = 11;
   var volAnimId = null;
   var volControlsCleanup = null;
@@ -1666,7 +1666,7 @@
     var usoSuelo = resultadosContexto[3];
     var maxPisosPech = resultadosContexto[4];
     var riosFusionados = fusionarRios(riosMunicipalesCrudo, datosOSM.rios);
-    var riosFlat = riosFusionados.map(function (r) { return { pts: r.coords.map(aMetros), ancho: r.ancho, feature: turf.lineString(r.coords) }; });
+    var riosFlat = riosFusionados.map(function (r) { return { pts: r.coords.map(aMetros), ancho: r.ancho, nombre: r.nombre || null, feature: turf.lineString(r.coords) }; });
     // Anillos exteriores de cada polígono de margen de protección, en metros locales — solo el
     // contorno importa (distPuntoSegmento contra cada tramo), no hace falta el polígono como feature.
     var margenRiosFlat = [];
@@ -2902,7 +2902,8 @@
     // propósito (a pedido del usuario): es EL volumen que se está estudiando, tiene que leerse como
     // masa real — la transparencia queda para las edificaciones de contexto (matVecino, más abajo),
     // que son referencia, no el objeto de estudio.
-    var mat = new THREE.MeshPhongMaterial({ color: 0xFAF8F2, flatShading: true, shininess: 0 });
+    var mat = new THREE.MeshPhongMaterial({ color: 0xFFFFFF, flatShading: true, shininess: 0 });
+    var matArista = new THREE.LineBasicMaterial({ color: 0x8A857C });
     var grupoVolumen = new THREE.Group();
 
     function agregarCuerpo(pts, depth, offsetY, holesPtsArr, materialOverride) {
@@ -2924,6 +2925,9 @@
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       grupoVolumen.add(mesh);
+      // Aristas finas, como el canto de una pieza de cartón cortada: es lo que le da a la maqueta su
+      // lectura limpia sin depender del sombreado.
+      grupoVolumen.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matArista));
     }
 
     // ---------- Marcas de piso + bordillo de cubierta ----------
@@ -3065,12 +3069,35 @@
       var anguloDisco = (aci / SEGMENTOS_DISCO_CONTEXTO) * Math.PI * 2;
       ptsContexto.push([radioContexto * Math.cos(anguloDisco), radioContexto * Math.sin(anguloDisco)]);
     }
-    var geoContexto = new THREE.ShapeGeometry(new THREE.Shape(metrosArrAVec2(ptsContexto)));
-    geoContexto.rotateX(-Math.PI / 2);
-    var meshContexto = new THREE.Mesh(geoContexto, new THREE.MeshPhongMaterial({ color: 0xEAE4CE, shininess: 0 }));
-    meshContexto.position.y = -0.01;
+    // ---------- Maqueta: zócalo de cartón + lámina impresa en planta ----------
+    // El disco de contexto es un zócalo con espesor (canto de cartón y tablero oscuro debajo), y su
+    // cara superior lleva una LÁMINA impresa (canvas → textura): calzadas, veredas, caminos
+    // peatonales, áreas verdes y nombres de calles se imprimen ahí en planta, como en una maqueta
+    // física, en vez de ser cintas, líneas sueltas y carteles flotando sobre el piso.
+    var ESPESOR_ZOCALO_M = 1.2;
+    var LAMINA_PX = 2048;
+    var laminaCanvas = document.createElement('canvas');
+    laminaCanvas.width = laminaCanvas.height = LAMINA_PX;
+    var laminaCtx = laminaCanvas.getContext('2d');
+    var pxPorM = LAMINA_PX / (2 * radioContexto);
+    function aLamina(p) { return [(p[0] + radioContexto) * pxPorM, (radioContexto - p[1]) * pxPorM]; }
+    var texLamina = new THREE.CanvasTexture(laminaCanvas);
+    texLamina.anisotropy = 8;
+    var geoTapa = new THREE.CircleGeometry(radioContexto, 128);
+    geoTapa.rotateX(-Math.PI / 2);
+    var meshContexto = new THREE.Mesh(geoTapa, new THREE.MeshPhongMaterial({ map: texLamina, color: 0xF3F1EC, shininess: 0 }));
+    meshContexto.position.y = -0.02;
     meshContexto.receiveShadow = true;
     scene.add(meshContexto);
+    var canto = new THREE.Mesh(new THREE.CylinderGeometry(radioContexto, radioContexto, ESPESOR_ZOCALO_M, 128, 1, true),
+      new THREE.MeshPhongMaterial({ color: 0xD9D2C4, shininess: 0, side: THREE.DoubleSide }));
+    canto.position.y = -0.02 - ESPESOR_ZOCALO_M / 2;
+    scene.add(canto);
+    var tablero = new THREE.Mesh(new THREE.CylinderGeometry(radioContexto + 3, radioContexto + 3, 0.8, 128),
+      new THREE.MeshPhongMaterial({ color: 0x3A3835, shininess: 0 }));
+    tablero.position.y = -0.02 - ESPESOR_ZOCALO_M - 0.4;
+    tablero.receiveShadow = true;
+    scene.add(tablero);
 
     // --- Recorte duro al disco de contexto: nada (vía, río, edificación) puede quedar por fuera. Una
     // polilínea (vía/río) se recorta en el/los punto(s) exacto(s) donde cruza el borde del círculo —
@@ -3310,192 +3337,134 @@
       return (tipoNorm && TIPOS_VIA_REFERENCIA[tipoNorm]) || VIA_REFERENCIA_DEFAULT;
     }
 
-    var matVia = new THREE.MeshBasicMaterial({ color: 0x6B6B63 });
-    viasSnapeadas.forEach(function (via) {
-      var tipoNorm = tipoNormDeVia(via);
-      var ref = refDeVia(via);
-
-      // Caminos peatonales/no-vehiculares (footway/pedestrian/path/cycleway/etc. de OSM): solo 2
-      // líneas, sin calzada rellena, sin vereda propia ni eje punteado — para que se note a simple
-      // vista que NO es una vía vehicular (el usuario lo pidió explícito: "deberían ser solo dos
-      // líneas para que se entienda la diferencia"). Ancho angosto de referencia, no un dato medido.
-      if (TIPOS_PEATONALES_OSM.indexOf(tipoNorm) !== -1) {
-        var ANCHO_PEATONAL_M = 2;
+    // ---------- Lámina impresa: todo lo plano del contexto se dibuja en planta sobre el zócalo ----------
+    var etiquetasVia = []; // ya no hay carteles flotantes; queda vacío para orientarEtiquetasVia
+    function trazar(pts) {
+      laminaCtx.beginPath();
+      pts.forEach(function (p, i) { var q = aLamina(p); if (i) laminaCtx.lineTo(q[0], q[1]); else laminaCtx.moveTo(q[0], q[1]); });
+    }
+    function cintaPoligono(tramo, ancho) {
+      var izq = polilineaOffset(tramo, ancho / 2), der = polilineaOffset(tramo, -ancho / 2);
+      return izq.concat(der.slice().reverse());
+    }
+    // Texto a lo largo de una polilínea, letra por letra, siempre legible de izquierda a derecha.
+    function textoEnPolilinea(texto, pts, alturaM, color) {
+      if (!pts || pts.length < 2) return false;
+      var P = pts.map(aLamina);
+      if (P[P.length - 1][0] < P[0][0]) P = P.slice().reverse();
+      var acum = [0];
+      for (var i = 1; i < P.length; i++) acum.push(acum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+      var largo = acum[acum.length - 1];
+      var fpx = alturaM * pxPorM * 1.45;
+      laminaCtx.font = '600 ' + fpx + 'px "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif';
+      var esp = fpx * 0.14;
+      var letras = texto.split('');
+      var anchos = letras.map(function (ch) { return laminaCtx.measureText(ch).width + esp; });
+      var total = anchos.reduce(function (a, b) { return a + b; }, 0) - esp;
+      if (total > largo * 0.92) return false;
+      function enDist(d) {
+        var k = 1; while (k < acum.length - 1 && acum[k] < d) k++;
+        var a = P[k - 1], b = P[k], f = (d - acum[k - 1]) / ((acum[k] - acum[k - 1]) || 1);
+        return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, Math.atan2(b[1] - a[1], b[0] - a[0])];
+      }
+      laminaCtx.fillStyle = color; laminaCtx.textAlign = 'center'; laminaCtx.textBaseline = 'middle';
+      var d = largo / 2 - total / 2;
+      letras.forEach(function (ch, i) {
+        var q = enDist(d + anchos[i] / 2 - esp / 2);
+        laminaCtx.save(); laminaCtx.translate(q[0], q[1]); laminaCtx.rotate(q[2]); laminaCtx.fillText(ch, 0, 0); laminaCtx.restore();
+        d += anchos[i];
+      });
+      return true;
+    }
+    function dibujarLamina() {
+      var c = laminaCtx;
+      c.save();
+      c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX);
+      // Áreas verdes: tono salvia con grano de arena impreso.
+      (estado.areasVerdesOSM || []).forEach(function (av) {
+        try {
+          trazar(av.pts); c.closePath();
+          c.fillStyle = '#C3CCAB'; c.fill();
+          c.save(); c.clip(); c.fillStyle = 'rgba(96,110,70,0.35)';
+          for (var y = 0; y < LAMINA_PX; y += 6) for (var x = (y / 6) % 2 ? 3 : 0; x < LAMINA_PX; x += 6) c.fillRect(x, y, 1.4, 1.4);
+          c.restore();
+        } catch (e) { }
+      });
+      // Calzadas: tono gris cálido, borde de bordillo marcado; veredas como línea exterior fina.
+      viasSnapeadas.forEach(function (via) {
+        var tipoNorm = tipoNormDeVia(via), ref = refDeVia(via);
         recortarTramosVisibles(via.pts).forEach(function (tramo) {
           try {
-            [ANCHO_PEATONAL_M / 2, -ANCHO_PEATONAL_M / 2].forEach(function (off) {
-              var l = lineaAbierta(polilineaOffset(tramo, off), 0x8C8C84, 0.012);
-              if (l) scene.add(l);
+            if (TIPOS_PEATONALES_OSM.indexOf(tipoNorm) !== -1) {
+              trazar(cintaPoligono(tramo, 2.4)); c.closePath();
+              c.fillStyle = '#E9E1D0'; c.fill();
+              c.setLineDash([3, 3]); c.strokeStyle = '#A99C82'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
+              return;
+            }
+            trazar(cintaPoligono(tramo, ref.calzada)); c.closePath();
+            c.fillStyle = '#DEDAD2'; c.fill();
+            c.strokeStyle = '#8F8A80'; c.lineWidth = 1.6; c.stroke();
+            [{ off: ref.calzada / 2 + ref.vereda, signo: 1 }, { off: -(ref.calzada / 2 + ref.vereda), signo: -1 }].forEach(function (cfg) {
+              if (via.ladoCompañero && via.ladoCompañero === cfg.signo) return;
+              trazar(polilineaOffset(tramo, cfg.off)); c.strokeStyle = '#B8B2A6'; c.lineWidth = 1; c.stroke();
             });
-          } catch (e) { /* un tramo de camino peatonal con geometría rara no debe tumbar el resto del render */ }
+          } catch (e) { }
         });
-        return;
-      }
-
-      recortarTramosVisibles(via.pts).forEach(function (tramo) {
-        try {
-          var geoVia = construirCintaAncho(tramo, ref.calzada);
-          if (geoVia) {
-            var meshVia = new THREE.Mesh(geoVia, matVia);
-            meshVia.position.y = -0.005;
-            meshVia.receiveShadow = true;
-            scene.add(meshVia);
-          }
-          [ref.calzada / 2, -ref.calzada / 2].forEach(function (off) {
-            var l = lineaAbierta(polilineaOffset(tramo, off), 0x4A4A45, 0.012);
-            if (l) scene.add(l);
-          });
-          // Si esta vía es un carril de un par medianero (avenida dividida, ver viasDibujo en
-          // construirEstadoPredio), el lado que mira hacia el carril compañero NO lleva línea de
-          // vereda — ahí no hay vereda real, hay parterre/mediana. Solo se dibuja la vereda EXTERIOR.
-          [{ off: ref.calzada / 2 + ref.vereda, signo: 1 }, { off: -(ref.calzada / 2 + ref.vereda), signo: -1 }].forEach(function (cfg) {
-            if (via.ladoCompañero && via.ladoCompañero === cfg.signo) return;
-            var l = lineaAbierta(polilineaOffset(tramo, cfg.off), 0x8C8C84, 0.012);
-            if (l) scene.add(l);
-          });
-          var ejes = ref.carriles >= 2 ? [0.3, -0.3] : [0];
-          ejes.forEach(function (off) {
-            var baseEje = off === 0 ? tramo : polilineaOffset(tramo, off);
-            var puntosEje = baseEje.map(function (p) { return new THREE.Vector3(p[0], 0.018, -p[1]); });
-            if (puntosEje.length < 2) return;
-            var geoEje = new THREE.BufferGeometry().setFromPoints(puntosEje);
-            var lineaEje = new THREE.Line(geoEje, new THREE.LineDashedMaterial({ color: 0xF2EFE6, dashSize: 1.2, gapSize: 0.8 }));
-            lineaEje.computeLineDistances();
-            scene.add(lineaEje);
-          });
-        } catch (e) { /* un tramo de vía con geometría rara no debe tumbar el resto del render */ }
       });
-    });
-
-    // Río: azul claramente distinguible del gris de calzada (antes un azul-grisáceo muy apagado que
-    // se perdía contra el resto de la paleta) + una "trama" de 2 líneas finas internas, más claras,
-    // simulando la convención de agua en planta (ondas) — sin necesitar una textura UV real.
-    var matRio = new THREE.MeshBasicMaterial({ color: 0x3E7CA6 });
-    (estado.riosFlat || []).forEach(function (rio) {
-      recortarTramosVisibles(rio.pts).forEach(function (tramo) {
-        try {
-          var geoRio = construirCintaAncho(tramo, rio.ancho);
-          if (geoRio) {
-            var meshRio = new THREE.Mesh(geoRio, matRio);
-            meshRio.position.y = -0.006;
-            meshRio.receiveShadow = true;
-            scene.add(meshRio);
-          }
-          var lineaRio = lineaAbierta(tramo, 0x2E5F80, 0.012);
-          if (lineaRio) scene.add(lineaRio);
-          [rio.ancho * 0.22, -rio.ancho * 0.22].forEach(function (off) {
-            var lineaTrama = lineaAbierta(polilineaOffset(tramo, off), 0x7FB3D1, 0.011);
-            if (lineaTrama) scene.add(lineaTrama);
-          });
-        } catch (e) { /* un tramo de río con geometría rara no debe tumbar el resto del render */ }
+      // Cauce bajo la resina.
+      (estado.riosFlat || []).forEach(function (rio) {
+        recortarTramosVisibles(rio.pts).forEach(function (tramo) {
+          try { trazar(cintaPoligono(tramo, rio.ancho)); c.closePath(); c.fillStyle = '#9DBFD6'; c.fill(); } catch (e) { }
+        });
       });
-    });
-
-    // Etiqueta de texto flotante — sin librería externa, un sprite con el texto dibujado en un canvas.
-    // El usuario pidió ver el NOMBRE de cada vía (municipal y OSM) para poder comparar cómo nombra cada
-    // fuente la misma calle — esto fue lo que hizo evidente, mirando la capa de comparación, que una
-    // avenida con parterre real llega en OSM como DOS ways paralelos (uno por sentido/carril), cada uno
-    // con su propia línea — antes de decidir si hay que fusionarlos, hace falta poder leer el nombre de
-    // cada uno por separado.
-    // Antes esto era un THREE.Sprite (billboard: siempre de frente a cámara, sin importar la rotación
-    // de la calle) — a pedido del usuario pasa a ser un sello PEGADO AL PISO, acostado y girado para
-    // seguir la dirección real de la calle (PlaneGeometry + rotation.x=-90° para acostarlo, más
-    // rotation.y según el ángulo de la calle). Como una etiqueta acostada solo se lee bien MIRANDO
-    // HACIA UN lado (desde el otro se ve "al revés", igual que un texto pintado en el pavimento visto
-    // desde atrás), el ángulo se recalcula en cada movimiento de cámara (orientarEtiquetasVia, llamada
-    // desde actualizarCamara) eligiendo entre angulo/angulo+180° el que mejor mire hacia la cámara —
-    // así siempre se lee de izquierda a derecha, nunca invertido.
-    var etiquetasVia = [];
-    function crearEtiquetaTexto(texto, colorTexto) {
-      if (!texto) return null;
-      var fontSize = 40;
-      var canvasMedida = document.createElement('canvas');
-      var ctxMedida = canvasMedida.getContext('2d');
-      ctxMedida.font = fontSize + 'px sans-serif';
-      var ancho = Math.ceil(ctxMedida.measureText(texto).width) + 16;
-      var alto = fontSize + 16;
-      var canvas = document.createElement('canvas');
-      canvas.width = ancho; canvas.height = alto;
-      var ctx = canvas.getContext('2d');
-      ctx.font = fontSize + 'px sans-serif';
-      // Sin fillRect de fondo — eso era lo que hacía leer el sello como un cartelito parado en vez de
-      // texto pintado directo sobre el piso (canvas transparente, el ground se ve "a través").
-      ctx.fillStyle = colorTexto;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(texto, 8, alto / 2);
-      var tex = new THREE.CanvasTexture(canvas);
-      // side: DoubleSide a propósito — con la cámara casi al horizonte (ver phi más abajo), un sello
-      // perfectamente acostado se ve de canto (prácticamente invisible, como leer algo pintado en el
-      // piso parado al lado). DoubleSide es la red de seguridad: si orientarEtiquetasVia elige el
-      // ángulo "equivocado", el texto se ve invertido pero sigue ahí — sin esto, directamente
-      // desaparecería (MeshBasicMaterial es de una sola cara por defecto).
-      var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
-      var ESCALA_ETIQUETA = 0.045; // metros por píxel de canvas — ajustado a ojo para que se lea sin taparlo todo
-      var geo = new THREE.PlaneGeometry(ancho * ESCALA_ETIQUETA, alto * ESCALA_ETIQUETA);
-      var mesh = new THREE.Mesh(geo, mat);
-      // -90° sería perfectamente acostado (un sello de verdad, pintado en el piso) pero con la cámara
-      // casi al horizonte eso lo deja de canto e ilegible — se para un poco (INCLINACION_SELLO) para
-      // que siga "pegado" a la calle (gira con ella en Y) pero legible desde una vista de skyline.
-      var INCLINACION_SELLO = 0.55; // rad hacia arriba desde acostado del todo
-      mesh.rotation.x = -Math.PI / 2 + INCLINACION_SELLO;
-      mesh.renderOrder = 10;
-      return mesh;
+      // Nombres de calles impresos (una vez por nombre en cada zona, sin el tipo de OSM).
+      var nombresPuestos = [];
+      viasSnapeadas.forEach(function (via) {
+        if (!via.nombre) return;
+        var tramos = recortarPolilineaADisco(via.pts);
+        tramos.forEach(function (tramo) {
+          var mid = puntoMedio(tramo);
+          if (nombresPuestos.some(function (n) { return n.nombre === via.nombre && Math.hypot(n.p[0] - mid[0], n.p[1] - mid[1]) < 70; })) return;
+          var tipoNorm = tipoNormDeVia(via);
+          var alto = (tipoNorm === 'PRIMARY' || tipoNorm === 'SECONDARY' || tipoNorm === 'TRUNK') ? 2.4 : 1.8;
+          if (textoEnPolilinea(via.nombre.toUpperCase(), tramo, alto, 'rgba(58,54,48,0.92)')) nombresPuestos.push({ nombre: via.nombre, p: mid });
+        });
+      });
+      (estado.riosFlat || []).forEach(function (rio) {
+        if (!rio.nombre) return;
+        recortarPolilineaADisco(rio.pts).some(function (tramo) { return textoEnPolilinea(rio.nombre.toUpperCase(), tramo, 3, 'rgba(30,70,105,0.85)'); });
+      });
+      c.restore();
+      texLamina.needsUpdate = true;
     }
     function puntoMedio(pts) {
       var i = Math.floor((pts.length - 1) / 2);
       return pts.length > 1 ? [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2] : pts[0];
     }
-    // Etiqueta de nombre de vía — SOLO la fuente OSM (estado.viasFlat/municipal ya no se dibuja ni se
-    // rotula; sigue existiendo nada más para la clasificación de lados). El usuario pidió
-    // explícitamente no tener nombres duplicados ("dejemos solo los de OSM").
-    viasSnapeadas.forEach(function (via) {
-      if (!via.nombre) return;
-      var mid = puntoMedio(via.pts);
-      if (!dentroDelDisco(mid)) return;
-      try {
-        var i = Math.max(0, Math.min(via.pts.length - 2, Math.floor((via.pts.length - 1) / 2)));
-        var p1 = via.pts[i], p2 = via.pts[i + 1];
-        // Mismo cambio de signo en Z que el resto de la escena (new THREE.Vector3(x, h, -y)).
-        var anguloCalle = Math.atan2(-(p2[1] - p1[1]), p2[0] - p1[0]);
-        var etiquetaVia = crearEtiquetaTexto(via.nombre + (via.tipo ? ' (' + via.tipo + ')' : ''), '#4A4A45');
-        if (etiquetaVia) {
-          etiquetaVia.position.set(mid[0], 0.3, -mid[1]);
-          etiquetasVia.push({ mesh: etiquetaVia, angulo: anguloCalle });
-          scene.add(etiquetaVia);
-        }
-      } catch (e) { /* una etiqueta con texto raro no debe tumbar el resto del render */ }
-    });
-
-    // Áreas verdes/parques (OSM leisure=park / landuse=grass|recreation_ground|...): recorte real
-    // contra el disco con turf.intersect (no el "se descarta si algún vértice queda afuera" que usan
-    // las edificaciones) — un parque real suele ser mucho más grande que el disco de 100m, así que
-    // descartarlo entero dejaría sin pintar justo la zona que sí importa mostrar.
     var anilloDiscoCerrado = ptsContexto.concat([ptsContexto[0]]);
     var discoFeatureLocal = turf.polygon([anilloDiscoCerrado]);
-    var matAreaVerde = new THREE.MeshPhongMaterial({ color: 0x7FA66B, shininess: 0 });
-    (estado.areasVerdesOSM || []).forEach(function (av) {
-      try {
-        var avFeature = turf.polygon([av.pts.concat([av.pts[0]])]);
-        var recortado = turf.intersect(avFeature, discoFeatureLocal);
-        if (!recortado) return;
-        var partes = recortado.geometry.type === 'Polygon' ? [recortado.geometry.coordinates[0]] : recortado.geometry.coordinates.map(function (c) { return c[0]; });
-        partes.forEach(function (anillo) {
-          var ptsAV = anillo.slice(0, -1);
-          if (ptsAV.length < 3) return;
-          var geoAV = new THREE.ShapeGeometry(new THREE.Shape(metrosArrAVec2(ptsAV)));
-          geoAV.rotateX(-Math.PI / 2);
-          var meshAV = new THREE.Mesh(geoAV, matAreaVerde);
-          meshAV.position.y = -0.007;
-          meshAV.receiveShadow = true;
-          scene.add(meshAV);
-        });
-      } catch (e) { /* un área verde con geometría rara no debe tumbar el resto del render */ }
+    dibujarLamina();
+
+    // Río: resina azul translúcida sobre el cauce impreso.
+    var matResina = new THREE.MeshPhongMaterial({ color: 0x4F95C4, transparent: true, opacity: 0.55, shininess: 90, specular: 0xffffff, depthWrite: false });
+    (estado.riosFlat || []).forEach(function (rio) {
+      recortarTramosVisibles(rio.pts).forEach(function (tramo) {
+        try {
+          if (tramo.length < 2) return;
+          var geoRes = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(cintaPoligono(tramo, rio.ancho))), { depth: 0.45, bevelEnabled: false });
+          geoRes.rotateX(-Math.PI / 2);
+          var meshRes = new THREE.Mesh(geoRes, matResina);
+          meshRes.renderOrder = 2;
+          scene.add(meshRes);
+        } catch (e) { /* un tramo de río con geometría rara no debe tumbar el resto del render */ }
+      });
     });
 
     // Más oscuro que antes (0xC2C0B5 → 0xA8A599) — a pedido del usuario, para que el predio elegido
     // (crema casi blanco, 0xFAF8F2) se note más a simple vista contra el contexto, sin tener que
     // recurrir a blanco puro en el predio (eso rompería la paleta cálida del resto de la marca).
-    var matVecino = new THREE.MeshPhongMaterial({ color: 0xA8A599, shininess: 0 });
+    var matVecino = new THREE.MeshPhongMaterial({ color: 0xEEEBE4, flatShading: true, shininess: 0 });
+    var matAristaVecino = new THREE.LineBasicMaterial({ color: 0xA9A398 });
     (estado.edificacionesContexto || []).forEach(function (ed) {
       try {
         if (poligonoFueraDelDisco(ed.pts)) return; // nada puede quedar por fuera del disco de contexto
@@ -3503,7 +3472,9 @@
         geoVecino.rotateX(-Math.PI / 2);
         var meshVecino = new THREE.Mesh(geoVecino, matVecino);
         meshVecino.receiveShadow = true;
+        meshVecino.castShadow = true;
         scene.add(meshVecino);
+        scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino));
       } catch (e) { /* una edificación con geometría rara no debe tumbar el resto del render */ }
     });
 
@@ -3514,17 +3485,19 @@
     // de saber la altura real de cada árbol desde una foto cenital) — la copa sí usa el radio real
     // detectado, escalado a algo que se vea como una copa y no una pelota.
     var ALTURA_TRONCO_M = 3;
-    var matTronco = new THREE.MeshPhongMaterial({ color: 0x6B4F3A, shininess: 0 });
-    var matCopa = new THREE.MeshPhongMaterial({ color: 0x4F7A3D, shininess: 0 });
+    // Árbol de maqueta: copa facetada clara sobre un tronco fino — acompaña sin robar atención.
+    var matTronco = new THREE.MeshPhongMaterial({ color: 0xB8B1A6, shininess: 0 });
+    var matCopa = new THREE.MeshPhongMaterial({ color: 0xC9D0BD, flatShading: true, shininess: 0 });
     (estado.arbolesDetectados || []).forEach(function (arbol) {
       try {
         if (!dentroDelDisco(arbol.p)) return; // nada puede quedar por fuera del disco de contexto
         var radioCopa = Math.max(1.2, Math.min(4, arbol.radioM));
-        var tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, ALTURA_TRONCO_M, 6), matTronco);
+        var tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, ALTURA_TRONCO_M, 6), matTronco);
         tronco.position.set(arbol.p[0], ALTURA_TRONCO_M / 2, -arbol.p[1]);
         tronco.castShadow = true;
         scene.add(tronco);
-        var copa = new THREE.Mesh(new THREE.SphereGeometry(radioCopa, 8, 6), matCopa);
+        var copa = new THREE.Mesh(new THREE.IcosahedronGeometry(radioCopa, 1), matCopa);
+        copa.scale.y = 0.92;
         copa.position.set(arbol.p[0], ALTURA_TRONCO_M + radioCopa * 0.6, -arbol.p[1]);
         copa.castShadow = true;
         scene.add(copa);
@@ -3560,8 +3533,8 @@
 
     // Luz fuerte y direccional (poca ambiental) para que las caras queden claramente diferenciadas
     // por tono — es lo que le da el look "a facetas" del diagrama de referencia, no una luz pareja.
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    var dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xB9B6AE, 0.62));
+    var dirLight = new THREE.DirectionalLight(0xfff6ea, 0.78);
     dirLight.position.set(40, 70, 25);
     scene.add(dirLight);
 
@@ -3616,14 +3589,14 @@
     // sombra proyectada.
     dirLight.target.position.copy(target);
     scene.add(dirLight.target);
-    var tamanoSombra = maxDim * 1.6;
+    var tamanoSombra = Math.max(maxDim * 1.6, radioContexto * 1.1);
     dirLight.shadow.camera.left = -tamanoSombra;
     dirLight.shadow.camera.right = tamanoSombra;
     dirLight.shadow.camera.top = tamanoSombra;
     dirLight.shadow.camera.bottom = -tamanoSombra;
     dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.far = maxDim * 8;
-    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.camera.far = Math.max(maxDim * 8, radioContexto * 6);
+    dirLight.shadow.mapSize.set(2048, 2048);
     dirLight.shadow.bias = -0.0015;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -3647,7 +3620,7 @@
     }
     function aplicarPosicionSol(hora) {
       var sol = calcularPosicionSol(hora);
-      var dist = maxDim * 4;
+      var dist = Math.max(maxDim * 4, radioContexto * 2.5);
       dirLight.position.set(
         target.x + dist * Math.cos(sol.elevacion) * Math.sin(sol.azimut),
         target.y + dist * Math.sin(sol.elevacion),
@@ -3747,6 +3720,7 @@
     };
 
     renderer.render(scene, camera);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { dibujarLamina(); solicitarRender(); });
 
     ultimoRender3D = { renderer: renderer, scene: scene, camera: camera, grupoVolumen: grupoVolumen };
   }
