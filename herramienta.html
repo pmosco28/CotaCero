@@ -223,6 +223,20 @@
   .maq-vistas-flot button:first-child { border-left-width: 1px; border-radius: 10px 0 0 10px; }
   .maq-vistas-flot button:last-child { border-radius: 0 10px 10px 0; }
   .maq-vistas-flot button.activa, .maq-vistas-flot button:hover { background: #2b2a27; color: #f3f1ec; }
+  .maq-vistas-flot { gap: 10px; }
+  .maq-vistas-flot button { border-left-width: 1px; border-radius: 10px !important; }
+  .maq-vistas-flot .maq-switch { pointer-events: auto; height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); white-space: nowrap; }
+  .maq-vistas-flot .maq-switch span { flex: none; }
+  .maq-capas-flot { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); z-index: 6; display: flex; flex-direction: column; gap: 6px; }
+  .maq-capas-flot .ico { position: relative; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(43,42,39,.18); border-radius: 10px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #5f5c55; cursor: pointer; box-shadow: 0 4px 14px rgba(40,38,34,.10); }
+  .maq-capas-flot .ico svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .maq-capas-flot label.ico input { position: absolute; opacity: 0; pointer-events: none; }
+  .maq-capas-flot label.ico:has(input:checked) { background: #2b2a27; border-color: #2b2a27; color: #f3f1ec; }
+  .maq-capas-flot [data-tip]:hover::after { bottom: auto; top: 50%; left: calc(100% + 8px); transform: translateY(-50%); }
+  @media (max-width: 640px) {
+    .maq-vistas-flot { gap: 6px; } .maq-vistas-flot .maq-switch { padding: 0 8px; font-size: 0.66rem; gap: 5px; }
+    .maq-capas-flot { left: 10px; gap: 4px; } .maq-capas-flot .ico { width: 34px; height: 34px; }
+  }
   .maq-panel button { font: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; border: 1px solid #2b2a27; color: #2b2a27; border-radius: 3px; padding: 4px 8px; cursor: pointer; }
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
@@ -5935,7 +5949,16 @@
       var barraV = document.createElement('div'); barraV.className = 'maq-vistas-flot';
       var vistasPanel = p.querySelector('.maq-vistas');
       if (vistasPanel) { while (vistasPanel.firstChild) barraV.appendChild(vistasPanel.firstChild); vistasPanel.remove(); }
+      // Interruptores (fondo y terreno) a los lados del botón planta/3D; las capas, en una columna
+      // flotante al costado izquierdo de la maqueta. Se mueven los mismos nodos: los listeners ya
+      // quedaron puestos arriba.
+      var swFoto = p.querySelector('input[data-capa="foto"]'), swTer = p.querySelector('.sw-terreno');
+      if (swFoto) barraV.insertBefore(swFoto.closest('.maq-switch'), barraV.firstChild);
+      if (swTer) barraV.appendChild(swTer.closest('.maq-switch'));
       canvas.insertAdjacentElement('afterend', barraV);
+      var capasViejas = wrap.querySelector('.maq-capas-flot'); if (capasViejas) capasViejas.remove();
+      var barraCapas = p.querySelector('.maq-barra');
+      if (barraCapas) { barraCapas.className = 'maq-capas-flot'; canvas.insertAdjacentElement('afterend', barraCapas); }
       function marcarVista(nombre) { barraV.querySelectorAll('button').forEach(function (x) { x.classList.toggle('activa', x.getAttribute('data-vista') === nombre); }); }
       // Un solo botón: planta ↔ 3D del lote. El conjunto se ve alejando con el pellizco (el zoom
       // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
