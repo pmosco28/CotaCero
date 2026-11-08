@@ -2594,9 +2594,17 @@
           return [peor[0] + u * cosA - v * sinA, peor[1] + u * sinA + v * cosA];
         });
       }
-      var dentro = function (pt) { return pt.every(function (q) { return puntoDentroDePoligono(q, puntosEnvolvente); }); };
-      var patio = rect(cu, cv, au, av);
-      if (!dentro(patio)) patio = rect(0, 0, lado, lado);
+      // "dentro" con tolerancia: un patio puede apoyarse en un muro medianero (borde de la planta)
+      var dentro = function (pt) {
+        var cx = 0, cy = 0; pt.forEach(function (q) { cx += q[0] / pt.length; cy += q[1] / pt.length; });
+        return pt.every(function (q) { return puntoDentroDePoligono([cx + (q[0] - cx) * 0.97, cy + (q[1] - cy) * 0.97], puntosEnvolvente); });
+      };
+      var patio = null;
+      [[cu, cv, 1], [cu, cv, 0.8], [0, 0, 0.8], [0, 0, 0.6]].some(function (t) {
+        var cand = rect(t[0], t[1], Math.max(lado, au * t[2]), Math.max(lado, av * t[2]));
+        if (dentro(cand)) { patio = cand; return true; } return false;
+      });
+      if (!patio) patio = rect(0, 0, lado, lado);
       // el patio tiene que quedar dentro de la planta (cerrado), si no, se descarta el intento
       if (!dentro(patio)) {
         celdas = celdas.filter(function (c) { return c !== peor; });
