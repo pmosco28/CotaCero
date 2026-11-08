@@ -142,7 +142,7 @@
     cursor: grab; display: block;
   }
   @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
-  .maq-panel { position: absolute; top: 14px; right: 14px; z-index: 5; width: min(258px, calc(100% - 28px)); background: rgba(246,245,242,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(43,42,39,.10); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 10px 30px rgba(40,38,34,.10); max-height: calc(100% - 28px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .maq-panel { position: static; width: min(760px, calc(100% - 28px)); margin: 12px auto 0; background: transparent; padding: 0; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
   .maq-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -247,7 +247,7 @@
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
-  @media (max-width: 640px) { .maq-panel { position: static; width: auto; margin-top: 10px; box-shadow: none; max-height: none; overflow: visible; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
+  @media (max-width: 640px) { .maq-panel { width: auto; margin: 10px 12px 0; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
   .maq-panel details.maq-mas > summary { cursor: pointer; font-size: 0.78rem; color: #6d6a63; list-style: none; }
   .maq-panel details.maq-mas > summary::-webkit-details-marker { display: none; }
   .maq-panel details.maq-mas > summary::before { content: '▸ '; }
@@ -279,6 +279,23 @@
   .maq-panel .maq-ficha-msg { font-size: 0.7rem; font-weight: 300; line-height: 1.35; color: #1C1A16; }
   .maq-panel .maq-ficha-msg.alerta { color: #B2502E; font-weight: 500; }
   .maq-panel .maq-ficha-nota { font-size: 0.64rem; font-weight: 300; color: #6d6a63; }
+  .barra-union { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1200; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: rgba(246,245,242,.95); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); border-radius: 12px; box-shadow: 0 6px 20px rgba(40,38,34,.16); font-size: 0.82rem; color: #1C1A16; max-width: calc(100% - 24px); }
+  .barra-union[hidden] { display: none; }
+  .barra-union .bu-txt { display: grid; line-height: 1.25; } .barra-union .bu-txt small { font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
+  .barra-union button { font: inherit; font-weight: 600; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; cursor: pointer; }
+  .barra-union .bu-listo { background: #B2502E; border-color: #B2502E; color: #fff; } .barra-union .bu-listo:disabled { opacity: .4; cursor: default; }
+  .maq-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+  .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 9px 6px; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-acc span { font-weight: 600; font-size: 0.86rem; } .maq-acc small { font-weight: 300; font-size: 0.68rem; opacity: .75; }
+  .maq-acc.activo { background: #1C1A16; color: #f3f1ec; }
+  .maq-acc-pedir { border-color: #B2502E; color: #B2502E; } .maq-acc-pedir.activo { background: #B2502E; color: #fff; border-color: #B2502E; }
+  .maq-sec[hidden] { display: none !important; }
+  .maq-sec { border: 1px solid #1C1A16; border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+  .maq-pedir { border-color: #B2502E; }
+  .maq-pedir .maq-tramites { border: 0; padding: 0; }
+  .maq-ficha-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .maq-ficha-dos button { font: inherit; font-weight: 600; font-size: 0.8rem; height: 36px; border-radius: 8px; border: 1px solid #1C1A16; background: transparent; color: #1C1A16; cursor: pointer; }
+  .maq-ficha-dos button:hover { background: #1C1A16; color: #f3f1ec; }
   .maq-panel .maq-norma { border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; display: grid; gap: 8px; background: transparent; }
   .maq-panel .maq-normativa { font: inherit; font-weight: 600; min-height: 34px; padding: 6px 8px; line-height: 1.25; border-radius: 8px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-panel .maq-normativa.activo { background: transparent; color: #1C1A16; }
@@ -1071,7 +1088,7 @@
     // encendía la lupa justo cuando ya no se estaba tocando
     cont.addEventListener('pointermove', function (ev) {
       if (ev.pointerType !== 'mouse') return;
-      if (!modoDibujo && !modoUnir) window.__resalteDePunto(ev.clientX, ev.clientY);
+      if (!modoDibujo) window.__resalteDePunto(ev.clientX, ev.clientY);
       var r = cont.getBoundingClientRect();
       el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
       el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
@@ -1146,7 +1163,8 @@
         lupaTactil = false; el.classList.remove('visible'); punto.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600;
         // el predio que quedó resaltado bajo el punto se selecciona al soltar el dedo
         var f = resaltadoF; resaltar(null);
-        if (f && typeof seleccionarPredioFeature === 'function') seleccionarPredioFeature(f);
+        if (f && modoUnir) alternarEnUnion(f);
+        else if (f && typeof seleccionarPredioFeature === 'function') seleccionarPredioFeature(f);
       }
     }
     cont.addEventListener('touchend', finTactil); cont.addEventListener('touchcancel', finTactil);
@@ -1444,6 +1462,7 @@
   // El cliente parte de su lote y toca predios vecinos que se TOCAN con él; la herramienta recalcula
   // todo (normativa, volumen, m², viviendas) sobre el lote unido. Unificar requiere trámite municipal.
   var modoUnir = false, prediosUnion = [], resumenAntesDeUnir = null, ultimoResumen = null;
+  var secAbierta = { norma: false, lotes: false, pedir: false };
   function claveDe(f) { return String((f.properties && (f.properties.clave || f.properties.CLAVE)) || ''); }
   function unirPredios(lista) {
     var u = null, E = 0.0003; // 30 cm: cierra rendijas entre linderos que no calzan exacto
@@ -1460,15 +1479,59 @@
     u.properties = { clave: claves.join(' + '), claves: claves };
     return u;
   }
+  // Unir lotes: se elige igual que un predio (tocar, o mantener el dedo para la lupa), pero cada
+  // toque suma o quita un vecino y el mapa se queda abierto con una barra "N lotes · m² — Listo".
+  // Recién al tocar Listo se recalcula la maqueta con el lote unido.
+  var capaUnion = L.geoJSON(null, { style: { color: '#B2502E', weight: 2.4, fillColor: '#B2502E', fillOpacity: 0.22 }, interactive: false }).addTo(mapa);
+  var unionInicial = null;
+  function barraUnion() {
+    var cont = mapa.getContainer().parentElement, bar = document.getElementById('barraUnion');
+    if (!bar) {
+      bar = document.createElement('div'); bar.id = 'barraUnion'; bar.className = 'barra-union';
+      bar.innerHTML = '<span class="bu-txt"></span><button type="button" class="bu-cancelar">Cancelar</button><button type="button" class="bu-listo">Listo</button>';
+      cont.appendChild(bar);
+      bar.querySelector('.bu-listo').addEventListener('click', terminarUnion);
+      bar.querySelector('.bu-cancelar').addEventListener('click', cancelarUnion);
+    }
+    return bar;
+  }
+  function pintarUnion() {
+    capaUnion.clearLayers();
+    prediosUnion.forEach(function (f) { capaUnion.addData(f); });
+    var bar = barraUnion(), area = prediosUnion.reduce(function (a2, f) { return a2 + turf.area(f); }, 0);
+    bar.hidden = !modoUnir;
+    bar.querySelector('.bu-txt').innerHTML = '<b>' + prediosUnion.length + (prediosUnion.length === 1 ? ' lote' : ' lotes') + '</b> · ' + Math.round(area).toLocaleString('es-EC') + ' m²<small>' + (prediosUnion.length === 1 ? 'Toca un lote vecino para sumarlo' : 'Toca otro vecino, o uno marcado para quitarlo') + '</small>';
+    bar.querySelector('.bu-listo').disabled = prediosUnion.length < 2 && !(unionInicial && unionInicial.length > 1);
+  }
   function iniciarUnion() {
     if (!estadoSeleccionado) return;
     if (!prediosUnion.length && estadoSeleccionado.featureCrudo) prediosUnion = [estadoSeleccionado.featureCrudo];
     if (!resumenAntesDeUnir && ultimoResumen && prediosUnion.length === 1) resumenAntesDeUnir = { m2: ultimoResumen.m2, viv: ultimoResumen.viv, area: Math.round(turf.area(prediosUnion[0])), clave: claveDe(prediosUnion[0]) };
+    unionInicial = prediosUnion.slice();
     modoUnir = true;
     desactivarModo3D();
     setTimeout(function () { try { mapa.invalidateSize(); mapa.fitBounds(capaPredio.getBounds(), { padding: [70, 70], maxZoom: 19, animate: false }); } catch (e) { console.warn('unir: no se pudo centrar', e); } }, 450);
-    var st = document.getElementById('buscar-maps-msg') || document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    mostrarMsgBusqueda('Toca en el mapa el lote vecino que quieres unir (debe tocarse con el tuyo). Tocar uno ya unido lo quita.');
+    var st = document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    mostrarMsgBusqueda('');
+    pintarUnion();
+  }
+  function alternarEnUnion(f) {
+    var c = claveDe(f), ya = prediosUnion.map(claveDe).indexOf(c);
+    var lista = prediosUnion.slice();
+    if (ya >= 0) {
+      if (ya === 0) { mostrarMsgBusqueda('Ese es tu lote: toca un lote vecino.', 'err'); return; }
+      lista.splice(ya, 1);
+      // si al quitarlo algún otro queda suelto, se quita también
+      lista = lista.filter(function (g, i) { if (i === 0) return true; var resto = lista.filter(function (h) { return h !== g; }); try { return turf.booleanIntersects(turf.buffer(unirPredios(resto) || resto[0], 0.001, { units: 'kilometers' }), g); } catch (e) { return true; } });
+    } else {
+      var actual = lista.length > 1 ? unirPredios(lista) : lista[0];
+      var toca = false; try { toca = turf.booleanIntersects(turf.buffer(actual, 0.001, { units: 'kilometers' }), f); } catch (e) { }
+      if (!toca) { mostrarMsgBusqueda('Ese lote no colinda con los marcados: solo se pueden unir lotes que se tocan.', 'err'); return; }
+      if (lista.length >= 6) { mostrarMsgBusqueda('Hasta 6 lotes por estudio.', 'err'); return; }
+      lista.push(f);
+    }
+    mostrarMsgBusqueda('');
+    prediosUnion = lista; pintarUnion();
   }
   async function agregarALaUnion(latlng) {
     var cql = 'INTERSECTS(geom,SRID=4326;POINT(' + latlng.lng + ' ' + latlng.lat + '))';
@@ -1476,20 +1539,19 @@
     var f = null;
     try { var d = await (await fetch(url)).json(); f = d.features && d.features[0]; } catch (e) { }
     if (!f) { mostrarMsgBusqueda('Ahí no hay un predio catastrado. Toca dentro del lote vecino.', 'err'); return; }
-    var c = claveDe(f), ya = prediosUnion.map(claveDe).indexOf(c);
-    var lista = prediosUnion.slice();
-    if (ya >= 0) { if (lista.length === 1) { mostrarMsgBusqueda('Ese es tu lote. Toca un lote vecino.', 'err'); return; } lista.splice(ya, 1); }
-    else {
-      var actual = lista.length > 1 ? unirPredios(lista) : lista[0];
-      var toca = false; try { toca = turf.booleanIntersects(turf.buffer(actual, 0.001, { units: 'kilometers' }), f); } catch (e) { }
-      if (!toca) { mostrarMsgBusqueda('Ese lote no colinda con el tuyo: solo se pueden unir lotes que se tocan.', 'err'); return; }
-      if (lista.length >= 6) { mostrarMsgBusqueda('Hasta 6 lotes por estudio.', 'err'); return; }
-      lista.push(f);
-    }
-    var u = lista.length > 1 ? unirPredios(lista) : lista[0];
-    if (!u) { mostrarMsgBusqueda('No se pudo unir esa geometría. Prueba con otro lote.', 'err'); return; }
-    prediosUnion = lista; modoUnir = false; mostrarMsgBusqueda('');
+    alternarEnUnion(f);
+  }
+  async function terminarUnion() {
+    modoUnir = false; capaUnion.clearLayers(); barraUnion().hidden = true;
+    var u = prediosUnion.length > 1 ? unirPredios(prediosUnion) : prediosUnion[0];
+    if (!u) { mostrarMsgBusqueda('No se pudo unir esa geometría. Prueba con otros lotes.', 'err'); prediosUnion = unionInicial || prediosUnion; return; }
+    secAbierta.lotes = true;
     await mostrarResultado(u, true);
+  }
+  async function cancelarUnion() {
+    modoUnir = false; capaUnion.clearLayers(); barraUnion().hidden = true; mostrarMsgBusqueda('');
+    prediosUnion = unionInicial || prediosUnion;
+    await mostrarResultado(prediosUnion.length > 1 ? unirPredios(prediosUnion) : prediosUnion[0], true);
   }
   function deshacerUnion() {
     if (prediosUnion.length < 2) return;
@@ -3567,6 +3629,7 @@
     return mejor;
   }
   async function mostrarResultado(feature, desdeUnion) {
+    if (!modoUnir) { capaUnion.clearLayers(); var buX = document.getElementById('barraUnion'); if (buX) buX.hidden = true; }
     capaVertices.clearLayers(); capaManzana.clearLayers();
     capaVias.clearLayers(); capaVecinos.clearLayers();
     estadoEdicion = null;
@@ -5804,27 +5867,20 @@
         (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
         (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
-        (function () {
-          var tr = tramitesRecomendados(estado);
-          if (!estado.tramitesSel || estado.tramitesSelPara !== tr.map(function (x) { return x.id; }).join(',')) {
-            estado.tramitesSel = {}; tr.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = tr.map(function (x) { return x.id; }).join(',');
-          }
-          return (tr.length ? '<div class="maq-tramites"><div class="maq-estudio-tit">Trámites recomendados</div>' + tr.map(function (x) {
-            var pr = precioDeProducto(x.id);
-            return '<label class="maq-tramite"><input type="checkbox" data-tramite="' + x.id + '"' + (estado.tramitesSel[x.id] ? ' checked' : '') + '><i></i><span><b>' + x.nombre + '</b><small>' + x.sub + '</small></span><em>' + (pr || 'a convenir') + '</em></label>';
-          }).join('') + '<button type="button" class="maq-solicitar">Solicitar</button><div class="maq-ficha-msg maq-tramites-msg" hidden></div></div>' : '') +
-            '<div class="maq-ficha"><input type="email" class="maq-ficha-correo" placeholder="Tu correo para la ficha gratis" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar ficha PDF</button><div class="maq-ficha-msg" hidden></div>' +
-            '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
-        })() +
-        '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
-          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa') + '</button>' +
-          '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
+        '<div class="maq-acciones">' +
+          (estado.restriccionVolumen ? '' : '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span><small>qué puedes construir</small></button>') +
+          '<button type="button" class="maq-acc" data-acc="lotes"><span>Unir o dividir</span><small>' + (estado.esUnion ? estado.claves.length + ' lotes unidos' : 'lotes vecinos') + '</small></button>' +
+          '<button type="button" class="maq-acc maq-acc-pedir" data-acc="pedir"><span>Solicitar</span><small class="maq-total">trámites y archivos</small></button>' +
+        '</div>' +
+        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma && !estado.restriccionVolumen ? '' : ' hidden') + '>' +
+          '<div class="maq-norma-detalle">' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
             '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="maq-estudio"><div class="maq-estudio-tit">Estudio urbano</div>' +
+        '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' +
+          (!estado.esUnion && !estado.division ? '<div class="maq-nota">Junta tu lote con los vecinos para ver cuánto más podrías construir, o mira en cuántos lotes mínimos se puede dividir.</div>' : '') +
           (estado.esUnion
             ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
                 (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
@@ -5841,6 +5897,20 @@
               : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
           '</div>' +
         '</div>' +
+        '<div class="maq-sec maq-pedir" data-sec="pedir"' + (secAbierta.pedir ? '' : ' hidden') + '>' +
+        (function () {
+          var tr = tramitesRecomendados(estado);
+          if (!estado.tramitesSel || estado.tramitesSelPara !== tr.map(function (x) { return x.id; }).join(',')) {
+            estado.tramitesSel = {}; tr.forEach(function (x) { estado.tramitesSel[x.id] = x.sel; }); estado.tramitesSelPara = tr.map(function (x) { return x.id; }).join(',');
+          }
+          return (tr.length ? '<div class="maq-tramites"><div class="maq-estudio-tit">Trámites recomendados</div>' + tr.map(function (x) {
+            var pr = precioDeProducto(x.id);
+            return '<label class="maq-tramite"><input type="checkbox" data-tramite="' + x.id + '"' + (estado.tramitesSel[x.id] ? ' checked' : '') + '><i></i><span><b>' + x.nombre + '</b><small>' + x.sub + '</small></span><em>' + (pr || 'a convenir') + '</em></label>';
+          }).join('') + '<button type="button" class="maq-solicitar">Solicitar</button><div class="maq-ficha-msg maq-tramites-msg" hidden></div></div>' : '') +
+            '<div class="maq-ficha"><div class="maq-estudio-tit">Gratis con tu correo</div><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><div class="maq-ficha-dos"><button type="button" class="maq-ficha-btn">Ficha PDF</button><button type="button" class="maq-3d-btn">Modelo 3D</button></div><div class="maq-ficha-msg" hidden></div>' +
+            '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
+        })() +
+        '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
           '<label class="ico" data-tip="Río"><input type="checkbox" data-capa="rio" checked>' + ICONOS_MAQ.rio + '</label>' +
@@ -5855,19 +5925,40 @@
         '';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
-      var btnNorm = p.querySelector('.maq-normativa'), detalleNorm = p.querySelector('.maq-norma-detalle');
-      if (editorPisos) { editorPisos.open = true; p.querySelector('.maq-pisos-slot').appendChild(editorPisos); }
-      btnNorm.addEventListener('click', function () {
-        mostrarVolumenNormativa = !mostrarVolumenNormativa;
-        grupoVolumen.visible = mostrarVolumenNormativa;
-        grupoExistente.visible = !mostrarVolumenNormativa;
-        btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
-        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa';
-        if (mostrarVolumenNormativa) animarCrecimiento();
-        detalleNorm.hidden = !mostrarVolumenNormativa;
-        if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
-        solicitarRender();
+      if (editorPisos) { editorPisos.open = true; var slotP = p.querySelector('.maq-pisos-slot'); if (slotP) slotP.appendChild(editorPisos); }
+      // Tres acciones bajo la maqueta; cada una despliega su sección (pueden quedar varias abiertas).
+      // "Normativa" además muestra/oculta el volumen. El estado abierto sobrevive al redibujo
+      // (el panel se reconstruye en cada cambio de pisos, unión o división).
+      function pintarAcciones() {
+        p.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
+        p.querySelectorAll('.maq-sec').forEach(function (sx) { sx.hidden = !secAbierta[sx.getAttribute('data-sec')]; });
+      }
+      p.querySelectorAll('.maq-acc').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var k = b.getAttribute('data-acc');
+          secAbierta[k] = !secAbierta[k];
+          if (k === 'norma') {
+            mostrarVolumenNormativa = secAbierta.norma;
+            grupoVolumen.visible = mostrarVolumenNormativa;
+            grupoExistente.visible = !mostrarVolumenNormativa;
+            if (mostrarVolumenNormativa) animarCrecimiento();
+            if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
+            solicitarRender();
+          }
+          pintarAcciones();
+          if (secAbierta[k]) { var sec = p.querySelector('.maq-sec[data-sec="' + k + '"]'); if (sec && window.matchMedia('(max-width: 640px)').matches) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
+        });
       });
+      secAbierta.norma = mostrarVolumenNormativa && !estado.restriccionVolumen;
+      pintarAcciones();
+      // Total de lo marcado, en vivo, en el botón de la sección y en el de la barra
+      function precioNum(id) { var t = precioDeProducto(id); var n = parseFloat(String(t).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; }
+      function actualizarTotal() {
+        var ids = Object.keys(estado.tramitesSel || {}).filter(function (k) { return estado.tramitesSel[k]; });
+        var tot = ids.reduce(function (a2, k) { return a2 + precioNum(k); }, 0);
+        var bS = p.querySelector('.maq-solicitar'); if (bS) bS.textContent = ids.length ? 'Solicitar ' + ids.length + (ids.length === 1 ? ' trámite' : ' trámites') + (tot ? ' · $' + tot.toLocaleString('es-EC') : '') : 'Solicitar';
+        var tA = p.querySelector('.maq-total'); if (tA) tA.textContent = ids.length ? (tot ? '$' + tot.toLocaleString('es-EC') : ids.length + ' marcados') : 'trámites y archivos';
+      }
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
       if (btnDiv) btnDiv.addEventListener('click', function () {
@@ -5876,7 +5967,19 @@
         recomputarYRenderizar(estado);
       });
       var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
-      p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; }); });
+      p.querySelectorAll('[data-tramite]').forEach(function (cb) { cb.addEventListener('change', function () { estado.tramitesSel[cb.getAttribute('data-tramite')] = cb.checked; actualizarTotal(); }); });
+      actualizarTotal();
+      var b3d = p.querySelector('.maq-3d-btn');
+      if (b3d) b3d.addEventListener('click', function () {
+        var inC = p.querySelector('.maq-ficha-correo'), correo = (inC.value || '').trim(), msgF = p.querySelector('.maq-ficha-msg');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inC.focus(); inC.classList.add('falta'); if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'Escribe tu correo para descargar el modelo.'; } return; }
+        inC.classList.remove('falta');
+        try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
+        registrarInteresado(estado, correo);
+        if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Preparando el modelo 3D…'; }
+        descargarModelo3D(estado).then(function (n) { if (msgF) msgF.textContent = 'Listo: ' + n + ' (metros, eje Y hacia arriba). Se abre en Blender, Rhino, SketchUp (con importador glTF) y visores web.'; })
+          .catch(function (e) { console.warn(e); if (msgF) { msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'No se pudo generar el modelo. Intenta de nuevo.'; } });
+      });
       var btnSol = p.querySelector('.maq-solicitar');
       if (btnSol) btnSol.addEventListener('click', function () {
         var ids = Object.keys(estado.tramitesSel || {}).filter(function (k) { return estado.tramitesSel[k]; });
@@ -6197,6 +6300,35 @@
       };
       img.onerror = function () { resolve(dataUrl); };
       img.src = dataUrl;
+    });
+  }
+  // Modelo 3D descargable (.glb): la misma maqueta que se ve (terreno, edificios, árboles y, si
+  // está visible, el volumen normativo), en metros con Y hacia arriba. El exportador se carga solo
+  // cuando hace falta.
+  var cargaExportador = null;
+  function cargarExportadorGLTF() {
+    if (THREE.GLTFExporter) return Promise.resolve();
+    if (!cargaExportador) cargaExportador = new Promise(function (ok, mal) {
+      var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js';
+      sc.onload = function () { ok(); }; sc.onerror = function () { cargaExportador = null; mal(new Error('no cargó el exportador')); };
+      document.head.appendChild(sc);
+    });
+    return cargaExportador;
+  }
+  function descargarModelo3D(estado) {
+    if (!ultimoRender3D || !ultimoRender3D.scene) return Promise.reject(new Error('sin escena'));
+    return cargarExportadorGLTF().then(function () {
+      return new Promise(function (ok, mal) {
+        try {
+          new THREE.GLTFExporter().parse(ultimoRender3D.scene, function (buf) {
+            var nombre = 'cota-cero-' + String((estado && estado.clave) || 'predio').replace(/[^0-9A-Za-z-]+/g, '_') + '.glb';
+            var url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+            var a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+            ok(nombre);
+          }, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+        } catch (e) { mal(e); }
+      });
     });
   }
   function capturarImagen3D() {
