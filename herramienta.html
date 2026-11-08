@@ -356,7 +356,10 @@
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
   .terreno-manual { margin: -4px 0 14px; font-size: 0.82rem; }
-  .terreno-manual > summary { cursor: pointer; list-style: none; font-weight: 300; color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px; }
+  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+  .terreno-manual > summary span { font-weight: 300; color: var(--ink-soft); }
+  .terreno-manual > summary::after { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+  .terreno-manual[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
   .terreno-manual > summary::-webkit-details-marker { display: none; }
   .tm-cuerpo { margin-top: 10px; border: 1px solid var(--ink); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; max-width: 640px; }
   .tm-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -742,7 +745,7 @@
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
   <details class="terreno-manual" id="terrenoManual">
-    <summary>¿Tu terreno no aparece o está mal dibujado? Ingrésalo tú</summary>
+    <summary>Búsqueda avanzada <span>— dibujar el terreno, coordenadas o archivo</span></summary>
     <div class="tm-cuerpo">
       <div class="tm-tabs">
         <button type="button" data-tm="dibujar" class="activa">Dibujar sobre foto aérea</button>
@@ -1224,6 +1227,8 @@
   }
   (function () {
     var cont = document.getElementById('terrenoManual'); if (!cont) return;
+    cont.open = false;
+    cont.addEventListener('toggle', function () { if (!cont.open && modoDibujo) { salirDibujo(); msgTM(''); } });
     cont.querySelectorAll('[data-tm]').forEach(function (b) { b.addEventListener('click', function () {
       cont.querySelectorAll('[data-tm]').forEach(function (o) { o.classList.toggle('activa', o === b); });
       cont.querySelectorAll('[data-pane]').forEach(function (pn) { pn.hidden = pn.getAttribute('data-pane') !== b.getAttribute('data-tm'); });
