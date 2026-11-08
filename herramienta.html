@@ -126,7 +126,7 @@
     cursor: grab; display: block;
   }
   @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
-  .maq-panel { position: absolute; top: 14px; right: 14px; z-index: 5; width: min(258px, calc(100% - 28px)); background: rgba(246,245,242,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(43,42,39,.10); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 10px 30px rgba(40,38,34,.10); }
+  .maq-panel { position: absolute; top: 14px; right: 14px; z-index: 5; width: min(258px, calc(100% - 28px)); background: rgba(246,245,242,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(43,42,39,.10); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 10px 30px rgba(40,38,34,.10); max-height: calc(100% - 28px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
   .maq-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -160,20 +160,20 @@
   .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
   .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-productos { display: grid; gap: 6px; }
-  .maq-panel .maq-restriccion { display: grid; gap: 3px; padding: 10px 12px; }
+  .maq-panel .maq-restriccion { display: grid; gap: 3px; padding: 10px 12px; text-align: left; }
   .maq-r-tit { font-weight: 700; font-size: 0.86rem; letter-spacing: -0.01em; }
   .maq-r-det { font-weight: 300; font-size: 0.74rem; color: #5E5B55; }
   .maq-r-txt { margin: 4px 0 0; font-weight: 300; font-size: 0.76rem; line-height: 1.45; text-align: justify; hyphens: auto; }
-  .maq-tramites { display: grid; gap: 7px; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; }
+  .maq-tramites { display: grid; gap: 8px; border: 1px solid #1C1A16; border-radius: 10px; padding: 10px; text-align: left; }
   .maq-tramite { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; cursor: pointer; }
   .maq-tramite input { position: absolute; opacity: 0; pointer-events: none; }
-  .maq-tramite i { width: 15px; height: 15px; margin-top: 2px; border: 1px solid #1C1A16; border-radius: 4px; display: grid; place-items: center; }
+  .maq-tramite i { display: grid; box-sizing: border-box; width: 15px; height: 15px; margin-top: 2px; border: 1px solid #1C1A16; border-radius: 4px; display: grid; place-items: center; }
   .maq-tramite input:checked + i { background: #1C1A16; }
   .maq-tramite input:checked + i::after { content: ''; width: 7px; height: 4px; border: 1.6px solid #f3f1ec; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
   .maq-tramite span { display: grid; line-height: 1.25; } .maq-tramite b { font-weight: 500; font-size: 0.8rem; } .maq-tramite small { font-weight: 300; font-size: 0.68rem; color: #5E5B55; }
   .maq-tramite em { font-style: normal; font-weight: 300; font-size: 0.72rem; white-space: nowrap; }
-  .maq-solicitar { font: inherit; font-weight: 700; height: 36px; border: 0; border-radius: 8px; background: #B2502E; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0.02em; }
-  .maq-solicitar:hover { background: #8F3F23; }
+  .maq-panel .maq-solicitar { font: inherit; font-weight: 700; height: 36px; border: 0; border-radius: 8px; background: #B2502E; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0.02em; }
+  .maq-panel .maq-solicitar:hover { background: #8F3F23; }
   .maq-switch { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 300; cursor: pointer; }
   .maq-switch span:first-child { flex: 1; text-align: right; }
   .maq-switch span:last-child { flex: 1; }
@@ -211,7 +211,7 @@
   .maq-panel button:hover { background: #2b2a27; color: #f3f1ec; }
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
-  @media (max-width: 640px) { .maq-panel { position: static; width: auto; margin-top: 10px; box-shadow: none; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
+  @media (max-width: 640px) { .maq-panel { position: static; width: auto; margin-top: 10px; box-shadow: none; max-height: none; overflow: visible; } .panel-flotante { width: 112px; top: 10px; left: 10px; } }
   .maq-panel details.maq-mas > summary { cursor: pointer; font-size: 0.78rem; color: #6d6a63; list-style: none; }
   .maq-panel details.maq-mas > summary::-webkit-details-marker { display: none; }
   .maq-panel details.maq-mas > summary::before { content: '▸ '; }
