@@ -946,7 +946,7 @@
       return { altura: r[0], lote_min: n(r[1]) || 0, frente_min: n(r[2]), densidad_viv_ha: r[3], implantacion: r[4], rf: n(r[5]) || 0, rl: n(r[6]) || 0, rp: n(r[7]) || 0, seccion_via: n(r[8]), ie: n(r[9]) };
     });
     var mx = (f.n || []).join(' ').match(/superficie máxima de construcción de (\d+)\s*m2 por piso/i);
-    return { codigo: f.c, sector: f.s, pagina: f.p, anexo: f.x || '6.3', notas: f.n || [], maxM2Piso: mx ? parseFloat(mx[1]) : null, soloUnifamiliar: /únicamente la vivienda unifamiliar/i.test((f.n || []).join(' ')), adosaPB: !!f.ad, obligatorioPB: !!f.ob, cos: f.cos || null, determinantes: det };
+    return { codigo: f.c, sector: f.s, pagina: f.p, anexo: f.x || '6.3', notas: f.n || [], maxM2Piso: mx ? parseFloat(mx[1]) : null, aero: !!f.aero, inundacion: !!f.inu, soloUnifamiliar: /únicamente la vivienda unifamiliar/i.test((f.n || []).join(' ')), adosaPB: !!f.ad, obligatorioPB: !!f.ob, cos: f.cos || null, determinantes: det };
   }
   var fichaPITActual = null; // la del predio cargado, si el Anexo 6.3 trae tabla numérica para su PIT
   var frenteLoteActual = 0;  // frente principal del predio (m), para el "frente mínimo" de cada fila
@@ -1730,6 +1730,55 @@
     }
     var m = 0; Object.keys(L).forEach(function (k) { if (L[k] > m) m = L[k]; });
     return m;
+  }
+  // Resumen en palabras simples para el cliente (la fuente técnica —ficha, anexo, página— queda en
+  // la sección de normativa, en el PDF y como tooltip).
+  function resumenAlturaCliente(estado, dosFrentes) {
+    var max = estado.maxPisosLote, mejor = estado.pisosMejorArea, t;
+    var pl = function (n) { return n + (n === 1 ? ' piso' : ' pisos'); };
+    var nombreEje = estado.ejeIPRUS && estado.ejeIPRUS.nombre ? String(estado.ejeIPRUS.nombre).toLowerCase().replace(/(^|\s|\.)(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }) : '';
+    if (estado.fichaSinDeterminantes) t = 'Aquí la norma no asigna una altura para construir.';
+    else if (estado.esCentroHistorico || estado.esAreaHistorica) t = 'Zona histórica: hasta ' + pl(max) + ' como referencia; lo define la Dirección de Áreas Históricas.';
+    else if (estado.ejeIPRUS) t = 'Por estar frente a la ' + nombreEje + ', la norma permite hasta ' + pl(max) + '.';
+    else if (fichaPITActual) t = 'La norma de tu zona permite hasta ' + pl(max) + ' en un lote como el tuyo.';
+    else t = 'Como referencia, hasta ' + pl(max) + '.';
+    if (!estado.fichaSinDeterminantes) {
+      if (mejor && mejor < max) t += ' Pero la mayor área sale con ' + pl(mejor) + ': más arriba los retiros crecen' + (estado.frenteARio ? ' y el edificio se escalona hacia el río' : '') + ', y cada piso es más pequeño.';
+      else if (estado.frenteARio && max > 4) t += ' Desde el piso 5 el edificio se escalona 3 m por piso hacia el río.';
+      if (dosFrentes) t += ' Tu lote tiene dos frentes: se plantean dos bloques, cada uno con su altura desde su calle.';
+      if (fichaPITActual && fichaPITActual.aero && max >= 10) t += ' Sobre 10 pisos se pide además un estudio aeronáutico.';
+    }
+    return t + ' Cifras aproximadas: el IPRUS las confirma.';
+  }
+  // Área bruta aproximada (sin patios) para cada número de pisos, con los retiros del tramo que le
+  // corresponde, el volado de 1,2 m y el escalonamiento frente a río. Solo sirve para comparar
+  // alturas entre sí; el número que se muestra lo calcula el volumen dibujado.
+  function mejorAlturaPorArea(estado, maxPisos) {
+    var vol = estado.esAreaHistorica ? 0 : 1.2, tabla = {}, mejor = { pisos: maxPisos, m2: -1, tabla: tabla };
+    var maxM2 = fichaPITActual && fichaPITActual.maxM2Piso;
+    function A(pts) { if (!pts || pts.length < 3) return 0; var a = areaPoligonoM(pts); return maxM2 ? Math.min(a, maxM2) : a; }
+    for (var p = 1; p <= maxPisos; p++) {
+      var nv = nivelParaPisos(p), ret = { frente: nv.rf, lateral: nv.rl, posterior: nv.rp };
+      var pb = recortarConRetiros(estado, estado.retirosPB || ret), total = A(pb);
+      if (p > 1) {
+        var altas = recortarConRetiros(estado, { frente: Math.max(0, nv.rf - vol), lateral: nv.rl, posterior: nv.rp });
+        var base = estado.esAreaHistorica ? 2 : 4;
+        for (var q = 2; q <= p; q++) {
+          var z = altas;
+          if (estado.frenteARio && q > base && z && z.length >= 3) {
+            var extra = 3 * (q - base);
+            (estado.ladosRio || []).forEach(function (idx) {
+              var r = ({ frente: Math.max(0, nv.rf - vol), lateral: nv.rl, posterior: nv.rp })[estado.tipoLado[idx]] || 0;
+              z = recortarSemiplano(z, estado.pts[idx], estado.pts[(idx + 1) % estado.nLados], r + extra, estado.centroideLote);
+            });
+          }
+          total += A(z);
+        }
+      }
+      tabla[p] = Math.round(total);
+      if (total > mejor.m2 * 1.01) { mejor.m2 = total; mejor.pisos = p; }
+    }
+    return mejor;
   }
   function areaPoligonoM(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
   function calcularDivision(estado) {
@@ -3629,6 +3678,18 @@
       if (fichaPITActual && fichaPITActual.obligatorioPB) estado.retirosPB = null;
       else if (fichaPITActual && fichaPITActual.adosaPB) estado.retirosPB.lateral = 0;
       estado.pisos = maxPisosLote;
+      // Más pisos no siempre es más área: desde cierto tramo los retiros crecen (y frente a un río
+      // cada piso sobre el 4.º se escalona 3 m), así que la planta se achica. Se estima el área
+      // bruta para cada altura posible y se arranca en la que da más m²; el slider sigue llegando
+      // al máximo que permite la norma.
+      var mejor = mejorAlturaPorArea(estado, maxPisosLote);
+      estado.m2PorPisos = mejor.tabla;
+      estado.pisosMejorArea = mejor.pisos;
+      if (mejor.pisos < maxPisosLote) {
+        elegido = nivelParaPisos(mejor.pisos);
+        estado.retiros = { frente: elegido.rf, lateral: elegido.rl, posterior: elegido.rp };
+        estado.pisos = mejor.pisos;
+      }
     }
     estado.maxPisosLote = maxPisosLote;
     estado.voladizo = estado.esAreaHistorica ? 0 : 1.2; // en áreas históricas no hay voladizos
@@ -5624,7 +5685,7 @@
     function posEvento(e) { return e.touches && e.touches[0] ? e.touches[0] : e; }
     function onDown(e) { arrastrando = true; var p = posEvento(e); ultimoX = p.clientX; ultimoY = p.clientY; canvas.style.cursor = 'grabbing'; }
     function onMove(e) {
-      if (!arrastrando) return;
+      if (!arrastrando || distPellizco > 0) return;
       var p = posEvento(e);
       var dx = p.clientX - ultimoX, dy = p.clientY - ultimoY;
       ultimoX = p.clientX; ultimoY = p.clientY;
@@ -5642,13 +5703,39 @@
     // Mismo criterio que el mapa (ver listener de 'wheel' sobre mapa.getContainer()): el modelo 3D
     // ocupa toda la franja, así que un scroll de dos dedos SIN pellizcar no debe quedar atrapado acá
     // haciendo zoom — solo gesto de pellizco/ctrl+scroll (ctrlKey=true) controla el zoom del modelo.
-    function onWheel(e) {
-      if (!e.ctrlKey) return;
-      radius = Math.max(maxDim * 0.6, Math.min(maxDim * 4.5, radius + e.deltaY * 0.03));
+    // Zoom continuo: de cerca el centro de giro es el lote; al alejarse se desliza hacia el centro
+    // de la maqueta y el radio llega hasta ver el conjunto completo (reemplaza los botones
+    // "Conjunto" / "Lote").
+    var zoomLote = null;
+    function ajustarZoom(nuevoRadio) {
+      var rMin = maxDim * 0.6, rMax = Math.max(R * 2.8, maxDim * 4.5);
+      radius = Math.max(rMin, Math.min(rMax, nuevoRadio));
+      if (zoomLote) {
+        var rL = Math.max(maxDim * 2.6, 95), t = Math.max(0, Math.min(1, (radius - rL) / Math.max(1, rMax - rL)));
+        target.set(zoomLote.x * (1 - t), zoomLote.y * (1 - t), zoomLote.z * (1 - t));
+      }
       actualizarCamara();
       solicitarRender();
+    }
+    function onWheel(e) {
+      if (!e.ctrlKey) return;
+      ajustarZoom(radius * Math.exp(e.deltaY * 0.01));
       e.preventDefault();
     }
+    // Pellizco con dos dedos (iPad / celular)
+    var toques = {}, distPellizco = 0, radioPellizco = 0;
+    function distToques() { var k = Object.keys(toques); if (k.length < 2) return 0; var a = toques[k[0]], b = toques[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
+    canvas.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'touch') return;
+      toques[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (Object.keys(toques).length === 2) { distPellizco = distToques(); radioPellizco = radius; arrastrando = false; }
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!toques[e.pointerId]) return;
+      toques[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (Object.keys(toques).length === 2 && distPellizco > 0) { var d = distToques(); if (d > 0) ajustarZoom(radioPellizco * distPellizco / d); }
+    });
+    ['pointerup', 'pointercancel'].forEach(function (ev) { canvas.addEventListener(ev, function (e) { delete toques[e.pointerId]; if (Object.keys(toques).length < 2) distPellizco = 0; }); });
     canvas.style.cursor = 'grab';
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', onDown);
@@ -5693,7 +5780,7 @@
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
-            '<div class="maq-aprox">Aproximado. ' + (estado.fuenteAltura || '') + (particionFrentes ? ' Lote con dos frentes: dos bloques, cada uno con sus pisos desde su propia calle.' : '') + '</div>' +
+            '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="maq-estudio"><div class="maq-estudio-tit">Estudio urbano</div>' +
@@ -5723,7 +5810,7 @@
         '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
         '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
         '<a class="maq-avisar-txt" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a>' +
-        '<div class="maq-vistas"><button type="button" data-vista="conjunto" data-tip="Conjunto">' + ICONOS_MAQ.conjunto + '</button><button type="button" data-vista="lote" data-tip="Lote">' + ICONOS_MAQ.lote + '</button><button type="button" data-vista="planta" data-tip="Planta">' + ICONOS_MAQ.planta + '</button></div>' +
+        '<div class="maq-vistas"><button type="button" data-vista="planta" data-tip="Planta / 3D">' + ICONOS_MAQ.planta + '</button></div>' +
         '';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
@@ -5818,6 +5905,7 @@
           theta = Math.atan2(rx, -ry); phi = 0.5;
           var c = estado.centroideLote;
           radius = Math.max(maxDim * 2.6, 95); target.set(c[0], 4, -c[1]);
+          zoomLote = { x: c[0], y: 4, z: -c[1] };
         },
         planta: function () { theta = 0; phi = 0.2; radius = R * 2.9; target.set(0, 0, 0); }
       };
@@ -5828,10 +5916,12 @@
       if (vistasPanel) { while (vistasPanel.firstChild) barraV.appendChild(vistasPanel.firstChild); vistasPanel.remove(); }
       canvas.insertAdjacentElement('afterend', barraV);
       function marcarVista(nombre) { barraV.querySelectorAll('button').forEach(function (x) { x.classList.toggle('activa', x.getAttribute('data-vista') === nombre); }); }
+      // Un solo botón: planta ↔ 3D del lote. El conjunto se ve alejando con el pellizco (el zoom
+      // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
+      var enPlanta = false;
       barraV.querySelectorAll('button[data-vista]').forEach(function (b) {
-        b.addEventListener('click', function () { VISTAS[b.getAttribute('data-vista')](); actualizarCamara(); solicitarRender(); marcarVista(b.getAttribute('data-vista')); });
+        b.addEventListener('click', function () { enPlanta = !enPlanta; (enPlanta ? VISTAS.planta : VISTAS.lote)(); actualizarCamara(); solicitarRender(); marcarVista(enPlanta ? 'planta' : ''); });
       });
-      marcarVista('lote');
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
       VISTAS.lote(); actualizarCamara(); solicitarRender();
       // norte y escala (abajo a la izquierda)
