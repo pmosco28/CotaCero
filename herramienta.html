@@ -122,8 +122,18 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
-  .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #b0532f; background: #b0532f; color: #fff; cursor: pointer; }
-  .maq-panel .maq-normativa.activo { background: transparent; color: #b0532f; }
+  .maq-panel .maq-norma { border: 1px solid #c9c6bf; border-radius: 5px; padding: 8px; display: grid; gap: 8px; background: #fff; }
+  .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
+  .maq-panel .maq-norma-detalle { display: grid; gap: 6px; }
+  .maq-panel .maq-norma-detalle[hidden] { display: none; }
+  .maq-panel .maq-pisos-slot .editor-flotante { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; width: auto; }
+  .maq-panel .maq-pisos-slot .editor-flotante summary { list-style: none; display: flex; justify-content: space-between; font-weight: 600; cursor: default; pointer-events: none; }
+  .maq-panel .maq-pisos-slot .editor-flotante summary::-webkit-details-marker { display: none; }
+  .maq-panel .maq-pisos-slot input[type=range] { width: 100%; }
+  .maq-panel .maq-cifras { font-weight: 600; font-size: 0.86rem; }
+  .maq-panel .maq-aprox { font-size: 0.7rem; color: #6d6a63; }
+  .maq-panel .maq-pedir { font: inherit; font-size: 0.8rem; padding: 0; border: 0; background: none; color: #b0532f; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; justify-self: start; text-transform: none; letter-spacing: 0; }
   .maq-nota { font-size: 0.72rem; color: #6d6a63; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
@@ -3204,7 +3214,7 @@
     // Un cuerpo (PB + Altas + patios) por bloque — el caso normal (sin partir) es un solo bloque, así
     // que este loop corre una sola vez y se comporta igual que antes de soportar varios.
     function areaAnillo(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
-    var areaConstruida = 0;
+    var areaConstruida = 0, resumenNormativa = null;
     bloquesPB.forEach(function (ptsPBBloqueM, bi) {
       var ptsPBBloque = metrosArrAVec2(ptsPBBloqueM);
       var ptsAltasBloqueM = bloquesAltasFinal[bi];
@@ -3246,6 +3256,9 @@
     (function () {
       var elC = document.getElementById('info-construccion'), elD = document.getElementById('info-densidad');
       if (elC) elC.textContent = Math.round(areaConstruida).toLocaleString('es-EC') + ' m² (bruto, ' + pisos + (pisos === 1 ? ' piso)' : ' pisos)');
+      resumenNormativa = { m2: Math.round(areaConstruida), viv: null };
+      var nv0 = nivelParaPisos(pisos), dv0 = nv0 ? parseFloat(String(nv0.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
+      if (isFinite(dv0)) resumenNormativa.viv = Math.max(1, Math.floor(dv0 * areaAnillo(estado.pts) / 10000));
       if (!elD) return;
       var nivel = nivelParaPisos(pisos), dv = nivel ? parseFloat(String(nivel.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
       var areaLote = areaAnillo(estado.pts);
@@ -4168,6 +4181,7 @@
     // ---------- Panel de la maqueta: capas, colores y vistas ----------
     (function panelMaqueta() {
       var wrap = canvas.parentElement; if (!wrap) return;
+      var editorPisos = document.getElementById('editorFlotante'); // se mueve al bloque de normativa
       var viejo = wrap.querySelector('.maq-panel'); if (viejo) viejo.remove();
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
@@ -4181,21 +4195,32 @@
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
-        '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar volumen normativo' : 'Ver lo que permite la normativa (aprox.)') + '</button>' +
+        '<div class="maq-norma">' +
+          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
+          '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
+            '<div class="maq-pisos-slot"></div>' +
+            '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
+            '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
+            '<button type="button" class="maq-pedir">Pedir informe de este predio</button>' +
+          '</div>' +
+        '</div>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
         '<details><summary>Colores</summary><div class="maq-colores"></div><button type="button" class="maq-reset">Restablecer</button></details>';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
-      var btnNorm = p.querySelector('.maq-normativa');
+      var btnNorm = p.querySelector('.maq-normativa'), detalleNorm = p.querySelector('.maq-norma-detalle');
+      if (editorPisos) { editorPisos.open = true; p.querySelector('.maq-pisos-slot').appendChild(editorPisos); }
       btnNorm.addEventListener('click', function () {
         mostrarVolumenNormativa = !mostrarVolumenNormativa;
         grupoVolumen.visible = mostrarVolumenNormativa;
         grupoExistente.visible = !mostrarVolumenNormativa;
         btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
-        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar volumen normativo' : 'Ver lo que permite la normativa (aprox.)';
+        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa';
+        detalleNorm.hidden = !mostrarVolumenNormativa;
         solicitarRender();
       });
+      p.querySelector('.maq-pedir').addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio('analisis-sitio'); });
       p.querySelectorAll('input[data-capa]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
