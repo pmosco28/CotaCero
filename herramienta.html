@@ -842,6 +842,85 @@
   // volver a renderizar un cuadro a mayor resolución al generar el informe PDF (ver
   // capturarImagen3D()/generarInformePDF()). Se reescribe entero cada vez que se redibuja la escena.
   var ultimoRender3D = null;
+
+  // ---------- Curvas de nivel desde el MDT del IDE Cuenca (ide:catastros_mdt4326, ~3 m) ----------
+  // GeoServer devuelve el MDT por WCS como GeoTIFF float32 sin compresión, en mosaicos. Lector
+  // mínimo propio (sin librería): solo lo que ese servicio entrega.
+  function leerGeoTiffFloat(ab) {
+    var dv = new DataView(ab), le = dv.getUint16(0) === 0x4949;
+    var ifd = dv.getUint32(4, le), n = dv.getUint16(ifd, le), T = {};
+    function valores(tipo, cnt, pos) {
+      var tam = tipo === 3 ? 2 : 4, base = (tam * cnt <= 4) ? pos : dv.getUint32(pos, le), out = [];
+      for (var k = 0; k < cnt; k++) out.push(tipo === 3 ? dv.getUint16(base + k * 2, le) : dv.getUint32(base + k * 4, le));
+      return out;
+    }
+    for (var i = 0; i < n; i++) {
+      var e = ifd + 2 + i * 12, tag = dv.getUint16(e, le), tipo = dv.getUint16(e + 2, le), cnt = dv.getUint32(e + 4, le);
+      if (tipo === 3 || tipo === 4) T[tag] = valores(tipo, cnt, e + 8);
+      if (tag === 42113) { var off = cnt > 4 ? dv.getUint32(e + 8, le) : e + 8, txt = ''; for (var c = 0; c < cnt - 1; c++) txt += String.fromCharCode(dv.getUint8(off + c)); T.nodata = parseFloat(txt); }
+    }
+    var W = T[256][0], H = T[257][0];
+    if ((T[259] || [1])[0] !== 1 || (T[258] || [32])[0] !== 32) throw new Error('MDT: formato no soportado');
+    var z = new Float32Array(W * H).fill(NaN);
+    function bloque(off, bw, bh, x0, y0) {
+      for (var y = 0; y < bh; y++) for (var x = 0; x < bw; x++) {
+        var X = x0 + x, Y = y0 + y; if (X >= W || Y >= H) continue;
+        var v = dv.getFloat32(off + (y * bw + x) * 4, le);
+        z[Y * W + X] = (T.nodata !== undefined && Math.abs(v - T.nodata) < 1e-3) || v < -1000 ? NaN : v;
+      }
+    }
+    if (T[322]) {
+      var tw = T[322][0], th = T[323][0], ox = T[324], ac = Math.ceil(W / tw);
+      ox.forEach(function (o, t) { bloque(o, tw, th, (t % ac) * tw, Math.floor(t / ac) * th); });
+    } else {
+      var rps = (T[278] || [H])[0];
+      T[273].forEach(function (o, t) { bloque(o, W, rps, 0, t * rps); });
+    }
+    return { W: W, H: H, z: z };
+  }
+  var cacheMDT = {};
+  async function cargarMDT(lngMin, latMin, lngMax, latMax) {
+    var paso = 2.7022959925059982e-5;
+    var W = Math.max(8, Math.min(400, Math.round((lngMax - lngMin) / paso))), H = Math.max(8, Math.min(400, Math.round((latMax - latMin) / paso)));
+    var clave = [lngMin, latMin, lngMax, latMax].map(function (v) { return v.toFixed(5); }).join(',');
+    if (cacheMDT[clave]) return cacheMDT[clave];
+    var url = 'https://ide.cuenca.gob.ec/geoserver/ows?service=WCS&version=1.0.0&request=GetCoverage&coverage=ide:catastros_mdt4326&crs=EPSG:4326&bbox=' + [lngMin, latMin, lngMax, latMax].join(',') + '&width=' + W + '&height=' + H + '&format=GeoTIFF';
+    var res = await fetch(url);
+    if (!res.ok) throw new Error('MDT ' + res.status);
+    var g = leerGeoTiffFloat(await res.arrayBuffer());
+    g.lngMin = lngMin; g.latMax = latMax; g.dLng = (lngMax - lngMin) / g.W; g.dLat = (latMax - latMin) / g.H;
+    cacheMDT[clave] = g;
+    return g;
+  }
+  // Segmentos de curva por marching squares sobre la grilla (ya en metros locales).
+  function curvasDeGrilla(X, Y, Z, W, H, niveles) {
+    var segs = [];
+    niveles.forEach(function (L) {
+      var lista = [];
+      for (var j = 0; j < H - 1; j++) for (var i = 0; i < W - 1; i++) {
+        var k = j * W + i, a = Z[k], b = Z[k + 1], c = Z[k + W + 1], d = Z[k + W];
+        if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d)) continue;
+        var idx = (a > L ? 8 : 0) | (b > L ? 4 : 0) | (c > L ? 2 : 0) | (d > L ? 1 : 0);
+        if (idx === 0 || idx === 15) continue;
+        function p(k1, k2, z1, z2) { var t = (L - z1) / (z2 - z1); return [X[k1] + (X[k2] - X[k1]) * t, Y[k1] + (Y[k2] - Y[k1]) * t]; }
+        var top = function () { return p(k, k + 1, a, b); }, der = function () { return p(k + 1, k + W + 1, b, c); },
+          abj = function () { return p(k + W, k + W + 1, d, c); }, izq = function () { return p(k, k + W, a, d); };
+        var centro = (a + b + c + d) / 4;
+        switch (idx) {
+          case 1: case 14: lista.push([izq(), abj()]); break;
+          case 2: case 13: lista.push([abj(), der()]); break;
+          case 3: case 12: lista.push([izq(), der()]); break;
+          case 4: case 11: lista.push([top(), der()]); break;
+          case 6: case 9: lista.push([top(), abj()]); break;
+          case 7: case 8: lista.push([izq(), top()]); break;
+          case 5: if (centro > L) { lista.push([izq(), top()]); lista.push([abj(), der()]); } else { lista.push([izq(), abj()]); lista.push([top(), der()]); } break;
+          case 10: if (centro > L) { lista.push([top(), der()]); lista.push([izq(), abj()]); } else { lista.push([izq(), top()]); lista.push([abj(), der()]); } break;
+        }
+      }
+      segs.push({ nivel: L, segs: lista });
+    });
+    return segs;
+  }
   // El predio se abre "como está": sin volumen normativo hasta que el usuario lo pide (botón en el
   // panel de la maqueta, o mover el control de pisos). Se reinicia al elegir otro predio.
   var mostrarVolumenNormativa = false;
@@ -1358,6 +1437,18 @@
     } catch (e) { return []; }
   }
 
+  // Alturas reales del municipio: `dahp_catastro:bloques_fin` (DGAHP) trae por bloque construido los
+  // pisos actuales (pisos_actu), la altura en metros (altura_act) y la valoración patrimonial
+  // (clasificac, valor_regi). Cubre Centro Histórico y El Ejido; fuera de ahí queda OSM o 6 m.
+  async function consultarBloquesMunicipales(bbox) {
+    var cql = "BBOX(geom," + bbox.join(',') + ",'EPSG:4326')";
+    try {
+      var res = await fetch('https://ide.cuenca.gob.ec/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=dahp_catastro:bloques_fin&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql));
+      var data = await res.json();
+      return data.features || [];
+    } catch (e) { return []; }
+  }
+
   async function consultarConstruccionesMunicipales(bbox) {
     var bboxStr = bbox.join(',');
     var capas = ['ws_catastro:urbano_construccion', 'ws_catastro:rural_construccion'];
@@ -1694,7 +1785,8 @@
       consultarConstruccionesMunicipales(bboxConsulta).catch(function () { return []; }),
       consultarUsoSuelo(centro).catch(function () { return null; }),
       consultarAlturaMaximaCentroHistorico(featureReg).catch(function () { return null; }),
-      consultarMargenProteccionRio(bboxConsulta).catch(function () { return []; })
+      consultarMargenProteccionRio(bboxConsulta).catch(function () { return []; }),
+      consultarBloquesMunicipales(bboxConsulta).catch(function () { return []; })
     ]);
     var datosOSM = resultadosContexto[0];
     var usoSuelo = resultadosContexto[3];
@@ -1729,6 +1821,33 @@
     // ese mismo lugar y las dos masas se superpondrían/confundirían. `booleanIntersects` (no solo el
     // centroide) para no dejar pasar un edificio que solo pisa una esquina del lote.
     var todasEdificaciones = fusionarEdificaciones(municipalesLocal, osmCrudo);
+    // Altura del municipio (pisos y metros por bloque) por sobre OSM: se asigna al bloque que más se
+    // solapa con cada huella.
+    var bloquesMun = [];
+    (resultadosContexto[6] || []).forEach(function (f) {
+      try {
+        turf.flatten(f).features.forEach(function (parte) {
+          var anillo = parte.geometry.coordinates[0].map(aMetros);
+          if (anillo.length >= 4) bloquesMun.push({ pts: anillo.slice(0, -1), bbox: bboxDePts(anillo), p: f.properties || {} });
+        });
+      } catch (e) { }
+    });
+    todasEdificaciones.forEach(function (ed) {
+      var bb = bboxDePts(ed.pts), mejor = null, mejorA = 0;
+      var fe; try { fe = turf.polygon([ed.pts.concat([ed.pts[0]])]); } catch (e) { return; }
+      bloquesMun.forEach(function (b) {
+        if (!bboxesSolapan(bb, b.bbox)) return;
+        try { var i = turf.intersect(fe, turf.polygon([b.pts.concat([b.pts[0]])])); if (i) { var a = turf.area(i); if (a > mejorA) { mejorA = a; mejor = b; } } } catch (e) { }
+      });
+      if (mejor && mejorA > 0.3 * turf.area(fe)) {
+        var h = Number(mejor.p.altura_act) || (Number(mejor.p.pisos_actu) || 0) * 3;
+        if (h > 0) { ed.altura = h; ed.alturaReal = true; ed.fuente = 'municipio'; ed.pisos = Number(mejor.p.pisos_actu) || null; }
+      }
+    });
+    // Valoración patrimonial de lo construido en el lote (si la hay): condiciona qué se puede hacer.
+    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave); }).map(function (f) {
+      return { clasificacion: f.properties.clasificac, valor: f.properties.valor_regi, pisos: f.properties.pisos_actu, altura: f.properties.altura_act, bloque: f.properties.bloque };
+    });
     var edificacionesContexto = todasEdificaciones.filter(function (ed) {
       try { return !turf.booleanIntersects(turf.polygon([ed.pts.concat([ed.pts[0]])]), poligonoLotePlano); } catch (e) { return true; }
     });
@@ -2106,7 +2225,7 @@
       aMetros: aMetros, metrosALatLng: metrosALatLng, poligonoMetrosAFeature: poligonoMetrosAFeature,
       viasFlat: viasFlat, viasFeatures: dataVia.features || [],
       vecinosFeatures: dataVecinos.features || [],
-      edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, riosFlat: riosFlat,
+      edificacionesContexto: edificacionesContexto, edificacionesLote: edificacionesLote, featureLote: featureReg, patrimonioLote: patrimonioLote, riosFlat: riosFlat,
       areasVerdesOSM: areasVerdesOSM, nombreAreaVerdeDelLote: nombreAreaVerdeDelLote,
       viasDibujo: viasDibujo,
       arbolesDetectados: arbolesDetectados,
@@ -2632,6 +2751,10 @@
     var notaTopeReal = (!esCentroHistorico && estado.limitadoPorRetiros)
       ? '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">📏 Este lote da para ' + estado.maxPisosPorArea + ' pisos por área, pero a partir de ' + (maxPisosLote + 1) + ' los retiros de planta alta no dejan área edificable — el tope real para este lote es <strong>' + maxPisosLote + ' pisos</strong>. Para una confirmación legal y vinculante, hay que tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>'
       : '';
+    if (estado.patrimonioLote && estado.patrimonioLote.length) {
+      var pl = estado.patrimonioLote[0];
+      notaTopeReal = '<div style="font-size:0.8rem; color:#7a2e12; background:#fbeee6; border:1px solid #e6b9a3; border-radius:10px; padding:10px 12px;">⚠️ Lo construido en este lote está registrado por el municipio como <strong>' + String(pl.clasificacion || '').toLowerCase() + '</strong> (valoración ' + (pl.valor || '—') + ', ' + (pl.pisos || '?') + ' pisos, ' + (pl.altura || '?') + ' m). Una edificación con valor patrimonial no se puede reemplazar libremente: el volumen de abajo es solo lo que la normativa permitiría en un lote libre. Confirmar con la Dirección General de Áreas Históricas qué intervención se admite.</div>' + notaTopeReal;
+    }
     if (estado.esAreaHistorica) {
       notaTopeReal = '<div style="font-size:0.8rem; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;">🏛️ Predio en <strong>área histórica y patrimonial</strong> (PIT ' + estado.pitOficial + '). Volumen referencial según la Ordenanza de Áreas Históricas y Patrimoniales: hasta 4 plantas, retiros de 3 m, sin voladizos' + (estado.frenteARio ? ', escalonado hacia el río' : '') + '. Los determinantes finales están en la ficha del plan del sector y en el IPRUS del predio.</div>' + notaTopeReal;
     }
@@ -3579,6 +3702,7 @@
           c.lineCap = 'butt';
         }
       }
+      if (typeof dibujarCurvas === 'function') dibujarCurvas(c);
       if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; return; }
       // Linderos de predios: línea gris fina.
       c.strokeStyle = '#A9A399'; c.lineWidth = 1.4;
@@ -3650,6 +3774,64 @@
       c.fillStyle = color; c.fill('evenodd');
       c.fillStyle = granoPintura; c.fill('evenodd');
       if (borde) { c.strokeStyle = borde; c.lineWidth = 1.2; c.stroke(); }
+    }
+    // Curvas de nivel (referenciales): MDT municipal ~3 m, suavizado leve, cada 1 m y maestras cada 5 m.
+    var curvasLamina = null, curvasVisibles = true, cotaMinMaxLamina = null;
+    (function () {
+      var sw = estado.metrosALatLng([-R - 12, -R - 12]), ne = estado.metrosALatLng([R + 12, R + 12]);
+      cargarMDT(sw[1], sw[0], ne[1], ne[0]).then(function (g) {
+        // suavizado 3x3 (quita el escalonado del raster) y paso a metros locales
+        var W = g.W, H = g.H, Zs = new Float32Array(W * H), X = new Float32Array(W * H), Y = new Float32Array(W * H), zmin = Infinity, zmax = -Infinity;
+        for (var j = 0; j < H; j++) for (var i = 0; i < W; i++) {
+          var acc = 0, n = 0;
+          for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) { var jj = j + dj, ii = i + di; if (jj < 0 || ii < 0 || jj >= H || ii >= W) continue; var v = g.z[jj * W + ii]; if (!isNaN(v)) { acc += v; n++; } }
+          var k = j * W + i; Zs[k] = n ? acc / n : NaN;
+          if (n) { zmin = Math.min(zmin, Zs[k]); zmax = Math.max(zmax, Zs[k]); }
+          var m = estado.aMetros([g.lngMin + (i + 0.5) * g.dLng, g.latMax - (j + 0.5) * g.dLat]); X[k] = m[0]; Y[k] = m[1];
+        }
+        if (!isFinite(zmin)) return;
+        var niveles = []; for (var L = Math.ceil(zmin); L <= Math.floor(zmax); L++) niveles.push(L);
+        curvasLamina = curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        cotaMinMaxLamina = [zmin, zmax];
+        dibujarLamina(); solicitarRender();
+      }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
+    })();
+    function dibujarCurvas(c) {
+      if (!curvasLamina || !curvasVisibles) return;
+      var cv = document.createElement('canvas'); cv.width = cv.height = LAMINA_PX;
+      var x = cv.getContext('2d'); x.lineCap = 'round';
+      curvasLamina.forEach(function (cn) {
+        var maestra = cn.nivel % 5 === 0;
+        x.strokeStyle = maestra ? 'rgba(122,92,60,0.75)' : 'rgba(122,92,60,0.38)';
+        x.lineWidth = maestra ? 2.2 : 1.1;
+        x.beginPath();
+        cn.segs.forEach(function (sg) { var a = aLamina(sg[0]), b = aLamina(sg[1]); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); });
+        x.stroke();
+      });
+      // cotas de las maestras, pocas y con halo
+      x.font = '600 ' + Math.round(1.6 * pxPorM * 1.4) + 'px "Archivo Narrow", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      var puestas = [];
+      curvasLamina.forEach(function (cn) {
+        if (cn.nivel % 5 !== 0) return;
+        cn.segs.forEach(function (sg, i) {
+          if (i % 23 !== 7) return;
+          var a = aLamina(sg[0]), b = aLamina(sg[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+          if (puestas.some(function (q) { return Math.hypot(q[0] - m[0], q[1] - m[1]) < 40 * pxPorM; })) return;
+          puestas.push(m);
+          var ang = Math.atan2(b[1] - a[1], b[0] - a[0]); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+          x.save(); x.translate(m[0], m[1]); x.rotate(ang);
+          x.lineWidth = 4; x.strokeStyle = 'rgba(255,255,255,0.9)'; x.strokeText(String(cn.nivel), 0, 0);
+          x.fillStyle = 'rgba(110,80,50,0.95)'; x.fillText(String(cn.nivel), 0, 0); x.restore();
+        });
+      });
+      // no sobre el agua
+      x.globalCompositeOperation = 'destination-out';
+      (estado.riosFlat || []).forEach(function (rio) {
+        if (!rio.pts || rio.pts.length < 2) return;
+        x.beginPath(); rio.pts.forEach(function (p, i) { var q = aLamina(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); });
+        x.lineJoin = 'round'; x.lineWidth = (rio.ancho || 12) * pxPorM; x.stroke();
+      });
+      c.drawImage(cv, 0, 0);
     }
     dibujarLamina();
     // segunda pasada tras el primer cuadro: en algunos navegadores la primera subida de la textura
@@ -3996,7 +4178,9 @@
         '<label><input type="checkbox" data-capa="rio" checked>Río</label>' +
         '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
+        '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
         '</div>' +
+        '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
         '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar volumen normativo' : 'Ver lo que permite la normativa (aprox.)') + '</button>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
@@ -4017,6 +4201,7 @@
           var k = inp.getAttribute('data-capa');
           if (k === 'lineas') { laminaConLineas = inp.checked; dibujarLamina(); }
           else if (k === 'rio') { rioVisible = inp.checked; dibujarLamina(); }
+          else if (k === 'curvas') { curvasVisibles = inp.checked; dibujarLamina(); }
           else if (capas[k]) capas[k].visible = inp.checked;
           solicitarRender();
         });
