@@ -975,7 +975,7 @@
     zoomControl: false,
     scrollWheelZoom: false,
     minZoom: 11,
-    maxBounds: [[-3.00, -79.15], [-2.80, -78.90]],
+    maxBounds: [[-3.40, -79.70], [-2.50, -78.75]], // todo el cantón Cuenca (antes solo el área urbana: los predios del borde quedaban fuera de cuadro)
     maxBoundsViscosity: 1.0
   }).setView([-2.8980, -79.0045], 15);
   // Fondo: ortofoto oficial del IGM servida por el IDE Cuenca (WMS), en vez de pedir mosaicos
@@ -989,7 +989,7 @@
   (function () {
     var el = document.getElementById('mapaLupa'); if (!el) return;
     mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
-    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
+    L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
     function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
     mapa.on('move zoom resize', sincronizar);
@@ -1204,7 +1204,7 @@
   }
   function empezarDibujo() {
     modoDibujo = true; verticesDibujo = []; desactivarModo3D();
-    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
+    if (!capaOrtoDibujo) capaOrtoDibujo = L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21, attribution: 'Ortofoto: GAD Municipal de Cuenca (IDE)' });
     capaOrtoDibujo.addTo(mapa); mapa.doubleClickZoom.disable();
     if (mapa.getZoom() < 18) mapa.setZoom(18);
     ['tmCancelar'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = false; });
@@ -3311,7 +3311,12 @@
     if (mapaStage) mapaStage.classList.remove('modo-3d');
     // El contenedor de Leaflet estuvo oculto (display:none vía .mapa-col) — sin invalidateSize()
     // el mapa queda con las dimensiones/posición de tiles de la última vez que SÍ era visible.
-    setTimeout(function () { mapa.invalidateSize(); }, 60);
+    // el mapa estuvo oculto: recalcula su tamaño y vuelve a encuadrar el predio (el fitBounds que se
+    // hizo mientras estaba oculto quedó con un tamaño de 0 px y lo dejaba fuera de cuadro)
+    setTimeout(function () {
+      mapa.invalidateSize();
+      try { if (capaPredio.getLayers().length) mapa.fitBounds(capaPredio.getBounds(), { padding: [60, 60], maxZoom: 19, animate: false }); } catch (e) { }
+    }, 80);
   }
   if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
@@ -3372,6 +3377,7 @@
     }
     estadoEdicion = estado;
     estado.featureCrudo = feature;
+    estado.sinVia = (estado.tipoLado || []).indexOf('frente') < 0;
     // Linderos que se cruzan: área del predio (tal como está en el catastro) que también pertenece a
     // predios vecinos. Se ignoran roces de menos de 0,5 m² (digitalización).
     try {
@@ -4578,7 +4584,7 @@
     function cargarFoto() {
       if (cargandoFoto) return cargandoFoto;
       var sw = estado.metrosALatLng([-R, -R]), ne = estado.metrosALatLng([R, R]);
-      var url = 'https://ide.cuenca.gob.ec/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent('dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos') +
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent('dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos') +
         '&styles=&srs=EPSG:4326&bbox=' + [sw[1], sw[0], ne[1], ne[0]].join(',') + '&width=' + LAMINA_PX + '&height=' + LAMINA_PX + '&format=image/jpeg';
       cargandoFoto = fetch(url).then(function (r) { return r.blob(); }).then(function (b) { return createImageBitmap(b); }).then(function (bm) { imgFoto = bm; return bm; })
         .catch(function (e) { console.warn('Foto aérea no disponible', e); cargandoFoto = null; return null; });
@@ -5440,6 +5446,7 @@
       p.innerHTML =
 
         (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
+        (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         (function () {
           var tr = tramitesRecomendados(estado);
@@ -6339,6 +6346,12 @@
       return L;
     }
     if (/parque o área verde/.test(r)) return L;
+    if (estado.sinVia) {
+      t('levantamiento', 'Levantamiento topográfico georreferenciado', 'DXF y PDF firmados: requisito de todos los trámites de catastro', true);
+      t('regularizacion', 'Regularización del predio y su acceso', 'Excedentes o diferencias de superficie, actualización catastral y servidumbre de paso', true);
+      t('analisis-sitio', 'Análisis de sitio', 'Accesos posibles y entorno del terreno');
+      return L;
+    }
     if (estado.solapes && estado.solapes.area >= 2) t('regularizacion', 'Regularización de linderos', 'Corrige los cruces con tus vecinos en el catastro', true);
     if (/patrimonial/i.test(r)) {
       t('planimetrico-iprus', 'IPRUS de áreas históricas', 'Planimétrico + informe predial ante Áreas Históricas', true);
@@ -7000,7 +7013,7 @@
     { id: 'certificacion-patrimonial', soloRecomendado: true, nombre: 'Certificación patrimonial', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
     { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
-      descripcion: 'Levantamiento y gestión para oficializar el predio en el catastro: linderos que se cruzan con vecinos, diferencias de área o predios mal registrados. Frecuente en zonas periurbanas y rurales.' },
+      descripcion: 'Levantamiento georreferenciado y gestión ante Avalúos y Catastros para oficializar el predio: regularización de excedentes o diferencias de superficie (error de cabida), actualización catastral de superficie o rectificación de datos del terreno; y, si no tiene acceso, la servidumbre de paso. Frecuente en zonas periurbanas y rurales.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
