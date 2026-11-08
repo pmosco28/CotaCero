@@ -129,6 +129,11 @@
   .maq-panel input[type=color] { width: 24px; height: 18px; padding: 0; border: 1px solid #c9c6bf; border-radius: 3px; background: none; }
   .maq-panel .maq-vistas { display: flex; gap: 6px; flex-wrap: wrap; }
   .maq-terreno { display: flex; margin: 8px 0 4px; }
+  .maq-unir, .maq-deshacer { font: inherit; font-size: 0.78rem; padding: 7px 10px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; border-radius: 4px; cursor: pointer; }
+  .maq-unir-solo { width: 100%; margin: 6px 0 2px; }
+  .maq-unir:hover, .maq-deshacer:hover { background: #2b2a27; color: #f3f1ec; }
+  .maq-union { font-size: 0.78rem; line-height: 1.45; border: 1px solid #d9d2c4; border-radius: 4px; padding: 8px 10px; margin: 6px 0; }
+  .maq-union-btns { display: flex; gap: 6px; margin-top: 6px; } .maq-union-btns button { flex: 1; }
   .maq-terreno button { flex: 1; font: inherit; font-size: 0.72rem; padding: 6px 8px; background: transparent; color: #2b2a27; border: 1px solid #2b2a27; cursor: pointer; }
   .maq-terreno button + button { border-left-width: 0; }
   .maq-terreno button:first-child { border-radius: 4px 0 0 4px; } .maq-terreno button:last-child { border-radius: 0 4px 4px 0; }
@@ -1029,7 +1034,73 @@
   // cada clic nuevo del mapa; lo usan recomputarYRenderizar() y los editores de vértices/patio.
   var estadoEdicion = null;
 
-  mapa.on('click', function (e) { consultarPredio(e.latlng); });
+  mapa.on('click', function (e) { if (modoUnir) agregarALaUnion(e.latlng); else consultarPredio(e.latlng); });
+  // ---------- Unir lotes (estudio gratuito → trámite de unificación) ----------
+  // El cliente parte de su lote y toca predios vecinos que se TOCAN con él; la herramienta recalcula
+  // todo (normativa, volumen, m², viviendas) sobre el lote unido. Unificar requiere trámite municipal.
+  var modoUnir = false, prediosUnion = [], resumenAntesDeUnir = null, ultimoResumen = null;
+  function claveDe(f) { return String((f.properties && (f.properties.clave || f.properties.CLAVE)) || ''); }
+  function unirPredios(lista) {
+    var u = null, E = 0.0003; // 30 cm: cierra rendijas entre linderos que no calzan exacto
+    lista.forEach(function (f) { var b = turf.buffer(f, E, { units: 'kilometers', steps: 2 }); u = u ? turf.union(u, b) : b; });
+    u = turf.buffer(u, -E, { units: 'kilometers', steps: 2 });
+    if (!u) return null;
+    if (u.geometry.type === 'MultiPolygon') {
+      var mejor = null, aMax = 0;
+      u.geometry.coordinates.forEach(function (pc) { var a = turf.area(turf.polygon(pc)); if (a > aMax) { aMax = a; mejor = pc; } });
+      u = turf.polygon(mejor);
+    }
+    u = turf.polygon([u.geometry.coordinates[0]]); // sin huecos internos
+    var claves = lista.map(claveDe);
+    u.properties = { clave: claves.join(' + '), claves: claves };
+    return u;
+  }
+  function iniciarUnion() {
+    if (!estadoSeleccionado) return;
+    if (!prediosUnion.length && estadoSeleccionado.featureCrudo) prediosUnion = [estadoSeleccionado.featureCrudo];
+    if (!resumenAntesDeUnir && ultimoResumen && prediosUnion.length === 1) resumenAntesDeUnir = { m2: ultimoResumen.m2, viv: ultimoResumen.viv, area: Math.round(turf.area(prediosUnion[0])), clave: claveDe(prediosUnion[0]) };
+    modoUnir = true;
+    desactivarModo3D();
+    var st = document.getElementById('mapaStage'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    mostrarMsgBusqueda('Toca en el mapa el lote vecino que quieres unir (debe tocarse con el tuyo). Tocar uno ya unido lo quita.');
+  }
+  async function agregarALaUnion(latlng) {
+    var cql = 'INTERSECTS(geom,SRID=4326;POINT(' + latlng.lng + ' ' + latlng.lat + '))';
+    var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql);
+    var f = null;
+    try { var d = await (await fetch(url)).json(); f = d.features && d.features[0]; } catch (e) { }
+    if (!f) { mostrarMsgBusqueda('Ahí no hay un predio catastrado. Toca dentro del lote vecino.', 'err'); return; }
+    var c = claveDe(f), ya = prediosUnion.map(claveDe).indexOf(c);
+    var lista = prediosUnion.slice();
+    if (ya >= 0) { if (lista.length === 1) { mostrarMsgBusqueda('Ese es tu lote. Toca un lote vecino.', 'err'); return; } lista.splice(ya, 1); }
+    else {
+      var actual = lista.length > 1 ? unirPredios(lista) : lista[0];
+      var toca = false; try { toca = turf.booleanIntersects(turf.buffer(actual, 0.001, { units: 'kilometers' }), f); } catch (e) { }
+      if (!toca) { mostrarMsgBusqueda('Ese lote no colinda con el tuyo: solo se pueden unir lotes que se tocan.', 'err'); return; }
+      if (lista.length >= 6) { mostrarMsgBusqueda('Hasta 6 lotes por estudio.', 'err'); return; }
+      lista.push(f);
+    }
+    var u = lista.length > 1 ? unirPredios(lista) : lista[0];
+    if (!u) { mostrarMsgBusqueda('No se pudo unir esa geometría. Prueba con otro lote.', 'err'); return; }
+    prediosUnion = lista; modoUnir = false; mostrarMsgBusqueda('');
+    await mostrarResultado(u, true);
+  }
+  function deshacerUnion() {
+    if (prediosUnion.length < 2) return;
+    var base = prediosUnion[0]; prediosUnion = [base]; resumenAntesDeUnir = null;
+    mostrarResultado(base, true);
+  }
+  async function cargarUnionPorClaves(claves) {
+    var fs = [];
+    for (var i = 0; i < claves.length; i++) {
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + claves[i] + "'");
+      try { var d = await (await fetch(url)).json(); if (d.features && d.features[0]) fs.push(d.features[0]); } catch (e) { }
+    }
+    if (!fs.length) return;
+    prediosUnion = fs;
+    var c = turf.pointOnFeature(fs[0]).geometry.coordinates; mapa.setView([c[1], c[0]], 18);
+    await mostrarResultado(fs.length > 1 ? unirPredios(fs) : fs[0], true);
+  }
 
   // ---------- búsqueda por link de Google Maps ----------
   // Objetivo: pegar un link de Google Maps (o unas coordenadas sueltas) y que salte directo al predio,
@@ -2017,7 +2088,7 @@
       }
     });
     // Valoración patrimonial de lo construido en el lote (si la hay): condiciona qué se puede hacer.
-    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && String(f.properties.clave) === String(clave) && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
+    var patrimonioLote = (resultadosContexto[6] || []).filter(function (f) { return f.properties && ((featureReg.properties && featureReg.properties.claves) || [String(clave)]).indexOf(String(f.properties.clave)) >= 0 && (f.properties.valor_regi || f.properties.clasificac); }).map(function (f) {
       var pr = f.properties;
       return { clasificacion: pr.clasificac, valor: pr.valor_regi, categoria: categoriaPatrimonial(pr.valor_regi), pisos: pr.pisos_actu || pr.altura || null, altura: pr.altura_act || (pr.__capa === 'dahp_catastro:bloques_cristo_rey_ch_ejido' && pr.altura ? pr.altura * 3 : null), bloque: pr.bloque };
     }).sort(function (a, b) { return (b.categoria == null ? -9 : b.categoria) - (a.categoria == null ? -9 : a.categoria); });
@@ -2186,7 +2257,7 @@
     var margenVecinos = 40;
     var mLngVec = margenVecinos / mPerDegLng, mLatVec = margenVecinos / mPerDegLat;
     var bboxVecinos = [bboxPredio[0] - mLngVec, bboxPredio[1] - mLatVec, bboxPredio[2] + mLngVec, bboxPredio[3] + mLatVec];
-    var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND clave<>'" + String(clave).replace(/'/g, "''") + "'");
+    var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND " + ((featureReg.properties && featureReg.properties.claves) || [clave]).map(function (c) { return "clave<>'" + String(c).replace(/'/g, "''") + "'"; }).join(' AND '));
     var dataVecinos = { features: [] };
     try { dataVecinos = await (await fetch(urlVecinos)).json(); } catch (e) { console.warn('No se pudieron traer vecinos', e); }
 
@@ -2861,6 +2932,7 @@
         panel.innerHTML = '<div class="panel-empty"><span class="icon">🤷</span>No encontramos un predio catastrado en ese punto. Prueba dentro de una manzana urbana.</div>';
         return;
       }
+      prediosUnion = [data.features[0]]; resumenAntesDeUnir = null; modoUnir = false;
       await mostrarResultado(data.features[0]);
     } catch (err) {
       console.error(err);
@@ -2891,7 +2963,7 @@
   }
   if (ubicacionMini) ubicacionMini.addEventListener('click', desactivarModo3D);
 
-  async function mostrarResultado(feature) {
+  async function mostrarResultado(feature, desdeUnion) {
     capaVertices.clearLayers(); capaManzana.clearLayers();
     capaVias.clearLayers(); capaVecinos.clearLayers();
     estadoEdicion = null;
@@ -2911,6 +2983,10 @@
       return;
     }
     estadoEdicion = estado;
+    estado.featureCrudo = feature;
+    estado.claves = (feature.properties && feature.properties.claves) || null;
+    estado.esUnion = !!(estado.claves && estado.claves.length > 1);
+    if (!estado.esUnion) resumenAntesDeUnir = desdeUnion ? null : resumenAntesDeUnir;
     // Guardado en estado (no solo variable local de esta función) porque recomputarYRenderizar/
     // dibujarVolumetria también necesitan saber si el predio es centro histórico — ahí decide si usar
     // la tipología de pabellones+patios grandes (lotes "Aislada" con retiros reales) o la de patio
@@ -3544,6 +3620,7 @@
       resumenNormativa = { m2: Math.round(areaConstruida), viv: null };
       var nv0 = nivelParaPisos(pisos), dv0 = nv0 ? parseFloat(String(nv0.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
       if (isFinite(dv0)) resumenNormativa.viv = Math.max(1, Math.floor(dv0 * areaAnillo(estado.pts) / 10000));
+      ultimoResumen = resumenNormativa;
       if (!elD) return;
       var nivel = nivelParaPisos(pisos), dv = nivel ? parseFloat(String(nivel.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
       var areaLote = areaAnillo(estado.pts);
@@ -4923,6 +5000,12 @@
           '</div>' +
         '</div>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
+        (estado.esUnion
+          ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
+              (resumenAntesDeUnir && resumenNormativa ? '<br>Tu lote solo (' + resumenAntesDeUnir.area.toLocaleString('es-EC') + ' m²): ' + resumenAntesDeUnir.m2.toLocaleString('es-EC') + ' m²' + (resumenAntesDeUnir.viv ? ' · ' + resumenAntesDeUnir.viv + ' viv.' : '') + '<br>Unido: ' + resumenNormativa.m2.toLocaleString('es-EC') + ' m²' + (resumenNormativa.viv ? ' · ' + resumenNormativa.viv + ' viv.' : '') : '') +
+              '<div class="maq-nota">Unificar requiere trámite municipal. Cifras aproximadas.</div>' +
+              '<div class="maq-union-btns"><button type="button" class="maq-unir">Unir otro lote</button><button type="button" class="maq-deshacer">Volver a mi lote</button></div></div>'
+          : '<button type="button" class="maq-unir maq-unir-solo">Unir con un lote vecino</button>') +
         '<div class="maq-nota"><a class="maq-avisar" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a></div>' +
         '<details class="maq-mas"' + (window.innerWidth > 640 ? ' open' : '') + '><summary>Capas, vistas y colores</summary><div>' +
         '<div class="maq-grid">' +
@@ -4953,6 +5036,8 @@
         if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
         solicitarRender();
       });
+      p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
+      var btnDeshacer = p.querySelector('.maq-deshacer'); if (btnDeshacer) btnDeshacer.addEventListener('click', deshacerUnion);
       var btnComprar = p.querySelector('.maq-comprar');
       if (btnComprar) btnComprar.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(btnComprar.getAttribute('data-producto')); });
       var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
@@ -5684,6 +5769,7 @@
   function productoSugerido(estado) {
     var r = estado.restriccionVolumen || '';
     if (/propiedad pública|parque o área verde/.test(r)) return null;
+    if (estado.esUnion) return { id: 'unificacion', titulo: 'Unifica tus lotes con nosotros', sub: 'Planimetría + trámite de unificación ante el municipio' };
     if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
     if (/ ha:/.test(r)) return { id: 'analisis-sitio', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
     if (estado.frenteARio) return { id: 'planimetrico-iprus', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
@@ -5691,7 +5777,7 @@
   }
   function urlProductoPredio(estado, idProducto) {
     var base = location.origin + location.pathname;
-    return base + '?clave=' + encodeURIComponent(estado.clave) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
+    return base + (estado.esUnion ? '?claves=' + encodeURIComponent(estado.claves.join(',')) : '?clave=' + encodeURIComponent(estado.clave)) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
   }
   function precioDeProducto(id) {
     var p = (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0];
@@ -6293,6 +6379,8 @@
       descripcion: 'Tres escalas de profundidad — macro, medio y micro — sobre equipamientos cercanos, accesibilidad y entorno real del predio.' },
     { id: 'croquis', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
       descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
+    { id: 'unificacion', nombre: 'Unificación de lotes', precioBase: '', nota: 'por trámite',
+      descripcion: 'Planimetría del lote unificado y gestión del trámite de unificación de predios ante el GAD Municipal de Cuenca.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
@@ -6374,7 +6462,7 @@
       barraCont.innerHTML = CATALOGO_PRODUCTOS.filter(function (p) {
         return !p.precioGratis && p.id !== 'volumetria';
       }).map(function (p) {
-        var precioTxt = p.precioGratis ? 'Gratis' : '$' + precioGuardado(p.id, p.precioBase);
+        var precioTxt = p.precioGratis ? 'Gratis' : (precioGuardado(p.id, p.precioBase) ? '$' + precioGuardado(p.id, p.precioBase) : 'A convenir');
         return '<button type="button" class="chip-producto' + (p.id === productoActivo ? ' activa' : '') + '" data-id="' + p.id + '">' +
           '<span class="chip-icono">' + (ICONOS_PRODUCTO[p.id] || '') + '</span>' +
           '<span class="chip-nombre">' + p.nombre + '</span>' +
@@ -6420,7 +6508,7 @@
         '<div class="pd-head"><h3><span class="chip-icono">' + (ICONOS_PRODUCTO[producto.id] || '') + '</span>' + producto.nombre + '</h3>' +
           '<span class="badge badge-demo">Por encargo</span></div>' +
         '<p class="pd-desc">' + producto.descripcion + '</p>' +
-        '<p class="pd-nota">Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') +
+        '<p class="pd-nota">' + (precioGuardado(producto.id, producto.precioBase) ? 'Precio referencial: $' + precioGuardado(producto.id, producto.precioBase) + ' ' + (producto.nota || '') : 'Precio a convenir según el caso') +
           ' — este no es instantáneo: completá el pedido y te lo mandamos por correo o WhatsApp cuando esté listo.</p>' +
         '<div class="form-solicitud">' +
           '<label>Tu nombre</label>' +
@@ -6773,7 +6861,12 @@
 
     // Llegada desde los botones del catálogo de index.html (herramienta.html?producto=planimetrico):
     // abre directo el formulario de ese producto. La clave se carga sola al tocar el predio.
-    var productoDesdeUrl = null, claveDesdeUrl = null;
+    var productoDesdeUrl = null, claveDesdeUrl = null, clavesDesdeUrl = null;
+    try { clavesDesdeUrl = new URLSearchParams(window.location.search).get('claves'); } catch (e) { }
+    if (clavesDesdeUrl) {
+      var lc = clavesDesdeUrl.split(',').map(function (x) { return x.replace(/[^0-9]/g, ''); }).filter(function (x) { return /^\d{10,16}$/.test(x); }).slice(0, 6);
+      if (lc.length) setTimeout(function () { cargarUnionPorClaves(lc); }, 300);
+    }
     try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); claveDesdeUrl = new URLSearchParams(window.location.search).get('clave'); } catch (e) { }
     // Desde la ficha gratis (botón o QR): ?clave=...&producto=... abre el predio y el pedido.
     if (claveDesdeUrl && /^\d{10,16}$/.test(claveDesdeUrl.replace(/[\s.\-]/g, ''))) {
