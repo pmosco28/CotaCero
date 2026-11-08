@@ -3318,6 +3318,7 @@
     var mat = new THREE.MeshStandardMaterial({ color: cLin(colorMaqueta('cBld')), roughness: 0.7, metalness: 0 });
     var matArista = new THREE.LineBasicMaterial({ color: cLin(0x8A857C) });
     var grupoVolumen = new THREE.Group();
+    var destinoVol = grupoVolumen; // en lotes de dos frentes cada bloque va a su propio subgrupo
 
     function agregarCuerpo(pts, depth, offsetY, holesPtsArr, materialOverride) {
       // Guardia real encontrada con un predio ribereño grande (muchos lados "frente" alrededor de una
@@ -3337,10 +3338,10 @@
       var mesh = new THREE.Mesh(geo, materialOverride || mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      grupoVolumen.add(mesh);
+      destinoVol.add(mesh);
       // Aristas finas, como el canto de una pieza de cartón cortada: es lo que le da a la maqueta su
       // lectura limpia sin depender del sombreado.
-      grupoVolumen.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matArista));
+      destinoVol.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matArista));
     }
 
     // ---------- Marcas de piso + bordillo de cubierta ----------
@@ -3372,7 +3373,7 @@
       puntos.push(puntos[0].clone());
       var geo = new THREE.BufferGeometry().setFromPoints(puntos);
       var linea = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: cLin(0xA9A398) }));
-      grupoVolumen.add(linea);
+      destinoVol.add(linea);
     }
 
     // Bordillo: la misma huella del último piso, extruida 30cm desde el remate de la cubierta hacia
@@ -3436,10 +3437,61 @@
     // que este loop corre una sola vez y se comporta igual que antes de soportar varios.
     function areaAnillo(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
     var areaConstruida = 0, resumenNormativa = null;
-    bloquesPB.forEach(function (ptsPBBloqueM, bi) {
+    // Lote con DOS FRENTES OPUESTOS (pasante): la normativa rige desde cada calle, así que el edificio
+    // se parte en dos bloques a mitad de fondo; cada uno cuenta sus pisos desde la vereda de SU calle.
+    // En ladera eso da dos bloques de distinta altura absoluta (escalonado). La cota de cada calle se
+    // conoce cuando llega el MDT: los subgrupos se suben/bajan en construirTerrazas.
+    var particionFrentes = (function () {
+      var grupos = {};
+      for (var i = 0; i < estado.nLados; i++) {
+        if (estado.tipoLado[i] !== 'frente' || estado.numeroFrente[i] == null) continue;
+        var a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.5) continue;
+        var g = grupos[estado.numeroFrente[i]] || (grupos[estado.numeroFrente[i]] = { L: 0, mx: 0, my: 0, nx: 0, ny: 0 });
+        var nx = (b[1] - a[1]) / L, ny = -(b[0] - a[0]) / L, mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        if ((mid[0] - estado.centroideLote[0]) * nx + (mid[1] - estado.centroideLote[1]) * ny < 0) { nx = -nx; ny = -ny; }
+        g.L += L; g.mx += mid[0] * L; g.my += mid[1] * L; g.nx += nx * L; g.ny += ny * L;
+      }
+      var lista = Object.keys(grupos).map(function (k) { var g = grupos[k], n = Math.hypot(g.nx, g.ny) || 1; return { L: g.L, mid: [g.mx / g.L, g.my / g.L], n: [g.nx / n, g.ny / n] }; }).sort(function (x, y) { return y.L - x.L; });
+      if (lista.length < 2) return null;
+      var f1 = lista[0], f2 = lista[1];
+      if (f1.n[0] * f2.n[0] + f1.n[1] * f2.n[1] > -0.5) return null; // esquinero, no pasante
+      var dx = f2.mid[0] - f1.mid[0], dy = f2.mid[1] - f1.mid[1], d = Math.hypot(dx, dy);
+      if (d < 16) return null; // muy poco fondo para dos bloques
+      return { M: [(f1.mid[0] + f2.mid[0]) / 2, (f1.mid[1] + f2.mid[1]) / 2], u: [dx / d, dy / d], frentes: [f1, f2] };
+    })();
+    function mitad(poly, signo) {
+      // Sutherland–Hodgman contra el semiplano signo·((p − M)·u) ≤ 0
+      if (!poly || poly.length < 3) return poly;
+      var M = particionFrentes.M, u = particionFrentes.u, out = [];
+      function f(p) { return signo * ((p[0] - M[0]) * u[0] + (p[1] - M[1]) * u[1]); }
+      for (var i = 0; i < poly.length; i++) {
+        var a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b);
+        if (fa <= 0) out.push(a);
+        if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { var t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+      }
+      return out.length >= 3 ? out : [];
+    }
+    var piezasVolumen = [];
+    bloquesPB.forEach(function (ptsPB, bi) {
+      if (!particionFrentes) { piezasVolumen.push({ pb: ptsPB, altas: bloquesAltasFinal[bi], patios: bloquesPatios[bi] || [], frente: null }); return; }
+      [-1, 1].forEach(function (sg, h) {
+        var pbH = mitad(ptsPB, sg); if (!pbH.length) return;
+        var patiosH = (bloquesPatios[bi] || []).filter(function (pt) { return pt && pt.length && pt.every(function (q) { return sg * ((q[0] - particionFrentes.M[0]) * particionFrentes.u[0] + (q[1] - particionFrentes.M[1]) * particionFrentes.u[1]) <= 0; }); });
+        piezasVolumen.push({ pb: pbH, altas: mitad(bloquesAltasFinal[bi], sg), patios: patiosH, frente: particionFrentes.frentes[h] });
+      });
+    });
+    piezasVolumen.forEach(function (pz) {
+      var ptsPBBloqueM = pz.pb;
       var ptsPBBloque = metrosArrAVec2(ptsPBBloqueM);
-      var ptsAltasBloqueM = bloquesAltasFinal[bi];
-      var patiosBloqueM = bloquesPatios[bi] || [];
+      var ptsAltasBloqueM = pz.altas;
+      var patiosBloqueM = pz.patios;
+      destinoVol = grupoVolumen;
+      if (pz.frente) {
+        // punto de referencia: 4 m afuera del frente, sobre la vereda de esa calle
+        destinoVol = new THREE.Group();
+        destinoVol.userData.cotaRef = [pz.frente.mid[0] + pz.frente.n[0] * 4, pz.frente.mid[1] + pz.frente.n[1] * 4];
+        grupoVolumen.add(destinoVol);
+      }
       var patiosBloquePts = patiosBloqueM.map(function (p) { return (p && p.length) ? metrosArrAVec2(p) : null; });
 
       if (pisos > 1) {
@@ -3468,6 +3520,7 @@
         agregarBordillo(ptsPBBloqueM, alturaTotal);
         areaConstruida += areaAnillo(ptsPBBloqueM);
       }
+      destinoVol = grupoVolumen;
     });
     scene.add(grupoVolumen);
     if (estado.restriccionVolumen) mostrarVolumenNormativa = false;
@@ -4337,7 +4390,9 @@
         o.position.y = nivel - 0.6 + (o.userData.sobre || 0);
       });
       var cLote = cota(estado.centroideLote);
-      grupoVolumen.position.y = cLote; meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
+      grupoVolumen.position.y = cLote;
+      grupoVolumen.children.forEach(function (sub) { if (sub.userData && sub.userData.cotaRef) sub.position.y = cota(sub.userData.cotaRef) - cLote; });
+      meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
       solicitarRender();
     }
     function dibujarCurvas(c) {
@@ -4767,6 +4822,7 @@
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
             '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
+            (particionFrentes ? '<div class="maq-nota">Lote con dos frentes: el volumen se parte en dos bloques y cada uno cuenta sus pisos desde su propia calle.</div>' : '') +
 
           '</div>' +
         '</div>' +
