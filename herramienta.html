@@ -5032,9 +5032,18 @@
           ? 'Este predio no está digitalizado todavía en el Plan Especial del Centro Histórico (PECH) — se muestra un tope conservador de ' + estado.maxPisosLote + ' piso' + (estado.maxPisosLote === 1 ? '' : 's') + ' mientras se confirma el real.'
           : 'Tope de ' + estado.maxPisosLote + ' piso' + (estado.maxPisosLote === 1 ? '' : 's') + ' según el Plan Especial del Centro Histórico (PECH 2016) para este predio puntual.') + '</div>'
       : '';
-    var notaRio = estado.frenteARio
-      ? '<div class="aviso-legal">🏞️ Frente a río/quebrada detectado — del piso 4 en adelante, cada piso retrocede 3m adicionales sobre ese lado.</div>'
+    var restringido = !!estado.restriccionVolumen;
+    var notaRio = (estado.frenteARio && !restringido)
+      ? '<div class="aviso-legal">🏞️ Frente a río/quebrada (lado' + (estado.ladosRio.length > 1 ? 's' : '') + ' L' + estado.ladosRio.map(function (i) { return i + 1; }).join('/L') + ') — ' + (estado.esAreaHistorica ? 'desde el piso 3' : 'del piso 5 en adelante') + ', cada piso retrocede 3 m adicionales solo sobre la fachada que da al río, sin volados en esos pisos.</div>'
       : '';
+    // Mismas notas que la ficha en pantalla: restricción (patrimonio / público / parque / >1 ha),
+    // patrimonio y régimen de área histórica.
+    var notaRestriccion = restringido ? '<div class="aviso-legal">🚫 ' + estado.restriccionVolumen + '</div>' : '';
+    var pl = (estado.patrimonioLote || [])[0];
+    var notaPatrimonio = (!restringido && pl && pl.categoria != null && pl.categoria >= 1) ? '<div class="aviso-legal">⚠️ Edificación registrada en el inventario patrimonial municipal (' + (pl.valor || '') + ').</div>' : '';
+    var notaAHP = (estado.esAreaHistorica && !restringido) ? '<div class="aviso-legal">🏛️ Área histórica y patrimonial (PIT ' + estado.pitOficial + '): volumen referencial según la Ordenanza de Áreas Históricas y Patrimoniales (2024) — hasta 4 plantas, retiros de 3 m, sin voladizos. Los determinantes finales están en la ficha del plan del sector y en el IPRUS del predio.</div>' : '';
+    var txtCons = (document.getElementById('info-construccion') || {}).textContent || '—';
+    var txtDens = (document.getElementById('info-densidad') || {}).textContent || '—';
     // Mismo aviso que en el panel en vivo (recomputarYRenderizar) — un lote que se reparte en varios
     // bloques admite muchas distribuciones válidas de patios/edificios, ésta es solo una. Pedido
     // explícito del usuario: que quede claro en el documento que se entrega al cliente, no solo en
@@ -5045,15 +5054,21 @@
 
     document.getElementById('reporte-pdf').innerHTML =
       '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
-      '<h1>Volumetría de referencia</h1>' +
-      '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div>' +
+      '<h1>' + (restringido ? 'Informe de sitio' : 'Volumetría de referencia') + '</h1>' +
+      '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span>' + (estado.pitOficial ? ' · Zona <span class="mono">' + estado.pitOficial + '</span>' : '') + '</div>' +
       '<div class="stat-row">' +
         '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
+        (restringido ? '' :
         '<div class="stat"><div class="label">Pisos</div><div class="value">' + estado.pisos + ' / ' + estado.maxPisosLote + '</div></div>' +
-        '<div class="stat"><div class="label">Retiros (altas)</div><div class="value" style="font-size:0.88rem;">' + estado.retiros.frente + ' / ' + estado.retiros.lateral + ' / ' + estado.retiros.posterior + ' m</div></div>' +
+        '<div class="stat"><div class="label">Retiros F / L / P</div><div class="value" style="font-size:0.88rem;">' + estado.retiros.frente + ' / ' + estado.retiros.lateral + ' / ' + estado.retiros.posterior + ' m</div></div>') +
       '</div>' +
-      notaCentro + notaRio +
-      (filasTablaHtml ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
+      (restringido ? '' :
+      '<div class="stat-row">' +
+        '<div class="stat"><div class="label">Construcción del volumen</div><div class="value" style="font-size:0.88rem;">' + escapar(txtCons) + '</div></div>' +
+        '<div class="stat"><div class="label">Densidad</div><div class="value" style="font-size:0.82rem;">' + escapar(txtDens) + '</div></div>' +
+      '</div>') +
+      notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio +
+      (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
       construirBloqueUsoSuelo(estado.usoSuelo) +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
@@ -5063,7 +5078,7 @@
       // leer primero. La ubicación ya NO es una sección aparte — pedido explícito del usuario: va como
       // recuadro flotante en la esquina superior derecha de la MISMA imagen (ver .render-combo), un
       // locator map inset — convención real de lámina de arquitectura, no algo inventado acá.
-      '<div class="seccion-titulo">Volumetría (vista 3D)</div>' +
+      '<div class="seccion-titulo">' + (restringido ? 'Estado actual (vista 3D)' : 'Volumetría (vista 3D)') + '</div>' +
       notaVersatilidad +
       (imgSrc
         ? '<div class="render-combo">' +
@@ -5071,7 +5086,9 @@
             (svgUbicacion ? '<div class="ubicacion-inset">' + svgUbicacion + '</div>' : '') +
           '</div>'
         : '<div class="aviso-legal">⚠️ No se pudo capturar la imagen de la volumetría 3D en este navegador. Prueba de nuevo, o genera el informe desde otro navegador (Chrome) si el problema persiste.</div>' +
-          (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : ''));
+          (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : '')) +
+      '<div class="seccion-titulo">Fuentes</div>' +
+      '<div class="aviso-legal" style="font-size:0.72rem;">Catastro, zonificación (PIT) y ejes: IDE del GAD Municipal de Cuenca, consultados en vivo el ' + fechaHoy + '. Valoración patrimonial y alturas: inventario de bloques de la Dirección de Áreas Históricas (IDE Cuenca). Curvas de nivel: modelo digital del terreno municipal (~3 m), referenciales. Ordenanza de Áreas Históricas y Patrimoniales (2024) y Normas de Arquitectura y Urbanismo (Anexo 8, 2022). Calles, edificaciones y áreas verdes complementarias: © colaboradores de OpenStreetMap (ODbL).</div>';
 
     // El título de la página es lo que Chrome/Safari sugieren como nombre de archivo en el diálogo
     // "Guardar como PDF" — se cambia justo antes de imprimir y se restaura cuando el diálogo de
