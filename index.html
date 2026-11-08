@@ -16,7 +16,7 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
     --paper: #F7F4EC;
@@ -54,7 +54,7 @@
   header { position: relative; z-index: 10; padding: 28px 0; }
   .nav { display: flex; align-items: baseline; justify-content: space-between; }
   .brand { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 1.2rem; letter-spacing: -0.005em; }
-  .brand em { font-style: normal; color: var(--terracotta); }
+  .brand em { font-style: normal; font-weight: 200; color: inherit; }
   .nav-links { display: flex; gap: 32px; font-size: 0.88rem; }
   .nav-links a { text-decoration: none; color: var(--ink-soft); }
   .nav-links a:hover { color: var(--ink); }
@@ -64,10 +64,10 @@
   /* ===== Hero: foto a sangre completa, fundida con degradado hacia el papel ===== */
   .hero { position: relative; padding-top: 48px; overflow-x: clip; } /* el render sangra -32px y desbordaba la página a lo ancho */
   .hero-texto { position: relative; z-index: 2; padding-bottom: 40px; }
-  .eyebrow { font-size: 0.72rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin: 0 0 18px; display: flex; align-items: center; gap: 8px; }
-  .eyebrow::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--terracotta); display: inline-block; }
+  .eyebrow { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin: 0 0 18px; display: flex; align-items: center; gap: 8px; }
+  .eyebrow::before { content: ''; width: 18px; height: 1px; background: var(--ink-soft); display: inline-block; }
   .hero h1 { font-size: clamp(2.4rem, 5.4vw, 4.1rem); line-height: 1.04; max-width: 17ch; }
-  .hero h1 .quiet { font-weight: 400; }
+  .hero h1 .quiet { font-weight: 200; }
   .hero .lede { font-size: 1.2rem; color: var(--ink-soft); max-width: 46ch; margin: 24px 0 0; }
   .hero-ctas { display: flex; gap: 18px; align-items: center; margin-top: 36px; flex-wrap: wrap; }
   .btn { font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; font-size: 0.95rem; padding: 14px 26px; border-radius: 3px; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
@@ -101,7 +101,7 @@
   /* ===== Sección genérica ===== */
   .seccion { padding: 60px 0; }
   .regla-top { border-top: 1px solid var(--line); }
-  .kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--terracotta); font-weight: 600; margin: 0 0 16px; }
+  .kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); font-weight: 600; margin: 0 0 16px; }
   h2.titulo-seccion { font-size: clamp(1.7rem, 3vw, 2.3rem); max-width: 20ch; }
   .seccion-sub { font-size: 1rem; color: var(--ink-soft); max-width: 56ch; margin: 18px 0 0; }
 
@@ -146,7 +146,7 @@
   .publico { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 28px; }
   .publico-item { padding: 0 32px 0 0; border-left: 1px solid var(--line); padding-left: 28px; }
   .publico-item:first-child { border-left: none; padding-left: 0; }
-  .publico-item .tag { font-family: 'IBM Plex Mono'; font-size: 0.7rem; color: var(--terracotta); text-transform: uppercase; letter-spacing: 0.08em; }
+  .publico-item .tag { font-family: 'IBM Plex Mono'; font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
   .publico-item .nombre { font-weight: 700; font-family: 'Bricolage Grotesque'; font-size: 1.1rem; margin: 10px 0 10px; }
   .publico-item .detalle { font-size: 0.88rem; color: var(--ink-soft); }
   @media (max-width: 760px) {
@@ -205,7 +205,7 @@
 
 <header>
   <div class="marco nav">
-    <div class="brand">Cota<em>Cero</em><span class="mono">.</span></div>
+    <div class="brand">Cota<em>Cero</em></div>
     <nav class="nav-links">
       <a href="#catalogo">Productos</a>
       <a href="#contacto" class="cta">Escríbenos →</a>
