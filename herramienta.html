@@ -122,6 +122,26 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
+  .reporte-pdf.ficha-gratis .ficha-datos { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 0.86rem; }
+  .reporte-pdf.ficha-gratis .ficha-datos td { padding: 5px 0; border-bottom: 1px solid #e3e0d9; }
+  .reporte-pdf.ficha-gratis .ficha-datos td:first-child { color: #6d6a63; width: 45%; }
+  .reporte-pdf.ficha-gratis .ficha-img { width: 100%; max-height: 92mm; object-fit: cover; border-radius: 4px; margin: 8px 0; }
+  .reporte-pdf.ficha-gratis .ficha-cta { display: flex; gap: 14px; align-items: center; border: 2px solid #b0532f; border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+  .reporte-pdf.ficha-gratis .ficha-cta-txt { flex: 1; }
+  .reporte-pdf.ficha-gratis .ficha-cta-tit { font-weight: 700; font-size: 1.05rem; }
+  .reporte-pdf.ficha-gratis .ficha-cta-sub { font-size: 0.82rem; color: #4a4741; margin: 2px 0 8px; }
+  .reporte-pdf.ficha-gratis .ficha-cta-btn { display: inline-block; background: #b0532f; color: #fff !important; text-decoration: none; font-weight: 700; padding: 8px 14px; border-radius: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .reporte-pdf.ficha-gratis .ficha-cta-url { font-size: 0.62rem; color: #6d6a63; margin-top: 6px; word-break: break-all; }
+  .reporte-pdf.ficha-gratis .ficha-cta-qr { width: 30mm; text-align: center; font-size: 0.65rem; color: #6d6a63; }
+  .reporte-pdf.ficha-gratis .ficha-cta-qr svg { width: 30mm; height: 30mm; }
+  .maq-panel .maq-comprar { font: inherit; font-weight: 700; font-size: 0.86rem; padding: 10px 10px; border-radius: 6px; border: 0; background: #b0532f; color: #fff; cursor: pointer; text-align: left; line-height: 1.25; }
+  .maq-panel .maq-comprar small { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.9; margin-top: 2px; }
+  .maq-panel .maq-comprar:hover { background: #8f3f22; }
+  .maq-panel .maq-ficha { display: grid; gap: 5px; }
+  .maq-panel .maq-ficha-fila { display: flex; gap: 6px; }
+  .maq-panel .maq-ficha input { flex: 1; min-width: 0; font: inherit; font-size: 0.78rem; padding: 6px 7px; border: 1px solid #c9c6bf; border-radius: 4px; }
+  .maq-panel .maq-ficha button { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 6px 9px; border: 1px solid #2b2a27; background: #fff; border-radius: 4px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-panel .maq-ficha-nota { font-size: 0.66rem; color: #6d6a63; }
   .maq-panel .maq-norma { border: 1px solid #c9c6bf; border-radius: 5px; padding: 8px; display: grid; gap: 8px; background: #fff; }
   .maq-panel .maq-normativa { font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 4px; border: 1px solid #2b2a27; background: #2b2a27; color: #fff; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-panel .maq-normativa.activo { background: #fff; color: #2b2a27; }
@@ -4325,13 +4345,19 @@
         '</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m) del MDT municipal de ~3 m: referenciales, no reemplazan un levantamiento.</div>' +
         (estado.restriccionVolumen ? '<div class="maq-norma"><div class="maq-restriccion">' + estado.restriccionVolumen + '</div></div>' : '') +
+        (function () {
+          var sg = productoSugerido(estado);
+          return (sg ? '<button type="button" class="maq-comprar" data-producto="' + sg.id + '">' + sg.titulo + (precioDeProducto(sg.id) ? ' — ' + precioDeProducto(sg.id) : '') + '<small>' + sg.sub + '</small></button>' : '') +
+            '<div class="maq-ficha"><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Ficha gratis (PDF)</button></div>' +
+            '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
+        })() +
         '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
           '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
             '<div class="maq-aprox">Aproximado, según la normativa de referencia.</div>' +
-            '<button type="button" class="maq-pedir">Pedir informe de este predio</button>' +
+
           '</div>' +
         '</div>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
@@ -4350,7 +4376,19 @@
         detalleNorm.hidden = !mostrarVolumenNormativa;
         solicitarRender();
       });
-      p.querySelector('.maq-pedir').addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio('analisis-sitio'); });
+      var btnComprar = p.querySelector('.maq-comprar');
+      if (btnComprar) btnComprar.addEventListener('click', function () { if (typeof pedirProductoParaPredio === 'function') pedirProductoParaPredio(btnComprar.getAttribute('data-producto')); });
+      var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
+      try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
+      btnFicha.addEventListener('click', function () {
+        var correo = (inCorreo.value || '').trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.style.borderColor = '#b0532f'; inCorreo.placeholder = 'Escribe tu correo'; return; }
+        try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
+        registrarInteresado(estado, correo);
+        generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)));
+      });
+      var lnkPriv = p.querySelector('.maq-ficha-priv');
+      if (lnkPriv) lnkPriv.addEventListener('click', function (ev) { ev.preventDefault(); var l = document.getElementById('link-privacidad'); if (l) l.click(); });
       p.querySelectorAll('input[data-capa]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-capa');
@@ -5016,6 +5054,83 @@
     if (usoSuelo.ambitos) filas += '<div><strong>Categoría:</strong> ' + usoSuelo.ambitos + '</div>';
     if (usoSuelo.distActividad) filas += '<div><strong>Uso permitido:</strong> ' + usoSuelo.distActividad + '</div>';
     return '<div class="seccion-titulo">Uso de suelo</div><div class="uso-suelo">' + filas + '</div>';
+  }
+
+  // Qué producto ofrecer según lo que detectó la herramienta (null = no se vende: predio público/parque).
+  function productoSugerido(estado) {
+    var r = estado.restriccionVolumen || '';
+    if (/propiedad pública|parque o área verde/.test(r)) return null;
+    if (/Edificación patrimonial/.test(r)) return { id: 'planimetrico-iprus', titulo: 'Te ayudamos a intervenir tu bien patrimonial', sub: 'Planimétrico + trámite IPRUS ante el municipio' };
+    if (/ ha:/.test(r)) return { id: 'analisis-sitio', titulo: 'Estudio de factibilidad para tu terreno', sub: 'Análisis de sitio a tres escalas' };
+    if (estado.frenteARio) return { id: 'planimetrico-iprus', titulo: 'Tu predio da al río: hagamos tu IPRUS bien desde el inicio', sub: 'Planimétrico + trámite IPRUS' };
+    return { id: 'planimetrico-iprus', titulo: 'Saca tu IPRUS con nosotros', sub: 'Planimétrico + trámite ante el municipio' };
+  }
+  function urlProductoPredio(estado, idProducto) {
+    var base = location.origin + location.pathname;
+    return base + '?clave=' + encodeURIComponent(estado.clave) + (idProducto ? '&producto=' + encodeURIComponent(idProducto) : '');
+  }
+  function precioDeProducto(id) {
+    var p = (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0];
+    return p && p.precioBase ? '$' + p.precioBase : '';
+  }
+
+  // Ficha rápida GRATIS: una página, instantánea, sin código. Lleva un botón (enlace) y un QR que
+  // abren esta misma herramienta con el predio y el producto ya cargados.
+  function generarFichaGratis(estado, areaM2) {
+    var restringido = !!estado.restriccionVolumen;
+    var imgSrc = ''; try { imgSrc = capturarImagen3D(); } catch (e) { }
+    var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+    var sug = productoSugerido(estado);
+    var url = urlProductoPredio(estado, sug ? sug.id : null);
+    var qr = ''; try { qr = construirQrSvg(url); } catch (e) { }
+    var txtCons = (document.getElementById('info-construccion') || {}).textContent || '—';
+    var txtDens = (document.getElementById('info-densidad') || {}).textContent || '—';
+    function esc(t) { return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    var datos = '<table class="ficha-datos">' +
+      '<tr><td>Clave catastral</td><td class="mono">' + esc(estado.clave) + '</td></tr>' +
+      '<tr><td>Zona (PIT)</td><td>' + esc(estado.pitOficial || '—') + '</td></tr>' +
+      '<tr><td>Área del lote</td><td>' + areaM2.toLocaleString('es-EC') + ' m²</td></tr>' +
+      (restringido ? '' :
+        '<tr><td>Pisos máximos (aprox.)</td><td>' + estado.maxPisosLote + '</td></tr>' +
+        '<tr><td>Construcción posible (aprox.)</td><td>' + esc(txtCons) + '</td></tr>' +
+        '<tr><td>Viviendas (densidad)</td><td>' + esc(txtDens) + '</td></tr>') +
+      '</table>';
+    var nota = restringido ? '<div class="aviso-legal">🚫 ' + esc(estado.restriccionVolumen) + '</div>'
+      : (estado.esAreaHistorica ? '<div class="aviso-legal">🏛️ Área histórica y patrimonial: valores referenciales según la Ordenanza de Áreas Históricas (2024).</div>' : '');
+    var cta = sug
+      ? '<div class="ficha-cta"><div class="ficha-cta-txt"><div class="ficha-cta-tit">' + esc(sug.titulo) + '</div>' +
+          '<div class="ficha-cta-sub">' + esc(sug.sub) + (precioDeProducto(sug.id) ? ' · desde ' + precioDeProducto(sug.id) : '') + '</div>' +
+          '<a class="ficha-cta-btn" href="' + url + '">Pedirlo en línea →</a>' +
+          '<div class="ficha-cta-url mono">' + esc(url.replace(/^https?:\/\//, '')) + '</div></div>' +
+          (qr ? '<div class="ficha-cta-qr">' + qr + '<div>Escanéame</div></div>' : '') + '</div>'
+      : '';
+    var rep = document.getElementById('reporte-pdf');
+    rep.className = 'reporte-pdf ficha-gratis';
+    rep.innerHTML =
+      '<div class="membrete"><div class="brand">Cota<em>Cero</em><span class="mono"> .</span></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
+      '<h1>Ficha rápida del predio</h1>' + datos + nota +
+      (imgSrc ? '<img class="ficha-img" src="' + imgSrc + '">' : '') +
+      cta +
+      '<div class="aviso-legal" style="font-size:0.7rem;">Referencial, a partir de datos públicos del IDE del GAD Municipal de Cuenca (consulta del ' + fechaHoy + ') y OpenStreetMap (ODbL). No tiene validez legal ni reemplaza el IPRUS. cotacero.pm@gmail.com · WhatsApp 0999 163 505</div>';
+    var tituloOriginal = document.title;
+    document.title = 'Ficha CotaCero ' + estado.clave;
+    function restaurar() { document.title = tituloOriginal; window.removeEventListener('afterprint', restaurar); }
+    window.addEventListener('afterprint', restaurar);
+    var img = rep.querySelector('.ficha-img');
+    if (img && img.decode) img.decode().catch(function () { }).then(function () { window.print(); }); else window.print();
+  }
+  // Registro del interesado (correo) en la misma hoja de pedidos, como "ficha gratis". No bloquea la
+  // descarga: se envía en segundo plano.
+  function registrarInteresado(estado, correo) {
+    try {
+      if (!APPS_SCRIPT_URL_DOCUMENTOS) return;
+      fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'ficha-gratis', productoNombre: 'Ficha rápida gratis (interesado)',
+          predio: estado.clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: 'Descargó la ficha gratis' + (estado.restriccionVolumen ? ' — ' + estado.restriccionVolumen.slice(0, 60) : ''),
+          documentos: [], origen: 'ficha-gratis', sitio_web: '', t: 99999 })
+      }).catch(function () { });
+    } catch (e) { }
   }
 
   function generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto) {
@@ -6028,8 +6143,15 @@
 
     // Llegada desde los botones del catálogo de index.html (herramienta.html?producto=planimetrico):
     // abre directo el formulario de ese producto. La clave se carga sola al tocar el predio.
-    var productoDesdeUrl = null;
-    try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); } catch (e) { }
+    var productoDesdeUrl = null, claveDesdeUrl = null;
+    try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); claveDesdeUrl = new URLSearchParams(window.location.search).get('clave'); } catch (e) { }
+    // Desde la ficha gratis (botón o QR): ?clave=...&producto=... abre el predio y el pedido.
+    if (claveDesdeUrl && /^\d{10,16}$/.test(claveDesdeUrl.replace(/[\s.\-]/g, ''))) {
+      setTimeout(function () {
+        var inp = document.getElementById('buscar-maps-input'); if (inp) inp.value = claveDesdeUrl;
+        buscarPorClave(claveDesdeUrl.replace(/[\s.\-]/g, ''));
+      }, 300);
+    }
     if (productoDesdeUrl && CATALOGO_PRODUCTOS_FALLBACK.some(function (p) { return p.id === productoDesdeUrl && !p.precioGratis; })) {
       if (!CATALOGO_PRODUCTOS.some(function (p) { return p.id === productoDesdeUrl; })) {
         CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS.concat(CATALOGO_PRODUCTOS_FALLBACK.filter(function (p) { return p.id === productoDesdeUrl; }));
