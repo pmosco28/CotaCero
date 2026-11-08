@@ -4184,7 +4184,20 @@
         if (i < 0 || j < 0 || i >= W || j >= H) return 0;
         var z = G.Z[j * W + i]; return isNaN(z) ? 0 : Math.max(0, Math.floor(z) - Lmin);
       }
-      [grupoEdificios, grupoExistente, grupoArboles].forEach(function (gr) { gr.children.forEach(function (o) { if (o.userData && o.userData.c) o.position.y = cota(o.userData.c); }); });
+      // Edificios en ladera: arrancan en la terraza MÁS BAJA que pisa su huella (quedan enterrados del
+      // lado alto, nunca flotando del lado bajo) y conservan su altura sobre el punto medio; la
+      // diferencia (hasta 12 m) se suma abajo, como los pisos que bajan por el barranco.
+      [grupoEdificios, grupoExistente].forEach(function (gr) {
+        gr.children.forEach(function (o) {
+          var u = o.userData || {}; if (!u.c) return;
+          var zc = cota(u.c), zmin = zc;
+          (u.pts || []).forEach(function (q) { zmin = Math.min(zmin, cota(q)); });
+          var extra = Math.min(12, zc - zmin);
+          o.position.y = zc - extra;
+          if (u.h && extra > 0) o.scale.y = (u.h + extra) / u.h;
+        });
+      });
+      grupoArboles.children.forEach(function (o) { if (o.userData && o.userData.c) o.position.y = cota(o.userData.c); });
       var cLote = cota(estado.centroideLote);
       grupoVolumen.position.y = cLote; meshLoteSuperficie.position.y = 0.12 + cLote; if (lineaLoteMesh) lineaLoteMesh.position.y = cLote;
       solicitarRender();
@@ -4275,8 +4288,8 @@
           var meshVecino = new THREE.Mesh(geoVecino, matVecino);
           meshVecino.receiveShadow = true; meshVecino.castShadow = true;
           var cEd = ptsR.reduce(function (a, q) { return [a[0] + q[0] / ptsR.length, a[1] + q[1] / ptsR.length]; }, [0, 0]);
-          meshVecino.userData.c = cEd; grupoEdificios.add(meshVecino);
-          var aristaV = new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino); aristaV.userData.c = cEd;
+          meshVecino.userData.c = cEd; meshVecino.userData.pts = ptsR; meshVecino.userData.h = ed.altura; grupoEdificios.add(meshVecino);
+          var aristaV = new THREE.LineSegments(new THREE.EdgesGeometry(geoVecino, 25), matAristaVecino); aristaV.userData.c = cEd; aristaV.userData.pts = ptsR; aristaV.userData.h = ed.altura;
           grupoEdificios.add(aristaV);
         });
       } catch (e) { }
@@ -4290,8 +4303,8 @@
         geo.rotateX(-Math.PI / 2); geo.computeVertexNormals();
         var m = new THREE.Mesh(geo, matVecino); m.castShadow = true; m.receiveShadow = true;
         var cEx = ed.pts.reduce(function (a, q) { return [a[0] + q[0] / ed.pts.length, a[1] + q[1] / ed.pts.length]; }, [0, 0]);
-        m.userData.c = cEx; grupoExistente.add(m);
-        var aristaE = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matAristaVecino); aristaE.userData.c = cEx;
+        m.userData.c = cEx; m.userData.pts = ed.pts; m.userData.h = ed.altura || 6; grupoExistente.add(m);
+        var aristaE = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), matAristaVecino); aristaE.userData.c = cEx; aristaE.userData.pts = ed.pts; aristaE.userData.h = ed.altura || 6;
         grupoExistente.add(aristaE);
         huellasEdificios.push(ed.pts);
       } catch (e) { }
