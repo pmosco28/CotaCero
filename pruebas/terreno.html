@@ -364,7 +364,7 @@
     var f = document.createElement('figure'); f.appendChild(c); var cap = document.createElement('figcaption'); cap.textContent = titulo; f.appendChild(cap); return f;
   }
 
-  var res = document.getElementById('resultados'), filas = [], calib = {}, zonas3d = [];
+  var res = document.getElementById('resultados'), filas = [], calib = {}, zonas3d = [], ablacion = [];
   var BASES = [
     { id: 'cop', nombre: 'Copernicus GLO-30', leer: function (P, N) { return globalPC('cop-dem-glo-30', P, N); } },
     { id: 'alos', nombre: 'ALOS AW3D30', leer: function (P, N) { return globalPC('alos-dem', P, N); } },
@@ -427,7 +427,6 @@
       if (copD) { var Dd = new Float32Array(N * N); for (var q2 = 0; q2 < N * N; q2++) Dd[q2] = copD[q2] - sesgoCop; zonas3d.push({ nombre: Z.nombre, N: N, rec: Dd, ver: T, red: red }); }
     } catch (e) { log('  ✗ ' + Z.nombre + ': ' + e); }
   }
-  var ablacion = [];
   function pintarAblacion() {
     var cont = document.getElementById('ablacion') || (function () { var d = document.createElement('section'); d.id = 'ablacion'; res.parentNode.insertBefore(d, res); return d; })();
     var nombres = ablacion[0].filas.map(function (f) { return f[0]; });
