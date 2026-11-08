@@ -5115,7 +5115,7 @@
             '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>';
         })() +
         '<div class="maq-norma"' + (estado.restriccionVolumen ? ' hidden' : '') + '>' +
-          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa') + '</button>' +
+          '<button type="button" class="maq-normativa' + (mostrarVolumenNormativa ? ' activo' : '') + '">' + (mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa') + '</button>' +
           '<div class="maq-norma-detalle"' + (mostrarVolumenNormativa ? '' : ' hidden') + '>' +
             '<div class="maq-pisos-slot"></div>' +
             '<div class="maq-cifras">' + (resumenNormativa ? resumenNormativa.m2.toLocaleString('es-EC') + ' m² construibles' + (resumenNormativa.viv ? ' · hasta ' + resumenNormativa.viv + (resumenNormativa.viv === 1 ? ' vivienda' : ' viviendas') : '') : '') + '</div>' +
@@ -5154,7 +5154,7 @@
         grupoVolumen.visible = mostrarVolumenNormativa;
         grupoExistente.visible = !mostrarVolumenNormativa;
         btnNorm.classList.toggle('activo', mostrarVolumenNormativa);
-        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar lo que permite la normativa' : 'Ver lo que permite la normativa';
+        btnNorm.textContent = mostrarVolumenNormativa ? 'Ocultar el volumen normativo' : 'Ver lo que permite la normativa';
         if (mostrarVolumenNormativa) animarCrecimiento();
         detalleNorm.hidden = !mostrarVolumenNormativa;
         if (!(estado.edificacionesLote || []).length) construirTerreno(); // el lote se aplana solo si hay algo encima
