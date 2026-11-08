@@ -404,7 +404,7 @@
     var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
     return m;
   }
-  function suavizarManzanas(N, Z, red, alfa, maxHa) {
+  function suavizarManzanas(N, Z, red, alfa, maxHa, umbral) {
     // bordes fijos: vías y también cauces (una quebrada dentro de la manzana no se rellena)
     var via = mascaraTodasVias(N, red), mr = fraccionRaster(N, function (x, aPx) { x.lineCap = 'round'; x.lineJoin = 'round'; red.rios.forEach(function (r) { x.lineWidth = (r.ancho + 10) / PASO; x.beginPath(); r.pts.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); }); });
     for (var kr = 0; kr < N * N; kr++) if (mr[kr] > 0.15) via[kr] = 1;
@@ -424,7 +424,11 @@
       if (i2 > 0) { sm += H[q - 1]; c++; } if (i2 < N - 1) { sm += H[q + 1]; c++; } if (j2 > 0) { sm += H[q - N]; c++; } if (j2 < N - 1) { sm += H[q + N]; c++; }
       H[q] += 1.8 * (sm / c - H[q]);
     }
-    var out = Z.slice(); for (var q2 = 0; q2 < N * N; q2++) if (libre[q2]) out[q2] = Z[q2] + alfa * (H[q2] - Z[q2]);
+    // salvaguarda: si la manzana entera está más alta o más baja que sus calles (plataforma, relleno,
+    // hondonada, vía en terraplén), no es ruido sino forma real → esa manzana no se toca
+    var sumD = new Float32Array(nc), nD = new Float32Array(nc);
+    for (var q1 = 0; q1 < N * N; q1++) if (libre[q1]) { sumD[comp[q1]] += H[q1] - Z[q1]; nD[comp[q1]]++; }
+    var out = Z.slice(); for (var q2 = 0; q2 < N * N; q2++) if (libre[q2] && Math.abs(sumD[comp[q2]] / nD[comp[q2]]) <= (umbral || Infinity)) out[q2] = Z[q2] + alfa * (H[q2] - Z[q2]);
     return out;
   }
   // cobertura de vías: qué parte de la zona queda a más de 40 m de cualquier vía de OSM
@@ -568,7 +572,8 @@
             variantes.push(['F → vías → ríos → manzanas suavizadas 30 %', suavizarManzanas(N, VR, red, 0.3, 2)]);
             variantes.push(['F → vías → ríos → manzanas suavizadas 60 %', suavizarManzanas(N, VR, red, 0.6, 2)]);
             variantes.push(['F → vías → ríos → manzanas suavizadas 100 %', suavizarManzanas(N, VR, red, 1, 2)]);
-            variantes.push(['F → vías → ríos → manzanas 60 % → calles interpretadas', callesInterpretadas(N, suavizarManzanas(N, VR, red, 0.6, 2), red)]);
+            variantes.push(['F → vías → ríos → manzanas 60 %, salvo manzanas en plataforma (> 1 m)', suavizarManzanas(N, VR, red, 0.6, 2, 1)]);
+            variantes.push(['F → vías → ríos → manzanas 60 %, salvo manzanas en plataforma (> 1 m) → calles interpretadas', callesInterpretadas(N, suavizarManzanas(N, VR, red, 0.6, 2, 1), red)]);
             var callesV = new Uint8Array(N * N); metodoVias(N, FS.Z, red).ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k4 = idx(N, p[0] + dx, p[1] + dy); if (k4 >= 0) callesV[k4] = 1; } });
             ablacion.push({ zona: Z.nombre, filas: [['A · ALOS solo', A]].concat(variantes).map(function (v) { var m1 = metricas(N, v[1], T), m2 = metricas(N, v[1], T, callesV); return [v[0], m1.rmse, m2.rmse, pendienteRMSE(N, v[1], T)]; }) });
             pintarAblacion();
