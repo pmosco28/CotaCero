@@ -254,7 +254,7 @@
         nodo(a, pa); nodo(b, pb); var prev = a;
         for (var k = 1; k <= n; k++) {
           var id = k === n ? b : ('d' + (nuevo++)), t = k / n; nodo(id, [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t]);
-          if (v.puente && opc.sinPuentes && k < n) esPuente[id] = 1;
+          if (v.puente && k < n) esPuente[id] = 1;
           var d = L / n;
           vecinos[prev].push([id, rig, smax * d]); vecinos[id].push([prev, rig, smax * d]); prev = id;
         }
@@ -276,11 +276,11 @@
     }
     // la diferencia con B se fija en los píxeles de calle y se reparte a las manzanas
     var fijos = new Uint8Array(N * N), val = new Float32Array(N * N), cnt = new Float32Array(N * N);
-    ids.forEach(function (id) { var k = idx(N, pos[id][0], pos[id][1]); if (k < 0) return; fijos[k] = 1; val[k] += z[id] - obs[id]; cnt[k]++; });
+    ids.forEach(function (id) { if (esPuente[id]) return; var k = idx(N, pos[id][0], pos[id][1]); if (k < 0) return; fijos[k] = 1; val[k] += z[id] - obs[id]; cnt[k]++; });
     for (var k = 0; k < N * N; k++) if (cnt[k]) val[k] /= cnt[k];
     var D = difundir(N, fijos, val, 300), C = new Float32Array(N * N);
     for (var q = 0; q < N * N; q++) C[q] = B[q] + D[q];
-    return { C: C, ejes: ids.map(function (id) { return pos[id]; }) };
+    return { C: C, ejes: ids.filter(function (id) { return !esPuente[id]; }).map(function (id) { return pos[id]; }) };
   }
   // ---------- E: filtro de suelo "desde abajo" (sin calibrar con la verdad) ----------
   // 1) apertura morfológica (mínimo y luego máximo en una ventana) → envolvente de suelo;
@@ -388,6 +388,52 @@
     var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
     return m;
   }
+  // ---------- manzanas: lo que queda entre vías se suaviza desde el nivel de sus calles ----------
+  // Las calles (todas las de OSM, salvo puentes y escalinatas) quedan fijas; dentro de cada manzana se
+  // resuelve la superficie más lisa que pasa por sus bordes (Laplace) y se mezcla con el modelo:
+  // Z' = Z + alfa·(H − Z). Manzanas de más de maxHa (parques, laderas abiertas) no se tocan.
+  function mascaraTodasVias(N, red) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.strokeStyle = '#000'; x.lineCap = 'round'; x.lineJoin = 'round';
+    red.vias.forEach(function (v) {
+      if (v.puente || v.tipo === 'steps') return;
+      var an = ANCHOS[v.tipo] || ANCHOS[v.tipo.replace('_link', '')] || [4, 0];
+      x.lineWidth = Math.max(PASO, an[0]) / PASO; x.beginPath();
+      v.ids.forEach(function (id, i) { var p = red.nodos[id], u = (p[0] + LADO / 2) / PASO, w = (LADO / 2 - p[1]) / PASO; if (i) x.lineTo(u, w); else x.moveTo(u, w); });
+      x.stroke();
+    });
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
+    return m;
+  }
+  function suavizarManzanas(N, Z, red, alfa, maxHa) {
+    var via = mascaraTodasVias(N, red), comp = new Int32Array(N * N).fill(-1), areas = [], nc = 0;
+    for (var s0 = 0; s0 < N * N; s0++) {
+      if (via[s0] || comp[s0] >= 0) continue;
+      var pila = [s0], n = 0; comp[s0] = nc;
+      while (pila.length) { var k = pila.pop(), i = k % N, j = (k / N) | 0; n++;
+        [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]].forEach(function (q) { if (q[0] < 0 || q[1] < 0 || q[0] >= N || q[1] >= N) return; var kk = q[1] * N + q[0]; if (!via[kk] && comp[kk] < 0) { comp[kk] = nc; pila.push(kk); } }); }
+      areas.push(n * PASO * PASO / 1e4); nc++;
+    }
+    var libre = new Uint8Array(N * N), H = Z.slice();
+    for (var k2 = 0; k2 < N * N; k2++) if (!via[k2] && areas[comp[k2]] <= maxHa && !isNaN(Z[k2])) libre[k2] = 1;
+    for (var it = 0; it < 400; it++) for (var j2 = 0; j2 < N; j2++) for (var i2 = 0; i2 < N; i2++) {
+      var q = j2 * N + i2; if (!libre[q]) continue;
+      var sm = 0, c = 0;
+      if (i2 > 0) { sm += H[q - 1]; c++; } if (i2 < N - 1) { sm += H[q + 1]; c++; } if (j2 > 0) { sm += H[q - N]; c++; } if (j2 < N - 1) { sm += H[q + N]; c++; }
+      H[q] += 1.8 * (sm / c - H[q]);
+    }
+    var out = Z.slice(); for (var q2 = 0; q2 < N * N; q2++) if (libre[q2]) out[q2] = Z[q2] + alfa * (H[q2] - Z[q2]);
+    return out;
+  }
+  // cobertura de vías: qué parte de la zona queda a más de 40 m de cualquier vía de OSM
+  function coberturaVias(N, red) {
+    var via = mascaraTodasVias(N, red), d = new Float32Array(N * N).fill(1e9);
+    for (var k = 0; k < N * N; k++) if (via[k]) d[k] = 0;
+    for (var pas = 0; pas < 2; pas++) for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var q = pas ? (N - 1 - j) * N + (N - 1 - i) : j * N + i, ii = pas ? N - 1 - i : i, jj = pas ? N - 1 - j : j, s = pas ? 1 : -1;
+      if (ii + s >= 0 && ii + s < N) d[q] = Math.min(d[q], d[q + s] + PASO); if (jj + s >= 0 && jj + s < N) d[q] = Math.min(d[q], d[q + s * N] + PASO); }
+    var lejos = 0; for (var k2 = 0; k2 < N * N; k2++) if (d[k2] > 40) lejos++;
+    var km = {}; red.vias.forEach(function (v) { var L = 0; for (var i2 = 0; i2 < v.ids.length - 1; i2++) { var a = red.nodos[v.ids[i2]], b = red.nodos[v.ids[i2 + 1]]; if (Math.abs(a[0]) < LADO / 2 && Math.abs(a[1]) < LADO / 2) L += Math.hypot(b[0] - a[0], b[1] - a[1]); } var g = /^(motorway|trunk|primary|secondary|tertiary)/.test(v.tipo) ? 'principales' : /^(residential|unclassified|living_street|service|track)/.test(v.tipo) ? 'locales y de servicio' : 'peatonales y escalinatas'; km[g] = (km[g] || 0) + L / 1000; });
+    return { lejos: lejos / (N * N), km: km };
+  }
   // nivel del agua por píxel cercano al río (cota del cauce más cercano, a ≤ 60 m)
   function nivelAgua(N, Z, red) {
     var agua = new Float32Array(N * N).fill(NaN), dist = new Float32Array(N * N).fill(Infinity), anchoR = new Float32Array(N * N);
@@ -469,7 +515,7 @@
     var f = document.createElement('figure'); f.appendChild(c); var cap = document.createElement('figcaption'); cap.textContent = titulo; f.appendChild(cap); return f;
   }
 
-  var res = document.getElementById('resultados'), filas = [], calib = {}, zonas3d = [], ablacion = [], bordos = [];
+  var res = document.getElementById('resultados'), filas = [], calib = {}, zonas3d = [], ablacion = [], bordos = [], coberturas = [];
   var BASES = [
     { id: 'cop', nombre: 'Copernicus GLO-30', leer: function (P, N) { return globalPC('cop-dem-glo-30', P, N); } },
     { id: 'alos', nombre: 'ALOS AW3D30', leer: function (P, N) { return globalPC('alos-dem', P, N); } },
@@ -481,6 +527,8 @@
       var V = await verdad(Z, P), N = V.N, T = V.z;
       log('  OpenStreetMap…'); var red = await osm(P);
       var fb = fraccionConstruida(N, red.edif), fv = fraccionVegetacion(N, red), fr = fraccionRibera(N, red);
+      var cob = coberturaVias(N, red); coberturas.push({ zona: Z.nombre, lejos: cob.lejos, km: cob.km });
+      log('  vías de OSM en la zona: ' + Object.keys(cob.km).map(function (g) { return g + ' ' + cob.km[g].toFixed(1) + ' km'; }).join(' · ') + ' · superficie a más de 40 m de una vía: ' + Math.round(cob.lejos * 100) + ' %');
       var bl = red.rios.length ? bordoLibreReal(N, T, red) : null;
       if (bl) { bordos.push({ zona: Z.nombre, p10: bl.p10, mediana: bl.mediana }); log('  bordo libre real de vías de orilla (ríos grandes): p10 ' + bl.p10.toFixed(1) + ' m · mediana ' + bl.mediana.toFixed(1) + ' m'); }
       if (zi === 0 && bl) { BORDO_LIBRE = Math.max(1.5, +bl.p10.toFixed(1)); log('  bordo libre adoptado (p10 de El Ejido): ' + BORDO_LIBRE + ' m'); }
@@ -513,6 +561,11 @@
               ['F → vías → ríos → calles interpretadas', callesInterpretadas(N, metodoRios(N, V1, red), red)],
               ['… → calles interpretadas → vías de nuevo (2ª corrida)', metodoVias(N, callesInterpretadas(N, metodoRios(N, V1, red), red), red, { sinPuentes: true }).C]
             ];
+            var VR = metodoRios(N, V1, red);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 30 %', suavizarManzanas(N, VR, red, 0.3, 2)]);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 60 %', suavizarManzanas(N, VR, red, 0.6, 2)]);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 100 %', suavizarManzanas(N, VR, red, 1, 2)]);
+            variantes.push(['F → vías → ríos → manzanas 60 % → calles interpretadas', callesInterpretadas(N, suavizarManzanas(N, VR, red, 0.6, 2), red)]);
             var callesV = new Uint8Array(N * N); metodoVias(N, FS.Z, red).ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k4 = idx(N, p[0] + dx, p[1] + dy); if (k4 >= 0) callesV[k4] = 1; } });
             ablacion.push({ zona: Z.nombre, filas: [['A · ALOS solo', A]].concat(variantes).map(function (v) { var m1 = metricas(N, v[1], T), m2 = metricas(N, v[1], T, callesV); return [v[0], m1.rmse, m2.rmse, pendienteRMSE(N, v[1], T)]; }) });
             pintarAblacion();
@@ -546,7 +599,7 @@
     var base = prom(0, 1), baseC = prom(0, 2);
     cont.innerHTML = '<h2>¿Cuánto aporta cada paso y en qué orden? (ALOS, promedio de ' + ablacion.length + ' zonas)</h2><table><tr><th>Secuencia</th><th>RMSE general</th><th>vs. solo</th><th>RMSE en calles</th><th>vs. solo</th><th>RMSE pendiente</th></tr>' +
       nombres.map(function (n, i) { var a = prom(i, 1), c = prom(i, 2); return '<tr><td>' + n + '</td><td>' + a.toFixed(2) + ' m</td><td>' + Math.round((a / base - 1) * 100) + ' %</td><td>' + c.toFixed(2) + ' m</td><td>' + Math.round((c / baseC - 1) * 100) + ' %</td><td>' + prom(i, 3).toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
-    window.__bordos = bordos;
+    window.__bordos = bordos; window.__coberturas = coberturas;
     window.__ablacion = ablacion.map(function (a) { return { zona: a.zona, filas: a.filas.map(function (f) { return [f[0], +f[1].toFixed(2), +f[2].toFixed(2), +f[3].toFixed(1)]; }) }; });
   }
   function pintarResumen() {
@@ -640,6 +693,20 @@
         } catch (e) { }
       });
     }
+    // puentes: no son terreno; tablero aparte a la cota de su extremo más alto
+    var matPuente = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+    red.vias.forEach(function (vv) {
+      if (!vv.puente) return;
+      var pts = vv.ids.map(function (id) { return red.nodos[id]; }); if (!pts.every(function (p) { return Math.abs(p[0]) < LADO / 2 && Math.abs(p[1]) < LADO / 2; })) return;
+      var zi = function (p) { var i = Math.floor((p[0] + LADO / 2) / PASO), j = Math.floor((LADO / 2 - p[1]) / PASO); var z = Z[j * N + i]; return isNaN(z) ? null : z - base; };
+      var e1 = zi(pts[0]), e2 = zi(pts[pts.length - 1]); if (e1 == null || e2 == null) return;
+      var zt = Math.ceil(Math.max(e1, e2)), an = (ANCHOS[vv.tipo] || [6, 1])[0] + 2 * (ANCHOS[vv.tipo] || [6, 1])[1];
+      for (var i = 0; i < pts.length - 1; i++) {
+        var a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.5) continue;
+        var m = new THREE.Mesh(new THREE.BoxGeometry(L + 1, 0.8, an), matPuente);
+        m.position.set((a[0] + b[0]) / 2, zt + 0.4, -(a[1] + b[1]) / 2); m.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]); m.castShadow = true; m.receiveShadow = true; v.grupo.add(m);
+      }
+    });
     // edificios de OSM apoyados en su terraza más baja
     function cota(p) { var i = Math.floor((p[0] + LADO / 2) / PASO), j = Math.floor((LADO / 2 - p[1]) / PASO); if (i < 0 || j < 0 || i >= N || j >= N) return null; var z = Z[j * N + i]; return isNaN(z) ? null : Math.max(0, Math.floor(z) - base); }
     red.edif.forEach(function (r) {
