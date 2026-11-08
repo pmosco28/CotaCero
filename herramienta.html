@@ -86,11 +86,15 @@
      así nunca roba clics ni el scroll. Se desvanece mucho ANTES de llegar al borde real de su caja. */
   .mapa-stage { position: relative; display: flex; align-items: stretch; width: 100vw; margin: 22px calc(50% - 50vw) 0; }
   .mapa-col { flex: 2 1 0; min-width: 0; transition: flex 0.2s ease; }
-  .mapa-ventana { position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 88vh; }
+  .mapa-stage:not(.modo-3d) .icono-3d-col { display: none; }
+  .mapa-stage:not(.modo-3d) .mapa-col { flex: 1 1 100%; }
+  .mapa-ventana { position: relative; width: 100%; height: min(76vh, 720px); }
+  .capa-predios-gris { filter: grayscale(1) contrast(1.1); opacity: .55; mix-blend-mode: multiply; }
+  .leaflet-container .leaflet-control-attribution { background: transparent; color: #8a867e; font-size: 0.62rem; }
   #mapa { width: 100%; height: 100%; background: transparent; cursor: crosshair; }
   .mapa-fade {
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
-    background: radial-gradient(circle at center, transparent 28%, var(--paper) 70%);
+    background: radial-gradient(ellipse 75% 70% at center, transparent 72%, var(--paper) 100%);
   }
   .mapa-cargando {
     position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center;
@@ -111,6 +115,7 @@
     justify-content: center; gap: 14px; text-align: center; padding: 24px; color: var(--ink-soft);
     transition: flex 0.2s ease;
   }
+  .icono3d-vacio { display: none; }
   .icono3d-vacio svg { width: 64px; height: 64px; opacity: 0.55; }
   .icono3d-vacio p { margin: 0; font-size: 0.82rem; max-width: 20ch; }
   .vol3d-wrap { display: none; width: 100%; padding: 0 32px; }
@@ -271,12 +276,14 @@
     display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin;
   }
   .chip-producto {
-    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
-    width: 92px; padding: 12px 8px 10px; border-radius: 12px; border: 1px solid var(--line-soft);
-    background: var(--paper-raised); color: var(--ink-soft); cursor: pointer;
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    width: 116px; padding: 14px 8px 12px; border-radius: 10px; border: 1px solid rgba(28,26,22,.18);
+    background: transparent; color: var(--ink); cursor: pointer;
     font-family: 'Inter Tight'; transition: border-color 0.15s ease, color 0.15s ease; text-align: center;
   }
-  .chip-producto:hover { border-color: var(--line); }
+  .chip-producto:hover { border-color: var(--ink); }
+  .chip-producto .chip-nombre { font-weight: 500; font-size: 0.74rem; line-height: 1.2; }
+  .chip-producto .chip-precio { font-weight: 300 !important; font-size: 0.74rem !important; }
   .chip-producto.activa { border-color: var(--terracotta); color: var(--terracotta-dark); background: color-mix(in srgb, var(--terracotta) 6%, var(--paper-raised)); }
   .chip-producto .chip-icono { width: 26px; height: 26px; color: inherit; }
   .chip-producto .chip-icono svg { width: 100%; height: 100%; display: block; }
@@ -731,7 +738,7 @@
         <path d="M32 4 L58 18 L58 46 L32 60 L6 46 L6 18 Z"/>
         <path d="M32 4 L32 32 M32 32 L58 18 M32 32 L6 18 M32 32 L32 60"/>
       </svg>
-      <p>Elige un predio en el mapa para ver el modelo 3D</p>
+      <p></p>
     </div>
     <div class="vol3d-wrap">
       <div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>
@@ -926,9 +933,15 @@
   // directo a los servidores de Google (uso no permitido por sus términos).
   var IDE_CUENCA_WMS = 'https://ide.cuenca.gob.ec/geoserver/wms';
   var CAPA_ORTOFOTO = 'externos:externos_igm_ortofotos';
-  var capaBase = L.tileLayer.wms(IDE_CUENCA_WMS, {
-    layers: CAPA_ORTOFOTO, format: 'image/jpeg', transparent: false, version: '1.1.1',
-    attribution: 'Ortofoto IGM · IDE Cuenca', maxZoom: 20
+  // Base: CARTO Positron (OSM), clara y en grises, con nombres de calles. Uso comercial gratuito hasta
+  // 1 millón de teselas al mes con una clave gratuita de CARTO (CARTO_KEY). Encima, los predios del
+  // catastro municipal (WMS del IDE Cuenca) en gris, desde el zoom de manzana.
+  var CARTO_KEY = '';
+  var capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' + (CARTO_KEY ? '?key=' + CARTO_KEY : ''), {
+    subdomains: 'abcd', maxZoom: 20, maxNativeZoom: 19, attribution: '© OpenStreetMap · © CARTO · Predios: IDE GAD Cuenca'
+  }).addTo(mapa);
+  L.tileLayer.wms(IDE_CUENCA_WMS, {
+    layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', minZoom: 16, maxZoom: 20, className: 'capa-predios-gris'
   }).addTo(mapa);
   // Con el mapa a 2/3 de pantalla hacen falta muchas más teselas que antes para llenarlo — la carga
   // en sí no se puede acelerar (depende del servidor del IDE Cuenca), pero sí dar una señal de que algo está
@@ -2404,7 +2417,7 @@
     var restriccionVolumen = null;
     var catMax = patrimonioLote.length ? patrimonioLote[0].categoria : null;
     if (catMax != null && catMax >= 1) restriccionVolumen = 'Edificación patrimonial (' + NOMBRE_CATEGORIA[catMax] + ', inventario municipal ' + patrimonioLote[0].valor + '): se conserva, así que no se muestra un volumen de reemplazo. Qué intervención se admite (restauración, rehabilitación, ampliación posterior) lo define la Dirección General de Áreas Históricas.';
-    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia.';
+    else if (esPredioPublico) restriccionVolumen = 'Predio de propiedad pública (catastro municipal): no corresponde un volumen edificable de referencia. ¿Es tuyo y tienes escritura? Entonces el catastro puede estar desactualizado y conviene una regularización para oficializar tu predio.';
     else if (fraccionVerde > 0.5) restriccionVolumen = 'Más de la mitad de este predio es parque o área verde (' + (nombreAreaVerdeDelLote || 'OpenStreetMap') + '): no se muestra volumen edificable.';
     else if (areaLoteM2 > 10000) restriccionVolumen = 'Lote de ' + Math.round(areaLoteM2 / 10000 * 10) / 10 + ' ha: en un predio de este tamaño se edifica a través de un proceso de urbanización o plan, no con un volumen directo. Escríbenos para un estudio específico.';
 
@@ -3185,6 +3198,16 @@
     }
     estadoEdicion = estado;
     estado.featureCrudo = feature;
+    // Linderos que se cruzan: área del predio (tal como está en el catastro) que también pertenece a
+    // predios vecinos. Se ignoran roces de menos de 0,5 m² (digitalización).
+    try {
+      var sol = { n: 0, area: 0 };
+      (estado.vecinosFeatures || []).forEach(function (v) {
+        try { var it = turf.intersect(turf.feature(feature.geometry), turf.feature(v.geometry)); if (!it) return; var a = turf.area(it); if (a >= 0.5) { sol.n++; sol.area += a; } } catch (e) { }
+      });
+      sol.area = Math.round(sol.area); sol.fraccion = sol.area / Math.max(1, turf.area(feature));
+      estado.solapes = sol;
+    } catch (e) { estado.solapes = null; }
     estado.claves = (feature.properties && feature.properties.claves) || null;
     estado.esUnion = !!(estado.claves && estado.claves.length > 1);
     if (!estado.esUnion) resumenAntesDeUnir = desdeUnion ? null : resumenAntesDeUnir;
@@ -5243,6 +5266,7 @@
       p.innerHTML =
 
         (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
+        (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         (function () {
           var tr = tramitesRecomendados(estado);
           if (!estado.tramitesSel || estado.tramitesSelPara !== tr.map(function (x) { return x.id; }).join(',')) {
@@ -6129,7 +6153,13 @@
   function tramitesRecomendados(estado) {
     var r = estado.restriccionVolumen || '', L = [];
     function t(id, nombre, sub, sel) { L.push({ id: id, nombre: nombre, sub: sub, sel: !!sel }); }
-    if (/propiedad pública|parque o área verde/.test(r)) return L;
+    if (/propiedad pública/.test(r)) {
+      t('regularizacion', 'Regularización del predio', 'Si tienes escritura y el catastro lo registra como público', true);
+      t('levantamiento', 'Levantamiento topográfico', 'Medición en sitio, base de la regularización', true);
+      return L;
+    }
+    if (/parque o área verde/.test(r)) return L;
+    if (estado.solapes && estado.solapes.area >= 2) t('regularizacion', 'Regularización de linderos', 'Corrige los cruces con tus vecinos en el catastro', true);
     if (/patrimonial/i.test(r)) {
       t('planimetrico-iprus', 'IPRUS de áreas históricas', 'Planimétrico + informe predial ante Áreas Históricas', true);
       t('levantamiento-arquitectonico', 'Levantamiento arquitectónico', 'Estado actual de la edificación: base de cualquier intervención', true);
@@ -6775,20 +6805,22 @@
       descripcion: 'Tres escalas de profundidad — macro, medio y micro — sobre equipamientos cercanos, accesibilidad y entorno real del predio.' },
     { id: 'croquis', nombre: 'Croquis de sitio', precioBase: '15', nota: 'por predio',
       descripcion: 'Croquis de ubicación en A4 para trámites de crédito bancario u otro requisito — con firma profesional y QR de ubicación incluidos.' },
-    { id: 'unificacion', nombre: 'Unificación de lotes', precioBase: '', nota: 'por trámite',
+    { id: 'unificacion', soloRecomendado: true, nombre: 'Unificación de lotes', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría del lote unificado y gestión del trámite de unificación de predios ante el GAD Municipal de Cuenca.' },
-    { id: 'lotizacion', nombre: 'Permiso de lotización', precioBase: '', nota: 'por trámite',
+    { id: 'lotizacion', soloRecomendado: true, nombre: 'Permiso de lotización', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría de la división del predio y gestión del permiso de fraccionamiento o lotización ante el GAD Municipal de Cuenca.' },
-    { id: 'diseno-lotizacion', nombre: 'Diseño de lotización', precioBase: '', nota: 'según el terreno',
+    { id: 'diseno-lotizacion', soloRecomendado: true, nombre: 'Diseño de lotización', precioBase: '', nota: 'según el terreno',
       descripcion: 'Diseño de lotes, vía interna y áreas verdes para terrenos grandes, listo para el trámite municipal.' },
-    { id: 'levantamiento-arquitectonico', nombre: 'Levantamiento arquitectónico', precioBase: '', nota: 'según la edificación',
+    { id: 'levantamiento-arquitectonico', soloRecomendado: true, nombre: 'Levantamiento arquitectónico', precioBase: '', nota: 'según la edificación',
       descripcion: 'Levantamiento del estado actual de la edificación (plantas, fachadas, cortes), requisito de cualquier intervención en área histórica.' },
-    { id: 'anteproyecto-historico', nombre: 'Anteproyecto en área histórica', precioBase: '', nota: 'según el proyecto',
+    { id: 'anteproyecto-historico', soloRecomendado: true, nombre: 'Anteproyecto en área histórica', precioBase: '', nota: 'según el proyecto',
       descripcion: 'Anteproyecto de restauración, rehabilitación o ampliación para la aprobación de la Dirección de Áreas Históricas.' },
-    { id: 'permiso-menor-historico', nombre: 'Permiso de construcción menor (área histórica)', precioBase: '', nota: 'por trámite',
+    { id: 'permiso-menor-historico', soloRecomendado: true, nombre: 'Permiso de construcción menor (área histórica)', precioBase: '', nota: 'por trámite',
       descripcion: 'Gestión del permiso para mantenimiento y reparaciones en edificaciones de áreas históricas.' },
-    { id: 'certificacion-patrimonial', nombre: 'Certificación patrimonial', precioBase: '', nota: 'por trámite',
+    { id: 'certificacion-patrimonial', soloRecomendado: true, nombre: 'Certificación patrimonial', precioBase: '', nota: 'por trámite',
       descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
+    { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
+      descripcion: 'Levantamiento y gestión para oficializar el predio en el catastro: linderos que se cruzan con vecinos, diferencias de área o predios mal registrados. Frecuente en zonas periurbanas y rurales.' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
@@ -6868,7 +6900,7 @@
   if (barraCont && detalleCont) {
     function renderBarra() {
       barraCont.innerHTML = CATALOGO_PRODUCTOS.filter(function (p) {
-        return !p.precioGratis && p.id !== 'volumetria';
+        return !p.precioGratis && p.id !== 'volumetria' && !p.soloRecomendado;
       }).map(function (p) {
         var precioTxt = p.precioGratis ? 'Gratis' : (precioGuardado(p.id, p.precioBase) ? '$' + precioGuardado(p.id, p.precioBase) : 'A convenir');
         return '<button type="button" class="chip-producto' + (p.id === productoActivo ? ' activa' : '') + '" data-id="' + p.id + '">' +
