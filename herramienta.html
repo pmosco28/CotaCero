@@ -472,6 +472,8 @@
   .pedir-predio { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-volver-3d { background: none; border: none; padding: 0; margin: 0 0 10px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--terracotta-dark); cursor: pointer; }
   .btn-volver-3d:hover { text-decoration: underline; }
+  /* Campo trampa anti-spam: invisible para personas, los robots lo llenan. */
+  .campo-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
   .pedir-predio .btn { flex: 1 1 200px; }
 
   /* ---------- sections ---------- */
@@ -970,6 +972,8 @@
   // puedan abrir el mismo modal sin duplicar contenido ni lógica.
   inicializarModal('modalPrivacidadOverlay', 'privacidadContenido', ['link-privacidad'], textoPrivacidadHTML, '__abrirModalPrivacidad');
   inicializarModal('modalTerminosOverlay', 'terminosContenido', ['link-terminos'], textoTerminosHTML, '__abrirModalTerminos');
+  // index.html enlaza a herramienta.html#privacidad desde su formulario de contacto.
+  if (window.location.hash === '#privacidad' && window.__abrirModalPrivacidad) window.__abrirModalPrivacidad();
   // El link "Política de Privacidad" dentro del texto de Términos abre el otro modal — se conecta
   // acá porque recién existe en el DOM después de que inicializarModal() llenó terminosContenido.
   (function () {
@@ -4900,6 +4904,8 @@
   // Asignada dentro del bloque del catálogo (más abajo); la usan los botones "Pedir … de este
   // predio" de la ficha del resultado.
   var pedirProductoParaPredio = function () {};
+  // De dónde vino el pedido (se guarda en la Sheet): 'barra', 'ficha-<producto>' o 'index'.
+  var origenPedidoActual = 'barra';
   // La volumetría no es un producto de la barra: ES la página (el gancho gratuito). Desde cualquier
   // producto se vuelve a ella con este botón, o tocando de nuevo el chip activo.
   function volverAVista3D() {
@@ -4945,6 +4951,15 @@
     // pide — nada que nosotros tengamos que guardar ni entregar nosotros mismos.
     function mostrarFormularioSolicitud(producto) {
       var claveSugerida = estadoSeleccionado ? estadoSeleccionado.clave : '';
+      // Lo que la persona ya había escrito (el formulario se vuelve a dibujar al elegir otro predio
+      // o al llegar el catálogo real) — se recupera abajo para no hacerle escribir todo de nuevo.
+      var previos = {};
+      ['sol-nombre', 'sol-correo', 'sol-telefono', 'sol-predio', 'sol-detalle'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) previos[id] = el.value;
+      });
+      ['sol-consentimiento', 'sol-terminos'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) previos[id] = el.checked;
+      });
       // El trámite IPRUS necesita escritura + cédula del cliente para iniciarse — pedido explícito.
       // No hay backend que reciba archivos todavía, así que el <input type="file"> es solo para que
       // la persona confirme qué va a adjuntar: el mensaje de correo/WhatsApp le recuerda adjuntarlos
@@ -4976,8 +4991,10 @@
           '<input type="tel" id="sol-telefono" placeholder="09XXXXXXXX">' +
           '<label>Predio de referencia</label>' +
           '<input type="text" id="sol-predio" value="' + (claveSugerida ? 'Clave catastral ' + claveSugerida : '') + '" placeholder="Clave catastral o dirección del predio">' +
+          (claveSugerida ? '' : '<p class="pd-nota" style="margin-top:2px">👆 Toca tu predio en el mapa de arriba y la clave se carga sola.</p>') +
           '<label>Detalle (opcional)</label>' +
           '<textarea id="sol-detalle" rows="2" placeholder="Algo puntual que debamos saber"></textarea>' +
+          '<div class="campo-trampa" aria-hidden="true"><label>Sitio web</label><input type="text" id="sol-sitio-web" tabindex="-1" autocomplete="off"></div>' +
           camposDocumentos +
           '<div class="consentimiento-wrap">' +
             '<input type="checkbox" id="sol-consentimiento">' +
@@ -5014,8 +5031,10 @@
           !!inputCorreo.value.trim() && inputCorreo.checkValidity() &&
           !!inputTelefono.value.trim();
       }
+      var formAbiertoEn = Date.now();
+      var pedidoEnviado = false;
       function actualizarHabilitacionBotones() {
-        btnEnviarEl.disabled = !(chkConsentimiento.checked && chkTerminos.checked && datosContactoCompletos());
+        btnEnviarEl.disabled = pedidoEnviado || !(chkConsentimiento.checked && chkTerminos.checked && datosContactoCompletos());
       }
       chkConsentimiento.addEventListener('change', actualizarHabilitacionBotones);
       chkTerminos.addEventListener('change', actualizarHabilitacionBotones);
@@ -5030,6 +5049,13 @@
         ev.preventDefault();
         if (window.__abrirModalTerminos) window.__abrirModalTerminos();
       });
+      ['sol-nombre', 'sol-correo', 'sol-telefono', 'sol-detalle'].forEach(function (id) {
+        if (previos[id]) document.getElementById(id).value = previos[id];
+      });
+      if (!claveSugerida && previos['sol-predio']) document.getElementById('sol-predio').value = previos['sol-predio'];
+      chkConsentimiento.checked = !!previos['sol-consentimiento'];
+      chkTerminos.checked = !!previos['sol-terminos'];
+      actualizarHabilitacionBotones();
 
       function construirMensajeSolicitud(archivosSubidos) {
         var nombre = (document.getElementById('sol-nombre').value || '').trim();
@@ -5162,7 +5188,11 @@
             tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS,
             productoId: producto.id, productoNombre: producto.nombre,
             predio: predio, nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle,
-            documentos: archivosSubidos || []
+            documentos: archivosSubidos || [],
+            // Anti-spam y registro (el Apps Script nuevo los usa; el actual los ignora sin problema).
+            origen: origenPedidoActual,
+            sitio_web: (document.getElementById('sol-sitio-web') || {}).value || '',
+            t: Date.now() - formAbiertoEn
           })
         }).then(function (r) { return r.json(); }).catch(function (err) {
           console.warn('No se pudo guardar el pedido estructurado', err);
@@ -5193,7 +5223,12 @@
           return enviarPedidoEstructurado(archivosSubidosCapturados);
         }).then(function (resp) {
           if (resp && resp.ok) {
-            mostrarResultadoSolicitud(true, '✅ ¡Pedido enviado! Te contactamos pronto' + (resp.idPedido ? ' — referencia ' + resp.idPedido : '') + '.');
+            pedidoEnviado = true;
+            mostrarResultadoSolicitud(true, '✅ ¡Pedido enviado! Te contactamos pronto' + (resp.idPedido ? ' — referencia ' + resp.idPedido : '') + '.' +
+              (resp.confirmacion ? ' Te enviamos una confirmación a tu correo.' : ''));
+          } else if (resp && resp.mensaje) {
+            // Error de validación explicado por el servidor (correo mal escrito, demasiados pedidos…).
+            mostrarResultadoSolicitud(false, '⚠️ ' + String(resp.mensaje).replace(/&/g, '&amp;').replace(/</g, '&lt;'));
           } else {
             // Respaldo manual solo si falla el guardado (backend caído, sin conexión) — nunca el
             // camino principal, pero tampoco se deja a la persona sin ninguna salida.
@@ -5207,8 +5242,9 @@
               '<a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>.');
           }
         }).finally(function () {
-          boton.disabled = !(chkConsentimiento.checked && chkTerminos.checked);
-          boton.textContent = textoOriginal;
+          // Ya enviado: el botón queda bloqueado para que un doble clic no registre el pedido dos veces.
+          boton.textContent = pedidoEnviado ? '✅ Pedido enviado' : textoOriginal;
+          actualizarHabilitacionBotones();
         });
       });
     }
@@ -5271,6 +5307,7 @@
         CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS.concat([local]);
         renderBarra();
       }
+      origenPedidoActual = 'ficha-' + id;
       productoActivo = id;
       aplicarProductoActivo();
       detalleCont.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5294,6 +5331,20 @@
         .catch(function (e) { console.warn('No se pudo refrescar el catálogo, se mantiene el local', e); });
     }
 
+    // Llegada desde los botones del catálogo de index.html (herramienta.html?producto=planimetrico):
+    // abre directo el formulario de ese producto. La clave se carga sola al tocar el predio.
+    var productoDesdeUrl = null;
+    try { productoDesdeUrl = new URLSearchParams(window.location.search).get('producto'); } catch (e) { }
+    if (productoDesdeUrl && CATALOGO_PRODUCTOS_FALLBACK.some(function (p) { return p.id === productoDesdeUrl && !p.precioGratis; })) {
+      if (!CATALOGO_PRODUCTOS.some(function (p) { return p.id === productoDesdeUrl; })) {
+        CATALOGO_PRODUCTOS = CATALOGO_PRODUCTOS.concat(CATALOGO_PRODUCTOS_FALLBACK.filter(function (p) { return p.id === productoDesdeUrl; }));
+      }
+      origenPedidoActual = 'index';
+      productoActivo = productoDesdeUrl;
+      renderBarra();
+      aplicarProductoActivo();
+    }
+
     detalleCont.addEventListener('click', function (ev) {
       if (ev.target.closest('.js-volver-3d')) volverAVista3D();
     });
@@ -5302,6 +5353,7 @@
       var btn = ev.target.closest('.chip-producto');
       if (!btn) return;
       if (productoActivo === btn.dataset.id) { volverAVista3D(); return; }
+      origenPedidoActual = 'barra';
       productoActivo = btn.dataset.id;
       aplicarProductoActivo();
       var destino = productoActivo === 'croquis'
