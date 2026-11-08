@@ -1988,7 +1988,14 @@
         if (!turf.booleanIntersects(f, poligonoLotePlano)) return;
         var r = turf.intersect(f, poligonoLotePlano); if (!r) return;
         var polys = r.geometry.type === 'Polygon' ? [r.geometry.coordinates] : r.geometry.coordinates;
-        polys.forEach(function (pc) { var anillo = pc[0].slice(0, -1); if (anillo.length >= 3 && turf.area(turf.polygon([pc[0]])) > 0) edificacionesLote.push({ pts: anillo, altura: ed.altura, fuente: ed.fuente }); });
+        polys.forEach(function (pc) {
+          var anillo = pc[0].slice(0, -1); if (anillo.length < 3) return;
+          // fuera astillas: recortar contra el lindero deja tiras finas de edificios vecinos
+          var A = 0, P = 0; for (var i = 0; i < anillo.length; i++) { var a = anillo[i], b = anillo[(i + 1) % anillo.length]; A += a[0] * b[1] - b[0] * a[1]; P += Math.hypot(b[0] - a[0], b[1] - a[1]); }
+          A = Math.abs(A) / 2;
+          if (A < 8 || 2 * A / P < 1.5) return;
+          edificacionesLote.push({ pts: anillo, altura: ed.altura, fuente: ed.fuente });
+        });
       } catch (e) { }
     });
 
