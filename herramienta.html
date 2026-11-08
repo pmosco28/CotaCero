@@ -3971,7 +3971,9 @@
       var c = laminaCtx;
       c.save();
       c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX);
-      if (typeof verdeEnLamina !== 'undefined') {
+      var conFoto = fotoAerea && imgFoto;
+      if (conFoto) { c.drawImage(imgFoto, 0, 0, LAMINA_PX, LAMINA_PX); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX); }
+      if (typeof verdeEnLamina !== 'undefined' && !conFoto) {
         // áreas verdes: un solo camino con todas las piezas → un solo relleno, sin bordes montados
         c.beginPath();
         verdeEnLamina.forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
@@ -4065,6 +4067,18 @@
     // verdes primero, río encima, calzada y líneas después.
     var verdeEnLamina = (estado.areasVerdesOSM || []).filter(function (av) { return av.pts && av.pts.length >= 3; }).map(function (av) { return av.pts; });
     var rioVisible = true;
+    // Foto aérea: ortofoto del GAD Municipal (IDE Cuenca) — la de 2018 de toda la ciudad y, encima,
+    // las de dron 2023-2026 donde existan. Se pinta como fondo de la lámina (sigue el terreno).
+    var fotoAerea = false, imgFoto = null, cargandoFoto = null;
+    function cargarFoto() {
+      if (cargandoFoto) return cargandoFoto;
+      var sw = estado.metrosALatLng([-R, -R]), ne = estado.metrosALatLng([R, R]);
+      var url = 'https://ide.cuenca.gob.ec/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=' + encodeURIComponent('dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos') +
+        '&styles=&srs=EPSG:4326&bbox=' + [sw[1], sw[0], ne[1], ne[0]].join(',') + '&width=' + LAMINA_PX + '&height=' + LAMINA_PX + '&format=image/jpeg';
+      cargandoFoto = fetch(url).then(function (r) { return r.blob(); }).then(function (b) { return createImageBitmap(b); }).then(function (bm) { imgFoto = bm; return bm; })
+        .catch(function (e) { console.warn('Foto aérea no disponible', e); cargandoFoto = null; return null; });
+      return cargandoFoto;
+    }
     var rioUnion = null; // ya no se usa para geometría; los árboles se filtran por distancia al eje
     // grano de pintura (no ruido de arena encima de otra textura)
     var granoPintura = (function () {
@@ -4909,6 +4923,7 @@
           '</div>' +
         '</div>' +
         ((estado.edificacionesLote || []).length ? '' : '<div class="maq-nota">Sin edificación registrada en el lote (catastro / OSM).</div>') +
+        '<div class="maq-nota"><a class="maq-avisar" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a></div>' +
         '<details class="maq-mas"' + (window.innerWidth > 640 ? ' open' : '') + '><summary>Capas, vistas y colores</summary><div>' +
         '<div class="maq-grid">' +
         '<label><input type="checkbox" data-capa="arboles" checked>Árboles</label>' +
@@ -4916,7 +4931,9 @@
         '<label><input type="checkbox" data-capa="lineas" checked>Predios y vías</label>' +
         '<label><input type="checkbox" data-capa="edificios" checked>Edificios</label>' +
         '<label><input type="checkbox" data-capa="curvas" checked>Curvas de nivel</label>' +
+        '<label><input type="checkbox" data-capa="foto">Foto aérea</label>' +
         '</div>' +
+        '<div class="maq-nota maq-nota-foto" hidden>Ortofoto: GAD Municipal de Cuenca (IDE), 2018 y vuelos de dron 2023-2026 donde existen.</div>' +
         '<div class="maq-nota">Curvas cada 1 m (maestras cada 5 m), interpretadas desde el MDT municipal de ~3 m: rectas en las calles y con salto de 20 cm en el bordillo. Referenciales, no reemplazan un levantamiento.</div>' +
         '<div class="maq-terreno"><button type="button" data-terreno="tin"' + (modoTerreno === 'tin' ? ' class="activa"' : '') + '>Terreno</button><button type="button" data-terreno="terrazas"' + (modoTerreno !== 'tin' ? ' class="activa"' : '') + '>Maqueta en capas</button></div>' +
         '<div class="maq-vistas"><button type="button" data-vista="conjunto">Conjunto</button><button type="button" data-vista="lote">Lote</button><button type="button" data-vista="planta">Planta</button></div>' +
@@ -4962,6 +4979,10 @@
           if (k === 'lineas') { laminaConLineas = inp.checked; dibujarLamina(); }
           else if (k === 'rio') { rioVisible = inp.checked; dibujarLamina(); }
           else if (k === 'curvas') { curvasVisibles = inp.checked; dibujarLamina(); }
+          else if (k === 'foto') {
+            fotoAerea = inp.checked; var nf = p.querySelector('.maq-nota-foto'); if (nf) nf.hidden = !fotoAerea;
+            if (fotoAerea && !imgFoto) cargarFoto().then(function () { dibujarLamina(); solicitarRender(); }); else dibujarLamina();
+          }
           else if (capas[k]) capas[k].visible = inp.checked;
           solicitarRender();
         });
