@@ -610,7 +610,7 @@
       <summary>Pisos <span id="label-pisos" class="mono">—</span></summary>
       <input type="range" id="slider-pisos" min="1" max="1" value="1">
       <!-- Estudio de asoleamiento desactivado en esta etapa: la sombra queda fija (luz de estudio). -->
-      <label class="vol-sombra-toggle" hidden><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label>
+      <label class="vol-sombra-toggle" hidden style="display:none"><input type="checkbox" id="chk-sombras"> ☀️ Sombras</label>
       <input type="range" id="rango-hora" min="6" max="18" step="0.25" value="11" hidden><span id="label-hora" class="mono" hidden></span>
     </details>
   </div>
@@ -3445,7 +3445,7 @@
       c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, LAMINA_PX, LAMINA_PX);
       if (!laminaConLineas) { c.restore(); texLamina.needsUpdate = true; return; }
       // Linderos de predios: línea gris fina.
-      c.strokeStyle = '#B4AFA6'; c.lineWidth = 1;
+      c.strokeStyle = '#A9A399'; c.lineWidth = 1.4;
       prediosM.forEach(function (r) { trazar(r.concat([r[0]])); c.stroke(); });
       viasSnapeadas.forEach(function (via) {
         var ref = refDeVia(via);
@@ -3466,7 +3466,7 @@
         c.beginPath();
         anillosDe(calzadaUnion).forEach(function (r) { r.forEach(function (p, i) { var q = aLamina(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.closePath(); });
         c.fillStyle = 'rgba(120,114,104,0.07)'; c.fill('evenodd');
-        c.strokeStyle = '#55514B'; c.lineWidth = 1.4; c.lineJoin = 'round'; c.stroke();
+        c.strokeStyle = '#55514B'; c.lineWidth = 2.2; c.lineJoin = 'round'; c.stroke();
       }
       var nombresPuestos = [];
       viasSnapeadas.forEach(function (via) {
