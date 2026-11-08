@@ -94,6 +94,10 @@
     -webkit-mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%);
     mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%); }
   .mapa-lupa.visible { opacity: 1; }
+  .lupa-punto { position: absolute; z-index: 460; left: var(--mx, 50%); top: var(--my, 50%); width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #1C1A16; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .lupa-punto.visible { opacity: 1; }
+  /* iPad/iPhone: sin el menú ni la lupa de texto del sistema al mantener el dedo sobre el mapa */
+  .mapa-ventana, .mapa-ventana * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .mapa-lupa .leaflet-container, .mapa-lupa.leaflet-container { background: transparent; }
   .lupa-predios { filter: brightness(0) invert(1); opacity: .85; }
   .capa-base-plano { filter: grayscale(1) contrast(1.25) brightness(1.02); }
@@ -777,7 +781,7 @@
   </details>
 </div>
 <div class="mapa-stage" id="mapaStage">
-  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
+  <div class="mapa-col"><div class="mapa-ventana"><div id="mapa"></div><div id="mapaLupa" class="mapa-lupa" aria-hidden="true"></div><div id="lupaPunto" class="lupa-punto" aria-hidden="true"></div><div class="mapa-fade"></div><div class="mapa-cargando" id="mapaCargando">Cargando mapa…</div></div></div>
   <div class="icono-3d-col" id="icono3dCol">
     <div class="icono3d-vacio">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
@@ -991,43 +995,93 @@
     mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
-    function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
-    mapa.on('move zoom resize', sincronizar);
+    function sincronizar() { if (mapa.getZoom() >= 16 || el.classList.contains('visible')) mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
+    mapa.on('moveend zoomend resize', sincronizar);
+    mapa.on('move', function () { if (el.classList.contains('visible')) sincronizar(); });
     mapa.on('resize', function () { mapaLupa.invalidateSize(false); });
     sincronizar();
     var cont = mapa.getContainer();
-    cont.addEventListener('mousemove', function (ev) {
+    // solo mouse real: en iPad/iPhone el sistema simula un "mousemove" al levantar el dedo, y eso
+    // encendía la lupa justo cuando ya no se estaba tocando
+    cont.addEventListener('pointermove', function (ev) {
+      if (ev.pointerType !== 'mouse') return;
+      if (!modoDibujo && !modoUnir) window.__resalteDePunto(ev.clientX, ev.clientY);
       var r = cont.getBoundingClientRect();
       el.style.setProperty('--mx', (ev.clientX - r.left) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top) + 'px');
       el.classList.toggle('visible', mapa.getZoom() >= 17 && !modoDibujo);
     });
-    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); });
+    cont.addEventListener('mouseleave', function () { el.classList.remove('visible'); resaltar(null); });
+    mapa.on('zoomend', function () { if (mapa.getZoom() < 17) resaltar(null); });
     // Celular: mantener el dedo ~0,5 s sin moverlo enciende la lupa; mientras el dedo sigue apoyado
     // se arrastra la lupa (el mapa no se mueve). Al levantar el dedo vuelve la navegación normal y ese
     // toque no selecciona predio. La lupa va un poco arriba del dedo para que el dedo no la tape.
-    var tLupa = null, lupaTactil = false, x0 = 0, y0 = 0;
-    function ponerLupa(t) {
+    var tLupa = null, lupaTactil = false, x0 = 0, y0 = 0, punto = document.getElementById('lupaPunto');
+    // Predios de la vista (una sola consulta por encuadre, de cerca): el resaltado al apuntar se
+    // resuelve en el navegador, sin pedir nada al servidor en cada movimiento.
+    var prediosVista = { clave: '', feats: [], cargando: null }, resaltadoF = null;
+    // resaltado: línea blanca con borde negro (dos trazos superpuestos), se lee sobre plano y foto
+    // resaltado: solo un marco negro
+    var bordeR = { color: '#1C1A16', weight: 3, fill: false, interactive: false };
+    var capasResalte = [L.geoJSON(null, { style: bordeR }).addTo(mapa), L.geoJSON(null, { style: bordeR }).addTo(mapaLupa)];
+    function cargarPrediosVista() {
+      if (mapa.getZoom() < 17) return null;
+      var b = mapa.getBounds().pad(0.3), k = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(function (v) { return v.toFixed(4); }).join(',');
+      if (prediosVista.clave === k) return prediosVista.cargando;
+      prediosVista.clave = k;
+      prediosVista.cargando = fetch('https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=2500&bbox=' + k + ',EPSG:4326')
+        .then(function (r) { return r.json(); }).then(function (d) { prediosVista.feats = (d.features || []).map(function (f) { return { f: f, bb: turf.bbox(f) }; }); return prediosVista.feats; })
+        .catch(function () { prediosVista.clave = ''; return []; });
+      return prediosVista.cargando;
+    }
+    function predioEn(ll) {
+      var pt = turf.point([ll.lng, ll.lat]);
+      for (var i = 0; i < prediosVista.feats.length; i++) {
+        var o = prediosVista.feats[i], bb = o.bb;
+        if (ll.lng < bb[0] || ll.lng > bb[2] || ll.lat < bb[1] || ll.lat > bb[3]) continue;
+        try { if (turf.booleanPointInPolygon(pt, o.f)) return o.f; } catch (e) { }
+      }
+      return null;
+    }
+    function resaltar(f) {
+      if (f === resaltadoF) return;
+      resaltadoF = f; capasResalte.forEach(function (c) { c.clearLayers(); if (f) c.addData(f); });
+    }
+    window.__resalteDePunto = function (clientX, clientY) {
       var r = cont.getBoundingClientRect();
-      el.style.setProperty('--mx', (t.clientX - r.left) + 'px'); el.style.setProperty('--my', (t.clientY - r.top - 70) + 'px');
+      if (mapa.getZoom() < 17) { resaltar(null); return; }
+      cargarPrediosVista();
+      resaltar(predioEn(mapa.containerPointToLatLng([clientX - r.left, clientY - r.top])));
+    };
+    function ponerLupa(t) {
+      var r = cont.getBoundingClientRect(), mx = t.clientX - r.left, my = t.clientY - r.top - 70;
+      el.style.setProperty('--mx', mx + 'px'); el.style.setProperty('--my', my + 'px');
+      punto.style.setProperty('--mx', mx + 'px'); punto.style.setProperty('--my', my + 'px');
+      window.__resalteDePunto(t.clientX, t.clientY - 70);
     }
     cont.addEventListener('touchstart', function (ev) {
-      if (ev.touches.length !== 1 || modoDibujo) return;
+      if (ev.touches.length !== 1 || modoDibujo || mapa.getZoom() < 16) return;
       var t = ev.touches[0]; x0 = t.clientX; y0 = t.clientY;
       clearTimeout(tLupa);
       tLupa = setTimeout(function () {
         lupaTactil = true; mapa.dragging.disable();
-        ponerLupa({ clientX: x0, clientY: y0 }); el.classList.add('visible');
+        var cp = cargarPrediosVista(); if (cp) cp.then(function () { window.__resalteDePunto(x0, y0 - 70); });
+        ponerLupa({ clientX: x0, clientY: y0 }); el.classList.add('visible'); punto.classList.add('visible');
         if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) { }
       }, 500);
     }, { passive: true });
     cont.addEventListener('touchmove', function (ev) {
       var t = ev.touches[0];
-      if (!lupaTactil) { if (Math.hypot(t.clientX - x0, t.clientY - y0) > 8) clearTimeout(tLupa); return; }
+      if (!lupaTactil) { if (Math.hypot(t.clientX - x0, t.clientY - y0) > 16) clearTimeout(tLupa); return; } // el dedo siempre tiembla un poco
       ev.preventDefault(); ponerLupa(t);
     }, { passive: false });
     function finTactil() {
       clearTimeout(tLupa);
-      if (lupaTactil) { lupaTactil = false; el.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600; }
+      if (lupaTactil) {
+        lupaTactil = false; el.classList.remove('visible'); punto.classList.remove('visible'); mapa.dragging.enable(); ignorarClicHasta = Date.now() + 600;
+        // el predio que quedó resaltado bajo el punto se selecciona al soltar el dedo
+        var f = resaltadoF; resaltar(null);
+        if (f && typeof seleccionarPredioFeature === 'function') seleccionarPredioFeature(f);
+      }
     }
     cont.addEventListener('touchend', finTactil); cont.addEventListener('touchcancel', finTactil);
     mapa.on('zoomend', function () { if (mapa.getZoom() < 17) el.classList.remove('visible'); });
@@ -3292,6 +3346,13 @@
     return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
   }
 
+  // Selección con el polígono ya conocido (lupa táctil): mismo flujo que consultarPredio, sin volver
+  // a consultar el catastro
+  async function seleccionarPredioFeature(f) {
+    panelEmpty.style.display = 'none';
+    prediosUnion = [f]; resumenAntesDeUnir = null; modoUnir = false;
+    await mostrarResultado(f);
+  }
   async function consultarPredio(latlng) {
     if (marcadorClic) mapa.removeLayer(marcadorClic);
     marcadorClic = L.circleMarker(latlng, { radius: 5, color: '#1C1A16', fillColor: '#1C1A16', fillOpacity: 1 }).addTo(mapa);
@@ -4782,17 +4843,28 @@
         return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
       });
       if (!vias.length) return null;
+      // índice espacial de segmentos (celdas del tamaño del alcance máximo): el resultado es idéntico a
+      // recorrer todas las vías, pero cada píxel solo mira los segmentos cercanos (antes era lo más lento)
+      var maxAlc = 1; vias.forEach(function (v) { maxAlc = Math.max(maxAlc, v.alcance); });
+      var celdaS = Math.max(8, maxAlc), indiceSeg = {};
+      vias.forEach(function (v) {
+        var acc = 0;
+        for (var i = 0; i < v.pts.length - 1; i++) {
+          var a = v.pts[i], b = v.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          var x0 = Math.floor((Math.min(a[0], b[0]) - maxAlc) / celdaS), x1 = Math.floor((Math.max(a[0], b[0]) + maxAlc) / celdaS);
+          var y0 = Math.floor((Math.min(a[1], b[1]) - maxAlc) / celdaS), y1 = Math.floor((Math.max(a[1], b[1]) + maxAlc) / celdaS);
+          var sg = { v: v, a: a, b: b, acc: acc, L: L };
+          for (var cx0 = x0; cx0 <= x1; cx0++) for (var cy0 = y0; cy0 <= y1; cy0++) (indiceSeg[cx0 + ',' + cy0] = indiceSeg[cx0 + ',' + cy0] || []).push(sg);
+          acc += L;
+        }
+      });
       function rasante(p) {
         var mejor = null, dmin = Infinity;
-        vias.forEach(function (v) {
-          var acc = 0;
-          for (var i = 0; i < v.pts.length - 1; i++) {
-            var a = v.pts[i], b = v.pts[i + 1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, L = Math.sqrt(L2);
-            var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
-            var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
-            if (d < dmin) { dmin = d; mejor = { v: v, s: acc + L * t }; }
-            acc += L;
-          }
+        (indiceSeg[Math.floor(p[0] / celdaS) + ',' + Math.floor(p[1] / celdaS)] || []).forEach(function (sg) {
+          var a = sg.a, b = sg.b, abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby;
+          var t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0;
+          var d = Math.hypot(p[0] - (a[0] + abx * t), p[1] - (a[1] + aby * t));
+          if (d < dmin) { dmin = d; mejor = { v: sg.v, s: sg.acc + sg.L * t }; }
         });
         // solo se corrige cerca del propio eje: un punto lejos de toda vía conocida (otra calle que el
         // dibujo no tiene, un bajo) conserva el terreno — antes tomaba la rasante de una calle alta
@@ -4804,7 +4876,7 @@
       }
       // 2) máscaras de calzada y vereda en raster de 1 m (canvas)
       var Rm = R + 12, N = Math.ceil(2 * Rm), cv = document.createElement('canvas'); cv.width = cv.height = N;
-      var cx = cv.getContext('2d');
+      var cx = cv.getContext('2d', { willReadFrequently: true }); // se lee con getImageData: en CPU es mucho más rápido
       function camino(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) ctx.lineTo(u, v); else ctx.moveTo(u, v); }); ctx.closePath(); }); }
       function mascara(dibujar) { cx.clearRect(0, 0, N, N); cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; dibujar(); return cx.getImageData(0, 0, N, N).data; }
       var mCalz = mascara(function () { if (calzadaUnion) { cx.beginPath(); camino(cx, calzadaUnion); cx.fill('evenodd'); } });
@@ -4838,7 +4910,7 @@
       }
       for (var q = 0; q < W * H; q++) if (!isNaN(D[q]) && !isNaN(Z[q])) Z[q] += D[q];
       // 5) plataformas: el terreno se acomoda a predios y edificios (bases planas a la cota de su acceso)
-      try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); } catch (e) { console.warn('Plataformas: se omiten', e); }
+      var __tP = performance.now(); window.__tiempos = window.__tiempos || {}; try { aplicarPlataformas(Z, W, H, Rm, mCalz, mVer); window.__tiempos.plataformas = Math.round(performance.now() - __tP); } catch (e) { console.warn('Plataformas: se omiten', e); }
       return { X: X, Y: Y, Z: Z, W: W, H: H };
     }
     // El terreno se rearma (MDT y predios ya en caché) al mostrar u ocultar el volumen normativo: las
@@ -4868,10 +4940,10 @@
         if (!isFinite(zmin)) return;
         var niveles = []; for (var L = Math.ceil(zmin); L <= Math.floor(zmax); L++) niveles.push(L);
         var interp = null;
-        try { interp = interpretarSuperficie(X, Y, Zs, W, H); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
-        curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles);
+        var __t0 = performance.now(); window.__tiempos = window.__tiempos || {}; try { interp = interpretarSuperficie(X, Y, Zs, W, H); window.__tiempos.superficie = Math.round(performance.now() - __t0); } catch (e) { console.warn('Curvas interpretadas: se usan las del MDT', e); }
+        var __t1 = performance.now(); curvasLamina = interp ? curvasDeGrilla(interp.X, interp.Y, interp.Z, interp.W, interp.H, niveles) : curvasDeGrilla(X, Y, Zs, W, H, niveles); window.__tiempos.curvas = Math.round(performance.now() - __t1);
         curvasInterpretadas = !!interp;
-        try { construirTerrazas(interp || { X: X, Y: Y, Z: Zs, W: W, H: H }, zmin, zmax); } catch (e) { console.warn('Terrazas: no se pudieron armar', e); }
+        var __t2 = performance.now(); try { construirTerrazas(interp || { X: X, Y: Y, Z: Zs, W: W, H: H }, zmin, zmax); window.__tiempos.terrazas = Math.round(performance.now() - __t2); } catch (e) { console.warn('Terrazas: no se pudieron armar', e); }
         cotaMinMaxLamina = [zmin, zmax];
         dibujarLamina(); solicitarRender();
       }).catch(function (e) { console.warn('Curvas de nivel: no se pudo leer el MDT', e); });
@@ -4886,7 +4958,9 @@
     var grupoTIN = new THREE.Group(); scene.add(grupoTIN);
     var modoTerreno = 'tin'; try { modoTerreno = localStorage.getItem('cotacero-terreno') || 'tin'; } catch (e) { }
     var reasentar = null;
+    var armarCapas = null;
     function aplicarModoTerreno() {
+      if (modoTerreno !== 'tin' && armarCapas) armarCapas();
       var hayTIN = grupoTIN.children.length > 0, tin = modoTerreno === 'tin' && hayTIN;
       grupoTIN.visible = tin; grupoTerrazas.visible = !tin;
       if (reasentar) reasentar();
@@ -4913,6 +4987,8 @@
       }
       function areaR(r) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return a / 2; }
       var niveles = []; for (var L = Lmin + 1; L <= Math.floor(hi); L++) niveles.push(L);
+      armarCapas = function () {
+      armarCapas = null;
       var porNivel = curvasDeGrilla(X2, Y2, Z2, W2, H2, niveles);
       porNivel.forEach(function (cn) {
         var anillos = cn.lineas.filter(function (r) { return r.length > 3; }).map(function (r) {
@@ -4953,6 +5029,8 @@
         var m = new THREE.Mesh(g, [matTerraza, matCanto]); m.castShadow = true; m.receiveShadow = true;
         grupoTerrazas.add(m);
       });
+      };
+      if (modoTerreno !== 'tin') armarCapas();
       // ---- terreno triangulado: malla de la grilla dentro del zócalo + faldón en los 4 bordes ----
       (function () {
         var ii = [], jj = [];
@@ -5254,7 +5332,8 @@
     // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
+    var esTactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, esTactil ? 1.5 : 2.5));
     renderer.setSize(w, h, false);
     // Mismo pipeline de color que la maqueta de referencia: salida sRGB, luces físicas, ACES y un
     // ambiente de estudio para los reflejos de la resina.
@@ -5310,7 +5389,7 @@
     dirLight.shadow.camera.bottom = -tamanoSombra;
     dirLight.shadow.camera.near = 0.1;
     dirLight.shadow.camera.far = Math.max(maxDim * 8, radioContexto * 6);
-    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.mapSize.set(esTactil ? 1024 : 2048, esTactil ? 1024 : 2048);
     dirLight.shadow.bias = -0.0004;
     dirLight.shadow.normalBias = 0.4;
     renderer.shadowMap.enabled = true;
