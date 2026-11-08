@@ -94,6 +94,8 @@
     -webkit-mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%);
     mask-image: radial-gradient(circle 140px at var(--mx, 50%) var(--my, 50%), #000 45%, transparent 100%); }
   .mapa-lupa.visible { opacity: 1; }
+  /* iPad/iPhone: sin el menú ni la lupa de texto del sistema al mantener el dedo sobre el mapa */
+  .mapa-ventana, .mapa-ventana * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .mapa-lupa .leaflet-container, .mapa-lupa.leaflet-container { background: transparent; }
   .lupa-predios { filter: brightness(0) invert(1); opacity: .85; }
   .capa-base-plano { filter: grayscale(1) contrast(1.25) brightness(1.02); }
@@ -991,8 +993,9 @@
     mapaLupa = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomAnimation: false, fadeAnimation: false, inertia: false, zoomSnap: 0 });
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'dahp_ortofotografia:canton_cuenca,dahp_ortofotografia:ortofoto_cuenca_2018,dgpt_ortofotos:dgpt_ortofotos', format: 'image/jpeg', version: '1.1.1', maxZoom: 21 }).addTo(mapaLupa);
     L.tileLayer.wms(IDE_CUENCA_WMS, { layers: 'ide:catastros_predios', format: 'image/png', transparent: true, version: '1.1.1', maxZoom: 21, className: 'lupa-predios' }).addTo(mapaLupa);
-    function sincronizar() { mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
-    mapa.on('move zoom resize', sincronizar);
+    function sincronizar() { if (mapa.getZoom() >= 16 || el.classList.contains('visible')) mapaLupa.setView(mapa.getCenter(), mapa.getZoom(), { animate: false }); }
+    mapa.on('moveend zoomend resize', sincronizar);
+    mapa.on('move', function () { if (el.classList.contains('visible')) sincronizar(); });
     mapa.on('resize', function () { mapaLupa.invalidateSize(false); });
     sincronizar();
     var cont = mapa.getContainer();
@@ -1011,7 +1014,7 @@
       el.style.setProperty('--mx', (t.clientX - r.left) + 'px'); el.style.setProperty('--my', (t.clientY - r.top - 70) + 'px');
     }
     cont.addEventListener('touchstart', function (ev) {
-      if (ev.touches.length !== 1 || modoDibujo) return;
+      if (ev.touches.length !== 1 || modoDibujo || mapa.getZoom() < 16) return;
       var t = ev.touches[0]; x0 = t.clientX; y0 = t.clientY;
       clearTimeout(tLupa);
       tLupa = setTimeout(function () {
@@ -4886,7 +4889,9 @@
     var grupoTIN = new THREE.Group(); scene.add(grupoTIN);
     var modoTerreno = 'tin'; try { modoTerreno = localStorage.getItem('cotacero-terreno') || 'tin'; } catch (e) { }
     var reasentar = null;
+    var armarCapas = null;
     function aplicarModoTerreno() {
+      if (modoTerreno !== 'tin' && armarCapas) armarCapas();
       var hayTIN = grupoTIN.children.length > 0, tin = modoTerreno === 'tin' && hayTIN;
       grupoTIN.visible = tin; grupoTerrazas.visible = !tin;
       if (reasentar) reasentar();
@@ -4913,6 +4918,8 @@
       }
       function areaR(r) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return a / 2; }
       var niveles = []; for (var L = Lmin + 1; L <= Math.floor(hi); L++) niveles.push(L);
+      armarCapas = function () {
+      armarCapas = null;
       var porNivel = curvasDeGrilla(X2, Y2, Z2, W2, H2, niveles);
       porNivel.forEach(function (cn) {
         var anillos = cn.lineas.filter(function (r) { return r.length > 3; }).map(function (r) {
@@ -4953,6 +4960,8 @@
         var m = new THREE.Mesh(g, [matTerraza, matCanto]); m.castShadow = true; m.receiveShadow = true;
         grupoTerrazas.add(m);
       });
+      };
+      if (modoTerreno !== 'tin') armarCapas();
       // ---- terreno triangulado: malla de la grilla dentro del zócalo + faldón en los 4 bordes ----
       (function () {
         var ii = [], jj = [];
@@ -5254,7 +5263,8 @@
     // Sin esto el buffer de dibujo queda a 1 píxel físico por píxel CSS — en una pantalla Retina (2x)
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
+    var esTactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, esTactil ? 1.5 : 2.5));
     renderer.setSize(w, h, false);
     // Mismo pipeline de color que la maqueta de referencia: salida sRGB, luces físicas, ACES y un
     // ambiente de estudio para los reflejos de la resina.
@@ -5310,7 +5320,7 @@
     dirLight.shadow.camera.bottom = -tamanoSombra;
     dirLight.shadow.camera.near = 0.1;
     dirLight.shadow.camera.far = Math.max(maxDim * 8, radioContexto * 6);
-    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.mapSize.set(esTactil ? 1024 : 2048, esTactil ? 1024 : 2048);
     dirLight.shadow.bias = -0.0004;
     dirLight.shadow.normalBias = 0.4;
     renderer.shadowMap.enabled = true;
