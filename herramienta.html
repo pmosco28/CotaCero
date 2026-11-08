@@ -4054,7 +4054,8 @@
         return { dentro: dentro, borde: borde };
       }
       function xy(k) { return [(k % W) + 0.5 - Rm, Rm - (Math.floor(k / W) + 0.5)]; }
-      function plataforma(ring, maxArea) {
+      var borde = new Uint8Array(W * H); // zona tocada por plataformas (para el suavizado final)
+      function plataforma(ring, maxArea, esPredio) {
         if (!ring || ring.length < 3) return;
         var A = 0; for (var i = 0; i < ring.length; i++) { var a = ring[i], b = ring[(i + 1) % ring.length]; A += a[0] * b[1] - b[0] * a[1]; }
         A = Math.abs(A) / 2; if (A < 6 || A > maxArea) return;
@@ -4069,7 +4070,12 @@
         function tDe(k) { var p = xy(k); return (p[0] - mx) * ux + (p[1] - my) * uy; }
         var tmin = Infinity, tmax = -Infinity; r.dentro.forEach(function (k) { var t = tDe(k); tmin = Math.min(tmin, t); tmax = Math.max(tmax, t); });
         var largo = Math.max(1e-6, tmax - tmin), caida = g * largo;
-        var nb = caida < 1.5 ? 1 : caida < 4.5 ? 2 : 3; nb = Math.max(1, Math.min(nb, Math.floor(largo / 4)));
+        var nb0 = caida < 1.5 ? 1 : caida < 4.5 ? 2 : 3, nbMax = Math.max(1, Math.min(esPredio ? 10 : 4, Math.floor(largo / 4)));
+        nb0 = Math.max(1, Math.min(nb0, nbMax));
+        for (var nb = nb0; nb <= nbMax; nb++) { var res = probar(nb); if (res.ok) return aplicar(res, nb); }
+        estadisticaPlataformas.push({ area: Math.round(A), omitido: 'movimiento', caida: +caida.toFixed(1) });
+        return;
+        function probar(nb) {
         function banda(t) { return Math.max(0, Math.min(nb - 1, Math.floor((t - tmin) / largo * nb))); }
         var plano = [], accS = [], accN = [];
         for (var bI = 0; bI < nb; bI++) { plano.push(mz + g * (tmin + (bI + 0.5) * largo / nb)); accS.push(0); accN.push(0); }
@@ -4085,14 +4091,29 @@
         });
         var movimiento = 0, cnt = 0;
         r.dentro.forEach(function (k) { if (isNaN(Z[k])) return; movimiento += Math.abs(nivel[banda(tDe(k))] - Z[k]); cnt++; });
-        if (!cnt || movimiento / cnt > 3) return;
-        r.dentro.forEach(function (k) { if (!isNaN(Z[k])) Z[k] = nivel[banda(tDe(k))]; });
-        estadisticaPlataformas.push({ area: Math.round(A), bandas: nb, accesos: conAcceso.length });
+        return { ok: cnt && movimiento / cnt <= 2, nivel: nivel, banda: banda, accesos: conAcceso.length };
+        }
+        function aplicar(res, nb) {
+          r.dentro.forEach(function (k) { if (!isNaN(Z[k])) { Z[k] = res.nivel[res.banda(tDe(k))]; borde[k] = 1; } });
+          r.borde.forEach(function (k) { borde[k] = 1; });
+          estadisticaPlataformas.push({ area: Math.round(A), bandas: nb, accesos: res.accesos });
+        }
       }
       estadisticaPlataformas = [];
       // primero los predios (incluido el lote), luego los edificios encima
-      prediosM.concat(estado.pts ? [estado.pts] : []).forEach(function (rg) { plataforma(rg, 2000); });
-      (huellasEdificios || []).concat((estado.edificacionesLote || []).map(function (e) { return e.pts; })).forEach(function (rg) { plataforma(rg, 5000); });
+      prediosM.concat(estado.pts ? [estado.pts] : []).forEach(function (rg) { plataforma(rg, 3000, true); });
+      (huellasEdificios || []).concat((estado.edificacionesLote || []).map(function (e) { return e.pts; })).forEach(function (rg) { plataforma(rg, 5000, false); });
+      // dientes de sierra: los saltos siguen el raster de 1 m. Un suavizado 3×3 solo donde hay salto
+      // (dos pasadas) convierte la escalera de píxeles en un muro con talud corto, y las curvas salen lisas
+      for (var pas = 0; pas < 2; pas++) {
+        var Zc = Z.slice();
+        for (var j = 1; j < H - 1; j++) for (var i = 1; i < W - 1; i++) {
+          var k3 = j * W + i; if (!borde[k3] || isNaN(Zc[k3]) || esCalle[k3]) continue;
+          var mx3 = -Infinity, mn3 = Infinity, sm = 0, c3 = 0;
+          for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) { var v3 = Zc[k3 + dj * W + di]; if (isNaN(v3)) continue; sm += v3; c3++; mx3 = Math.max(mx3, v3); mn3 = Math.min(mn3, v3); }
+          if (mx3 - mn3 > 0.05) Z[k3] = sm / c3;
+        }
+      }
       if (/debug=lamina/.test(location.search)) window.__plataformas = estadisticaPlataformas;
     }
     var estadisticaPlataformas = [];
