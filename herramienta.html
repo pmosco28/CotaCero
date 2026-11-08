@@ -2585,7 +2585,7 @@
   //     El patio nuevo pasa a ser fachada con luz y se recalcula.
   // PROF_LUZ_M (6 m desde la ventana) es criterio de diseño, no un artículo: la norma fija tamaño de
   // patio y % de ventana (15 % del piso), no la profundidad de los locales. Ajustable.
-  var PROF_LUZ_M = 6;
+  var PROF_LUZ_M = 6, PATIO_MAX_M = 9;
   function ladoMinimoPatio(pisos) {
     var altura = pisos * 3;
     var areaMin = pisos <= 1 ? 9 : (pisos === 2 ? 12 : 15);
@@ -2624,7 +2624,7 @@
     }
     var cosA = Math.cos(estado.anguloRef || 0), sinA = Math.sin(estado.anguloRef || 0);
     var patios = [], intentos = 0;
-    for (var it = 0; it < 6; it++) {
+    for (var it = 0; it < 10; it++) {
       var peor = null, dPeor = PROF_LUZ_M;
       celdas.forEach(function (c) {
         if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return;
@@ -2644,7 +2644,9 @@
       var vs = oscuras.map(function (c) { return -(c[0] - peor[0]) * sinA + (c[1] - peor[1]) * cosA; });
       var u0 = Math.min.apply(null, us.concat([0])), u1 = Math.max.apply(null, us.concat([0]));
       var v0 = Math.min.apply(null, vs.concat([0])), v1 = Math.max.apply(null, vs.concat([0]));
-      var au = Math.max(lado, (u1 - u0) - 2 * PROF_LUZ_M + 2 * paso), av = Math.max(lado, (v1 - v0) - 2 * PROF_LUZ_M + 2 * paso);
+      // tope de 9 m por lado: en plantas muy profundas conviene una secuencia de patios medianos
+      // (crujías de ~12 m entre ellos) y no uno enorme que se coma la planta
+      var au = Math.min(PATIO_MAX_M, Math.max(lado, (u1 - u0) - 2 * PROF_LUZ_M + 2 * paso)), av = Math.min(PATIO_MAX_M, Math.max(lado, (v1 - v0) - 2 * PROF_LUZ_M + 2 * paso));
       var cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
       function rect(cu_, cv_, au_, av_) {
         return [[-au_ / 2, -av_ / 2], [au_ / 2, -av_ / 2], [au_ / 2, av_ / 2], [-au_ / 2, av_ / 2]].map(function (q) {
