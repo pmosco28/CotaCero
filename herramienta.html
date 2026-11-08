@@ -2879,6 +2879,17 @@
         if (patios.some(function (pt) { return puntoDentroDePoligono(c, pt); })) return false;
         return distLuz(c, patios) > PROF_LUZ_M;
       });
+      // orientación LOCAL: el patio se alinea con el muro más cercano de su propia ala (en plantas en L
+      // o giradas, alinearlo al ángulo general del lote lo dejaba torcido respecto de sus muros)
+      (function () {
+        var dm = Infinity, ang = estado.anguloRef || 0;
+        for (var e = 0; e < n; e++) {
+          var pa = puntosEnvolvente[e], pb = puntosEnvolvente[(e + 1) % n];
+          if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) < 2) continue;
+          var de = distPuntoSegmento(peor, pa, pb); if (de < dm) { dm = de; ang = Math.atan2(pb[1] - pa[1], pb[0] - pa[0]); }
+        }
+        cosA = Math.cos(ang); sinA = Math.sin(ang);
+      })();
       var us = oscuras.map(function (c) { return (c[0] - peor[0]) * cosA + (c[1] - peor[1]) * sinA; });
       var vs = oscuras.map(function (c) { return -(c[0] - peor[0]) * sinA + (c[1] - peor[1]) * cosA; });
       var u0 = Math.min.apply(null, us.concat([0])), u1 = Math.max.apply(null, us.concat([0]));
