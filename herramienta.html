@@ -122,15 +122,16 @@
   .maq-panel summary { cursor: pointer; font-size: 0.7rem; letter-spacing: .1em; text-transform: uppercase; color: #6c6a64; }
   .maq-panel details .maq-colores { margin: 8px 0; }
   @media (max-width: 640px) { .maq-panel { top: auto; bottom: 12px; } }
+  .reporte-pdf .aviso-legal { background: none !important; border: 1px solid #d9d5cc; border-radius: 6px; }
   .reporte-pdf.ficha-gratis .ficha-datos { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 0.86rem; }
   .reporte-pdf.ficha-gratis .ficha-datos td { padding: 5px 0; border-bottom: 1px solid #e3e0d9; }
   .reporte-pdf.ficha-gratis .ficha-datos td:first-child { color: #6d6a63; width: 45%; }
-  .reporte-pdf.ficha-gratis .ficha-img { width: 100%; max-height: 92mm; object-fit: cover; border-radius: 4px; margin: 8px 0; }
+  .reporte-pdf.ficha-gratis .ficha-img { width: 100%; max-height: 92mm; object-fit: cover; margin: 8px 0; }
   .reporte-pdf.ficha-gratis .ficha-cta { display: flex; gap: 14px; align-items: center; border: 2px solid #b0532f; border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
   .reporte-pdf.ficha-gratis .ficha-cta-txt { flex: 1; }
   .reporte-pdf.ficha-gratis .ficha-cta-tit { font-weight: 700; font-size: 1.05rem; }
   .reporte-pdf.ficha-gratis .ficha-cta-sub { font-size: 0.82rem; color: #4a4741; margin: 2px 0 8px; }
-  .reporte-pdf.ficha-gratis .ficha-cta-btn { display: inline-block; background: #b0532f; color: #fff !important; text-decoration: none; font-weight: 700; padding: 8px 14px; border-radius: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .reporte-pdf.ficha-gratis .ficha-cta-btn { display: inline-block; background: none; border: 1.5px solid #b0532f; color: #b0532f !important; text-decoration: none; font-weight: 700; padding: 7px 14px; border-radius: 6px; }
   .reporte-pdf.ficha-gratis .ficha-cta-url { font-size: 0.62rem; color: #6d6a63; margin-top: 6px; word-break: break-all; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr { width: 30mm; text-align: center; font-size: 0.65rem; color: #6d6a63; }
   .reporte-pdf.ficha-gratis .ficha-cta-qr svg { width: 30mm; height: 30mm; }
@@ -4531,6 +4532,34 @@
       return '';
     }
   }
+  // Para imprimir: la captura se pasa a una versión clara — fondo blanco y tonos levantados (las
+  // sombras quedan como gris suave, no manchas oscuras que gastan tinta).
+  function aclararParaPapel(dataUrl) {
+    return new Promise(function (resolve) {
+      if (!dataUrl) return resolve(dataUrl);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+          var x = c.getContext('2d');
+          x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+          x.drawImage(img, 0, 0);
+          var im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+          for (var i = 0; i < d.length; i += 4) {
+            for (var k = 0; k < 3; k++) {
+              var v = d[i + k] / 255;
+              v = 1 - (1 - v) * 0.55;          // levanta los oscuros
+              d[i + k] = Math.round(255 * Math.pow(v, 0.9));
+            }
+          }
+          x.putImageData(im, 0, 0);
+          resolve(c.toDataURL('image/jpeg', 0.92));
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
   function capturarImagen3D() {
     if (!ultimoRender3D) return '';
     // el informe trata de lo que permite la normativa: se captura siempre con el volumen visible
@@ -5077,8 +5106,11 @@
   // Ficha rápida GRATIS: una página, instantánea, sin código. Lleva un botón (enlace) y un QR que
   // abren esta misma herramienta con el predio y el producto ya cargados.
   function generarFichaGratis(estado, areaM2) {
+    var cap = ''; try { cap = capturarImagen3D(); } catch (e) { }
+    aclararParaPapel(cap).then(function (clara) { generarFichaGratisCon(estado, areaM2, clara); });
+  }
+  function generarFichaGratisCon(estado, areaM2, imgSrc) {
     var restringido = !!estado.restriccionVolumen;
-    var imgSrc = ''; try { imgSrc = capturarImagen3D(); } catch (e) { }
     var fechaHoy = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
     var sug = productoSugerido(estado);
     var url = urlProductoPredio(estado, sug ? sug.id : null);
@@ -5134,8 +5166,11 @@
   }
 
   function generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto) {
-    var imgSrc = '';
-    try { imgSrc = capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló capturarImagen3D', e); }
+    var cap = '';
+    try { cap = capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló capturarImagen3D', e); }
+    aclararParaPapel(cap).then(function (clara) { generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, clara); });
+  }
+  function generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, imgSrc) {
     // El plano de ubicación cruza geometría real (manzana/vecinos/vías) contra un recorte de círculo —
     // más superficie para un caso raro de digitalización (un anillo degenerado, p.ej.) que tumbe todo
     // el informe por un solo predio. Igual que arriba: si falla, el informe sigue sin esa sección en vez
