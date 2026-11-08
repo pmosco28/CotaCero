@@ -111,6 +111,7 @@
     background: radial-gradient(120% 90% at 50% 35%, #eceded 0%, #d9dad8 70%);
     cursor: grab; display: block;
   }
+  @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
   .maq-panel { position: absolute; top: 12px; right: 12px; z-index: 5; width: min(250px, calc(100% - 24px)); background: rgba(250,249,246,.93); border: 1px solid #c9c6bf; border-radius: 6px; padding: 10px 12px; display: grid; gap: 8px; font-size: 0.82rem; color: #2b2a27; box-shadow: 0 6px 24px rgba(40,38,34,.08); }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
@@ -275,7 +276,7 @@
   .result-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
   .result-head .clave { font-size: 0.78rem; color: var(--ink-soft); }
   .result-head .clave span { color: var(--ink); font-weight: 500; }
-  .badge { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--terracotta-dark); white-space: nowrap; }
+  .badge { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
 
   .stat-row { display: flex; gap: 32px; }
   .stat .label { font-size: 0.7rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
