@@ -1345,10 +1345,17 @@
     }
     var lista = Object.keys(grupos).map(function (k) { var g = grupos[k], n = Math.hypot(g.nx, g.ny) || 1; return { L: g.L, mid: [g.mx / g.L, g.my / g.L], n: [g.nx / n, g.ny / n] }; }).sort(function (x, y) { return y.L - x.L; });
     if (lista.length < 2) return null;
-    var f1 = lista[0], f2 = lista[1];
-    if (f1.n[0] * f2.n[0] + f1.n[1] * f2.n[1] > -0.5) return null; // esquinero, no pasante
+    // el par de frentes más opuesto (no solo los dos más largos: un lote unido o en L puede tener un
+    // tercer frente corto de esquina); ignora tramos de frente de menos de 4 m
+    var f1 = null, f2 = null, mejor = -Infinity;
+    for (var a1 = 0; a1 < lista.length; a1++) for (var b1 = a1 + 1; b1 < lista.length; b1++) {
+      var A = lista[a1], B = lista[b1]; if (A.L < 4 || B.L < 4) continue;
+      var dot = A.n[0] * B.n[0] + A.n[1] * B.n[1]; if (dot > -0.3) continue; // esquinero, no pasante
+      var dd = Math.hypot(B.mid[0] - A.mid[0], B.mid[1] - A.mid[1]); if (dd < 16) continue; // muy poco fondo
+      var sc = -dot * Math.min(A.L, B.L); if (sc > mejor) { mejor = sc; f1 = A; f2 = B; }
+    }
+    if (!f1) return null;
     var dx = f2.mid[0] - f1.mid[0], dy = f2.mid[1] - f1.mid[1], d = Math.hypot(dx, dy);
-    if (d < 16) return null; // muy poco fondo para dos bloques
     return { M: [(f1.mid[0] + f2.mid[0]) / 2, (f1.mid[1] + f2.mid[1]) / 2], u: [dx / d, dy / d], frentes: [f1, f2] };
   }
   // Sutherland–Hodgman contra el semiplano signo·((p − M)·u) ≤ 0 (signo 1 = lado del frente 1)
