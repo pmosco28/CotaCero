@@ -4829,7 +4829,14 @@
         return tramosPuente.some(function (t) { var a = t[0], b = t[1], abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby, u = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / L2)) : 0; return Math.hypot(p[0] - a[0] - abx * u, p[1] - a[1] - aby * u) <= t[2]; });
       }
       // 1) rasantes por vía
-      var vias = viasSnapeadas.filter(function (v) { return esVehicular(v) && v.pts.length >= 2; }).map(function (v) {
+      // Camineras (footway, path, pedestrian, steps…): misma lógica de rasante, pero su perfil se
+      // suaviza en un tramo más corto (±4 m en vez de ±10 m) porque admiten más pendiente, y su
+      // franja es su propio ancho, sin vereda ni bordillo.
+      var ANCHO_PEATONAL = { FOOTWAY: 2.5, PATH: 2, PEDESTRIAN: 5, STEPS: 3, TRACK: 3.5, BRIDLEWAY: 2, CYCLEWAY: 2.5, CORRIDOR: 2 };
+      function anchoCaminera(v) { return ANCHO_PEATONAL[tipoNormDeVia(v)] || 2.5; }
+      var camineras = viasSnapeadas.filter(function (v) { return !esVehicular(v) && v.pts.length >= 2; });
+      var vias = viasSnapeadas.filter(function (v) { return v.pts.length >= 2; }).map(function (v) {
+        var ped = !esVehicular(v), ventana = ped ? 2 : 5;
         var mues = [], acc = 0;
         for (var i = 0; i < v.pts.length - 1; i++) {
           var a = v.pts[i], b = v.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 2));
@@ -4838,9 +4845,9 @@
         }
         mues.push({ s: acc, p: v.pts[v.pts.length - 1] });
         var z = mues.map(function (m) { return enPuente(m.p) ? NaN : zMDT(m.p[0], m.p[1]); });
-        var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - 5); k <= Math.min(z.length - 1, i + 5); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
-        var rf = refDeVia(v);
-        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: rf.calzada / 2 + rf.vereda + 2 };
+        var zs = z.map(function (_, i) { var sum = 0, n = 0; for (var k = Math.max(0, i - ventana); k <= Math.min(z.length - 1, i + ventana); k++) if (!isNaN(z[k])) { sum += z[k]; n++; } return n ? sum / n : NaN; });
+        var rf = ped ? null : refDeVia(v);
+        return { pts: v.pts, largoTotal: acc, s: mues.map(function (m) { return m.s; }), z: zs, alcance: ped ? anchoCaminera(v) / 2 + 1 : rf.calzada / 2 + rf.vereda + 2 };
       });
       if (!vias.length) return null;
       // índice espacial de segmentos (celdas del tamaño del alcance máximo): el resultado es idéntico a
@@ -4880,6 +4887,10 @@
       function camino(ctx, f) { anillosDe(f).forEach(function (r) { r.forEach(function (p, i) { var u = p[0] + Rm, v = Rm - p[1]; if (i) ctx.lineTo(u, v); else ctx.moveTo(u, v); }); ctx.closePath(); }); }
       function mascara(dibujar) { cx.clearRect(0, 0, N, N); cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; dibujar(); return cx.getImageData(0, 0, N, N).data; }
       var mCalz = mascara(function () { if (calzadaUnion) { cx.beginPath(); camino(cx, calzadaUnion); cx.fill('evenodd'); } });
+      var mCam = mascara(function () {
+        cx.strokeStyle = '#000'; cx.lineCap = 'round'; cx.lineJoin = 'round';
+        camineras.forEach(function (v) { cx.lineWidth = anchoCaminera(v); cx.beginPath(); v.pts.forEach(function (p, i) { var u = p[0] + Rm, w = Rm - p[1]; if (i) cx.lineTo(u, w); else cx.moveTo(u, w); }); cx.stroke(); });
+      });
       var mVer = mascara(function () {
         Object.keys(veredasPorAncho).forEach(function (k) { if (veredasPorAncho[k]) { cx.beginPath(); camino(cx, veredasPorAncho[k]); cx.fill('nonzero'); } });
         cx.globalCompositeOperation = 'destination-out';
@@ -4891,7 +4902,7 @@
         var k = j * W + i, x = i + 0.5 - Rm, y = Rm - (j + 0.5);
         X[k] = x; Y[k] = y;
         var zt = zMDT(x, y); Z[k] = zt;
-        var esC = mCalz[k * 4 + 3] > 128, esV = !esC && mVer[k * 4 + 3] > 128;
+        var esC = mCalz[k * 4 + 3] > 128 || mCam[k * 4 + 3] > 128, esV = !esC && mVer[k * 4 + 3] > 128;
         if ((esC || esV) && !isNaN(zt)) {
           var zr = rasante([x, y]);
           if (!isNaN(zr)) { var dd = (zr + (esV ? 0.2 : 0)) - zt; if (Math.abs(dd) <= 3) D[k] = dd; }
