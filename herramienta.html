@@ -412,6 +412,11 @@
   table.determ th, table.determ td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
   table.determ th { color: var(--ink-soft); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
   table.determ tr.tier-chosen td { font-weight: 600; color: var(--terracotta-dark); }
+  table.determ tr.tier-no td { color: #B5B1A8; }
+  details.notas-pit { margin-top: 8px; font-size: 0.78rem; color: var(--ink-soft); }
+  details.notas-pit summary { cursor: pointer; font-weight: 400; color: var(--ink); }
+  details.notas-pit ul { margin: 6px 0 0; padding-left: 18px; text-align: justify; }
+  details.notas-pit li { margin-bottom: 4px; line-height: 1.4; }
 
   .vol-caption { font-size: 0.72rem; color: var(--ink-soft); }
   .vol-controls { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.78rem; color: var(--ink-soft); }
@@ -865,6 +870,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="datos/fichas_pit.js"></script>
 <script>
 (function () {
   // Responsable del tratamiento según la LOPDP (Ley Orgánica de Protección de Datos Personales de
@@ -901,7 +907,11 @@
   // busca qué fila de la tabla corresponde al conteo de pisos actual, para recalcular retiros en vivo
   // cuando el usuario mueve el slider.
   function rangoPisos(nivel) {
-    var m = nivel.altura.match(/(\d+)(?:\s*a\s*(\d+))?\s*pisos?/);
+    var txt = String(nivel.altura || '');
+    var m = txt.match(/(\d+)(?:\s*a\s*(\d+))?\s*pisos?/);
+    // alturas en metros ("20 m.", fichas industriales): se pasan a pisos de 3 m
+    var mm = !m && txt.match(/(\d+(?:[.,]\d+)?)\s*m\b/);
+    if (mm) return [1, Math.max(1, Math.floor(parseFloat(mm[1].replace(',', '.')) / 3))];
     if (!m) return [1, 1];
     var lo = parseInt(m[1], 10), hi = m[2] ? parseInt(m[2], 10) : lo;
     return [lo, hi];
@@ -920,23 +930,58 @@
       { altura: '1 a 4 pisos', lote_min: 300, frente_min: 12, implantacion: 'Aislada con retiros (PPEAHP)', rf: 3, rl: 3, rp: 3, densidad_viv_ha: '320 (ref.)' }
     ]
   };
-  function determinantesActivos() { return regimenAreaHistorica ? NORMATIVA_AREA_HISTORICA.determinantes : NORMATIVA_REFERENCIA.determinantes; }
+  // Fichas reales de PIT del PUGS 2025 (Anexo 6.3, suelo urbano). Cada fila: [altura, lote mín m²,
+  // frente mín m, densidad viv/ha, implantación, retiro frontal, lateral, posterior, sección mínima
+  // de vía, IE básico]. Leídas de las tablas de cada ficha y revisadas a ojo contra la imagen de la
+  // página (el texto del PDF viene de un escaneo y se come celdas). Clave = código normalizado
+  // (O→0, I/L→1) porque el código del WFS y el del PDF no siempre coinciden letra a letra.
+  var FICHAS_PIT = window.FICHAS_PIT || {}; // datos/fichas_pit.js
+  function normPit(c) { return String(c || '').toUpperCase().replace(/\s+/g, '').replace(/O/g, '0').replace(/[IL]/g, '1'); }
+  function fichaDePit(cod) {
+    var f = FICHAS_PIT[normPit(cod)];
+    if (!f) return null;
+    var n = function (v) { var x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : null; };
+    // fila válida = trae al menos el retiro frontal (algunas fichas no fijan lote mínimo: "-")
+    var det = f.d.filter(function (r) { return n(r[5]) != null; }).map(function (r) {
+      return { altura: r[0], lote_min: n(r[1]) || 0, frente_min: n(r[2]), densidad_viv_ha: r[3], implantacion: r[4], rf: n(r[5]) || 0, rl: n(r[6]) || 0, rp: n(r[7]) || 0, seccion_via: n(r[8]), ie: n(r[9]) };
+    });
+    return { codigo: f.c, sector: f.s, pagina: f.p, notas: f.n || [], adosaPB: !!f.ad, obligatorioPB: !!f.ob, cos: f.cos || null, determinantes: det };
+  }
+  var fichaPITActual = null; // la del predio cargado, si el Anexo 6.3 trae tabla numérica para su PIT
+  var frenteLoteActual = 0;  // frente principal del predio (m), para el "frente mínimo" de cada fila
+  function determinantesActivos() {
+    if (regimenAreaHistorica) return NORMATIVA_AREA_HISTORICA.determinantes;
+    if (fichaPITActual && fichaPITActual.determinantes.length) return fichaPITActual.determinantes;
+    return NORMATIVA_REFERENCIA.determinantes;
+  }
+  // Una fila aplica al lote si cumple el lote mínimo y, cuando conocemos el frente, el frente mínimo
+  // (con 5% de tolerancia: el frente sale del catastro, no de un levantamiento).
+  function filaAplica(n, areaM2) {
+    if (areaM2 < (n.lote_min || 0)) return false;
+    if (frenteLoteActual > 0 && n.frente_min && frenteLoteActual < n.frente_min * 0.95) return false;
+    return true;
+  }
   function maxPisosDisponibles(areaM2) {
     var max = 1;
     determinantesActivos().forEach(function (n) {
-      if (areaM2 >= n.lote_min) { var r = rangoPisos(n); if (r[1] > max) max = r[1]; }
+      if (filaAplica(n, areaM2)) { var r = rangoPisos(n); if (r[1] > max) max = r[1]; }
     });
     return max;
   }
+  // Fila de la tabla para un número de pisos. Si varias filas cubren esa altura (fichas industriales:
+  // misma altura y la implantación cambia con el tamaño del lote) gana la de mayor lote mínimo que
+  // el predio cumple.
   function nivelParaPisos(pisos) {
     var niveles = determinantesActivos();
+    var area = (typeof areaLoteActual === 'number' && areaLoteActual > 0) ? areaLoteActual : Infinity;
     var elegido = niveles[0];
     for (var i = 0; i < niveles.length; i++) {
       var r = rangoPisos(niveles[i]);
-      if (pisos >= r[0]) elegido = niveles[i];
+      if (pisos >= r[0] && (i === 0 || filaAplica(niveles[i], area))) elegido = niveles[i];
     }
     return elegido;
   }
+  var areaLoteActual = 0;
   // Tope REAL de pisos para ESTE lote — maxPisosDisponibles(areaM2) solo mira el lote mínimo por
   // tabla, pero en un lote angosto/irregular el retiro lateral/posterior (que crece con la altura,
   // ver NORMATIVA_REFERENCIA) puede comerse toda la huella de planta alta antes de llegar al piso que
@@ -1673,6 +1718,17 @@
       if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { var t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
     }
     return out.length >= 3 ? out : [];
+  }
+  // Frente principal del lote: el grupo de lados "frente" (contiguos sobre una misma vía) más largo.
+  function frentePrincipal(estado) {
+    var L = {};
+    for (var i = 0; i < (estado.nLados || 0); i++) {
+      if (estado.tipoLado[i] !== 'frente') continue;
+      var g = estado.numeroFrente[i] || 1, a = estado.pts[i], b = estado.pts[(i + 1) % estado.nLados];
+      L[g] = (L[g] || 0) + Math.hypot(b[0] - a[0], b[1] - a[1]);
+    }
+    var m = 0; Object.keys(L).forEach(function (k) { if (L[k] > m) m = L[k]; });
+    return m;
   }
   function areaPoligonoM(r) { var a = 0; for (var i = 0; i < r.length; i++) { var p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
   function calcularDivision(estado) {
@@ -3491,10 +3547,22 @@
     // consulta del PIT falla.
     var pitOficial = (estado.usoSuelo && estado.usoSuelo.codPit) ? String(estado.usoSuelo.codPit).toUpperCase() : '';
     if (pitOficial) esCentroHistorico = /^CH/.test(pitOficial);
-    var esAreaHistorica = !esCentroHistorico && /^AHP/.test(pitOficial);
+    // AH-* (áreas históricas: AH-1, AH-2, AH-LOJA) y AHP-* (patrimoniales, El Ejido): sus fichas del
+    // Anexo 6.3 no traen números, remiten a la Ordenanza de Áreas Históricas y Patrimoniales.
+    var esAreaHistorica = !esCentroHistorico && /^AH/.test(pitOficial);
     estado.pitOficial = pitOficial;
     estado.esAreaHistorica = esAreaHistorica;
     regimenAreaHistorica = esAreaHistorica;
+    fichaPITActual = (pitOficial && !esCentroHistorico && !esAreaHistorica) ? fichaDePit(pitOficial) : null;
+    if (fichaPITActual && !fichaPITActual.determinantes.length) {
+      // PIT urbano cuya ficha no fija determinantes (franjas con susceptibilidad alta a remoción de
+      // masas o sin aptitud física constructiva, p. ej. UP-BAN-2): no hay volumen edificable.
+      if (!estado.restriccionVolumen) estado.restriccionVolumen = 'La ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + ') no asigna altura, lote mínimo ni retiros: es una zona sin aptitud constructiva o con susceptibilidad alta a remoción de masas. No se muestra volumen; cualquier intervención requiere estudios específicos y el IPRUS.';
+      fichaPITActual = null;
+    }
+    estado.fichaPIT = fichaPITActual;
+    areaLoteActual = areaM2;
+    frenteLoteActual = frentePrincipal(estado);
     estado.esCentroHistorico = esCentroHistorico;
 
     capaPredio.clearLayers();
@@ -3530,6 +3598,8 @@
         var lmE = parseFloat(estado.ejeIPRUS.loteMin);
         maxPisosPorArea = (!isFinite(lmE) || areaM2 >= lmE) ? estado.ejeIPRUS.pisos : Math.min(estado.ejeIPRUS.pisos, maxPisosPorArea);
         estado.fuenteAltura = 'Altura del eje ' + estado.ejeIPRUS.codigo + ' (' + estado.ejeIPRUS.nombre + '): ' + estado.ejeIPRUS.pisos + ' pisos' + (isFinite(lmE) ? ', lote mínimo ' + lmE + ' m²' : '') + '.';
+      } else if (fichaPITActual) {
+        estado.fuenteAltura = 'Altura según la ficha del PIT ' + fichaPITActual.codigo + ' (PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + '), por área' + (frenteLoteActual ? ' y frente' : '') + ' del lote.';
       } else if (/^UP-/i.test(pitOficial)) {
         maxPisosPorArea = Math.min(maxPisosPorArea, 3);
         estado.fuenteAltura = 'Zona ' + pitOficial + ': sin tabla verificada, se usa un tope conservador de 3 pisos. Confírmalo con el IPRUS.';
@@ -3547,6 +3617,11 @@
       // planta baja. `estado.retiros` (el de arriba) pasa a ser el de PLANTAS ALTAS únicamente.
       var nivelMinimo = determinantesActivos()[0];
       estado.retirosPB = { frente: nivelMinimo.rf, lateral: nivelMinimo.rl, posterior: nivelMinimo.rp };
+      // Notas de la ficha del PIT: "el retiro es obligatorio desde planta baja, se prohíbe el
+      // adosamiento" → la PB lleva los retiros del tramo elegido; "se permite el adosamiento en
+      // retiros laterales en planta baja" → PB lateral 0.
+      if (fichaPITActual && fichaPITActual.obligatorioPB) estado.retirosPB = null;
+      else if (fichaPITActual && fichaPITActual.adosaPB) estado.retirosPB.lateral = 0;
       estado.pisos = maxPisosLote;
     }
     estado.maxPisosLote = maxPisosLote;
@@ -3576,16 +3651,22 @@
       var nivelesRef = determinantesActivos();
       var tituloTabla = estado.esAreaHistorica
         ? 'Área histórica (Ordenanza 2024), valores referenciales'
-        : 'Tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
+        : fichaPITActual
+          ? 'Ficha oficial del PIT ' + fichaPITActual.codigo + ' (' + fichaPITActual.sector + ') · PUGS 2025, Anexo 6.3, p. ' + fichaPITActual.pagina + (frenteLoteActual ? ' · frente del lote ≈ ' + frenteLoteActual.toFixed(1) + ' m' : '')
+          : 'Tabla de referencia (PIT ' + NORMATIVA_REFERENCIA.pit + '), no la ficha oficial de la zona ' + (estado.pitOficial || 'de este predio');
       filasTablaHtml = '<div>' +
         '<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;">' + tituloTabla + '</div>' +
-        '<table class="determ"><thead><tr><th>Altura</th><th>Lote mín.</th><th>Implantación</th><th>Retiros F/L/P</th><th>Densidad</th></tr></thead><tbody>' +
-        nivelesRef.map(function (n) {
-          var r = rangoPisos(n);
-          return '<tr data-pisos-lo="' + r[0] + '" data-pisos-hi="' + r[1] + '" class="' + (n.rf === estado.retiros.frente && n.rl === estado.retiros.lateral && n.rp === estado.retiros.posterior ? 'tier-chosen' : '') + '">' +
-            '<td>' + n.altura + '</td><td>' + n.lote_min + ' m²</td><td>' + n.implantacion + '</td><td>' + n.rf + ' / ' + n.rl + ' / ' + n.rp + ' m</td><td>' + (n.densidad_viv_ha || '—') + ' viv/ha</td></tr>';
+        '<table class="determ"><thead><tr><th>Altura</th><th>Lote / frente mín.</th><th>Implantación</th><th>Retiros F/L/P</th><th>Densidad</th></tr></thead><tbody>' +
+        nivelesRef.map(function (n, iFila) {
+          var r = rangoPisos(n), cumple = filaAplica(n, areaM2);
+          return '<tr data-i="' + iFila + '" data-pisos-lo="' + r[0] + '" data-pisos-hi="' + r[1] + '" class="' + (n === elegido ? 'tier-chosen' : '') + (cumple ? '' : ' tier-no') + '"' + (cumple ? '' : ' title="El lote no alcanza el lote o frente mínimo de esta fila"') + '>' +
+            '<td>' + n.altura + '</td><td>' + n.lote_min + ' m²' + (n.frente_min ? ' · ' + n.frente_min + ' m' : '') + '</td><td>' + n.implantacion + '</td><td>' + n.rf + ' / ' + n.rl + ' / ' + n.rp + ' m</td><td>' + (n.densidad_viv_ha && n.densidad_viv_ha !== '-' ? n.densidad_viv_ha + ' viv/ha' : '—') + '</td></tr>';
 
-        }).join('') + '</tbody></table></div>';
+        }).join('') + '</tbody></table>' +
+        (fichaPITActual && fichaPITActual.notas.length
+          ? '<details class="notas-pit"><summary>Determinantes adicionales de la ficha ' + fichaPITActual.codigo + '</summary><ul>' +
+            fichaPITActual.notas.map(function (t) { return '<li>' + escaparSvg(t) + '</li>'; }).join('') + '</ul></details>'
+          : '') + '</div>';
     }
     // Nota del tope real de pisos — solo cuando el área del lote daría para más pisos de los que en
     // la práctica dejan los retiros (ver calcularMaxPisosReal). Incluye la referencia al IPRUS a
@@ -3688,7 +3769,8 @@
           estado.retiros = { frente: nivelActual.rf, lateral: nivelActual.rl, posterior: nivelActual.rp };
           document.querySelectorAll('table.determ tbody tr').forEach(function (tr) {
             var lo = parseInt(tr.getAttribute('data-pisos-lo'), 10), hi = parseInt(tr.getAttribute('data-pisos-hi'), 10);
-            tr.classList.toggle('tier-chosen', estado.pisos >= lo && estado.pisos <= hi);
+            var iN = determinantesActivos().indexOf(nivelActual);
+            tr.classList.toggle('tier-chosen', tr.hasAttribute('data-i') && iN >= 0 ? parseInt(tr.getAttribute('data-i'), 10) === iN : (estado.pisos >= lo && estado.pisos <= hi));
           });
         }
         mostrarVolumenNormativa = !estado.restriccionVolumen;
@@ -4128,12 +4210,16 @@
       var elC = document.getElementById('info-construccion'), elD = document.getElementById('info-densidad');
       if (elC) elC.textContent = Math.round(areaConstruida).toLocaleString('es-EC') + ' m² (bruto, ' + pisos + (pisos === 1 ? ' piso)' : ' pisos)');
       resumenNormativa = { m2: Math.round(areaConstruida), viv: null };
-      var nv0 = nivelParaPisos(pisos), dv0 = nv0 ? parseFloat(String(nv0.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
-      if (isFinite(dv0)) resumenNormativa.viv = Math.max(1, Math.floor(dv0 * areaAnillo(estado.pts) / 10000));
+      // "≥ N" / "Mayor o igual a N" en la ficha es un PISO de densidad (mínimo exigido), no un tope:
+      // en esos tramos el número de viviendas no está limitado por densidad.
+      var nv0 = nivelParaPisos(pisos), txt0 = nv0 ? String(nv0.densidad_viv_ha || '') : '', esPiso0 = /≥|mayor/i.test(txt0);
+      var dv0 = parseFloat(txt0.replace(/[^0-9.]/g, ''));
+      if (isFinite(dv0) && !esPiso0) resumenNormativa.viv = Math.max(1, Math.floor(dv0 * areaAnillo(estado.pts) / 10000));
       ultimoResumen = resumenNormativa;
       if (!elD) return;
-      var nivel = nivelParaPisos(pisos), dv = nivel ? parseFloat(String(nivel.densidad_viv_ha).replace(/[^0-9.]/g, '')) : NaN;
+      var nivel = nv0, dv = dv0;
       var areaLote = areaAnillo(estado.pts);
+      if (isFinite(dv) && esPiso0 && areaLote) { var vmin = Math.max(1, Math.ceil(dv * areaLote / 10000)); elD.textContent = 'mínimo ' + dv + ' viv/ha (al menos ' + vmin + ' vivienda' + (vmin === 1 ? '' : 's') + '), sin tope por densidad'; return; }
       if (!isFinite(dv) || !areaLote) { elD.textContent = 'sin dato de densidad para este PIT'; return; }
       var viv = Math.max(1, Math.floor(dv * areaLote / 10000));
       elD.textContent = dv + ' viv/ha → hasta ' + viv + ' vivienda' + (viv === 1 ? '' : 's') + ' (≈ ' + Math.round(areaConstruida / viv) + ' m² c/u)';
