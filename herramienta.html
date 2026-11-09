@@ -800,6 +800,12 @@
   /* ===== Tienda a pantalla completa ===== */
   html.tienda-abierta, html.tienda-abierta body { overflow: hidden; }
   .btn-tienda { border: 0; cursor: pointer; }
+  .btn-flot.btn-mensaje { right: 84px; width: 52px; height: 52px; padding: 0; justify-content: center; background: #fff; color: #1C1A16; border: 1.5px solid #1C1A16; }
+  .btn-flot.btn-ficha { right: 148px !important; }
+  @media (max-width: 640px) { .btn-flot.btn-mensaje { right: 76px; } .btn-flot.btn-ficha { right: 140px !important; } }
+  .msj-tipos { display: flex; flex-wrap: wrap; gap: 6px; } .msj-tipos button { font: 600 0.8rem 'Inter Tight', sans-serif; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(28,26,22,.25); background: #fff; color: #1C1A16; cursor: pointer; } .msj-tipos button.activo { background: #1C1A16; color: #f3f1ec; border-color: #1C1A16; }
+  .checkout-caja.msj textarea, .checkout-caja.msj input[type=text], .checkout-caja.msj input[type=email] { width: 100%; box-sizing: border-box; font: 400 0.9rem 'Inter Tight', sans-serif; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(28,26,22,.25); background: #fff; }
+  .checkout-caja.msj .campo-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; }
   .btn-tienda svg { width: 24px !important; height: 24px !important; }
   .btn-tienda .tn-badge { position: absolute; top: -3px; right: -3px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #B2502E; color: #fff; font: 700 0.7rem/20px 'Inter Tight', sans-serif; font-style: normal; text-align: center; }
   .btn-tienda .tn-badge[hidden] { display: none; }
@@ -1109,7 +1115,7 @@
 
 <footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
 
-<button type="button" class="btn-whatsapp btn-tienda" id="btn-tienda" aria-label="Servicios y pedidos" title="Servicios y pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg><i class="tn-badge" hidden></i></button>
+<button type="button" class="btn-flot btn-mensaje" id="btn-mensaje" aria-label="Escríbenos: errores, ideas o tu ciudad" title="Escríbenos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button type="button" class="btn-whatsapp btn-tienda" id="btn-tienda" aria-label="Servicios y pedidos" title="Servicios y pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg><i class="tn-badge" hidden></i></button>
 
 <div class="modal-overlay" id="modalPrivacidadOverlay" hidden>
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
@@ -5958,7 +5964,12 @@
       var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
       return polys.map(function (pc) { return pc[0].slice(0, -1); }).filter(function (r) { return r.length >= 3 && Math.abs(turf.area(turf.polygon([r.concat([r[0]])]))) > 0; });
     }
-    (estado.edificacionesContexto || []).forEach(function (ed) {
+    // Tope de altura del contexto: ningún edificio vecino pasa de lo que la normativa permite como
+    // máximo en este predio (datos con errores de pisos dibujaban "rascacielos" que no existen).
+    var pisosTope = Math.max(estado.maxPisosPorArea || 0, estado.maxPisosLote || 0);
+    var alturaTope = pisosTope > 0 ? pisosTope * 3 + 1.5 : 40;
+    (estado.edificacionesContexto || []).forEach(function (ed0) {
+      var ed = ed0.altura > alturaTope ? Object.assign({}, ed0, { altura: alturaTope, pisos: Math.min(ed0.pisos || 99, Math.round(alturaTope / 3)), recortado: true }) : ed0;
       try {
         recortarEdificio(ed.pts).forEach(function (ptsR) {
           var area = 0; for (var i = 0; i < ptsR.length; i++) { var a = ptsR[i], b = ptsR[(i + 1) % ptsR.length]; area += a[0] * b[1] - b[0] * a[1]; }
@@ -7849,7 +7860,9 @@
   // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
   var CONFIG_PAGO = { url: '' };
   var grupoPedidoAbierto = 'construir';
-  function productoPorId(id) { return (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0] || null; }
+  // Productos apagados desde la hoja Catalogo (columna activo = FALSE); la fila 'tienda' pausa todo.
+  var PRODUCTOS_DESACTIVADOS = {};
+  function productoPorId(id) { if (PRODUCTOS_DESACTIVADOS[id]) return null; return (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0] || null; }
   function aNum(v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : NaN; }
   function precioNumero(id) { var n = aNum((productoPorId(id) || {}).precioBase); return n > 0 ? n : 0; }
   function variantesDe(id) { return (TIENDA_INFO[id] && TIENDA_INFO[id].variantes) || null; }
@@ -8205,6 +8218,11 @@
     t = document.createElement('div'); t.id = 'tienda'; t.className = 'tienda'; t.setAttribute('role', 'dialog'); t.setAttribute('aria-label', 'Servicios Cota Cero');
     document.body.appendChild(t); document.documentElement.classList.add('tienda-abierta');
     var claveTxt = conPredio ? (estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '')) : '';
+    if (PRODUCTOS_DESACTIVADOS.tienda) {
+      t.innerHTML = '<header class="tn-cab"><div class="tn-cab-txt"><b>Servicios</b></div><button type="button" class="tn-x" aria-label="Cerrar">×</button></header>' +
+        '<div class="tn-cont tn-listo"><h3>La tienda está en pausa</h3><p>Estamos atendiendo los pedidos que ya llegaron. Escríbenos a <a href="mailto:cotacero.pm@gmail.com">cotacero.pm@gmail.com</a> y te contamos cuándo volvemos.</p><p>La maqueta, la normativa y la ficha PDF siguen siendo gratis.</p></div>';
+      t.querySelector('.tn-x').addEventListener('click', cerrarTienda); return;
+    }
     function cabecera(tit, atras) {
       return '<header class="tn-cab">' + (atras ? '<button type="button" class="tn-atras" aria-label="Volver">←</button>' : '') +
         '<div class="tn-cab-txt"><b>' + tit + '</b>' + (conPredio ? '<small>Predio ' + esc(claveTxt) + (estado.pitOficial ? ' · ' + esc(estado.pitOficial) : '') + (estado.pts ? ' · ' + Math.round(areaPoligonoM(estado.pts)).toLocaleString('es-EC') + ' m²' : '') + '</small>' : '<small>Elige un predio en el mapa para ver recomendaciones</small>') + '</div>' +
@@ -8399,6 +8417,54 @@
   }
   function abrirCheckout(estado) { abrirTienda(estado, 'pedido'); }
   (function () { var b = document.getElementById('btn-tienda'); if (b) b.addEventListener('click', function () { abrirTienda(estadoSeleccionado); }); })();
+  // ---------- Escríbenos: reportar un error, pedir un producto o pedir una ciudad ----------
+  var TIPOS_MENSAJE = [
+    { id: 'error', tit: 'Algo está mal', ph: 'Cuéntanos qué viste: por ejemplo, "dice que no da a ninguna calle, pero da a la Av. de las Américas".' },
+    { id: 'producto', tit: 'Quiero un producto', ph: '¿Qué te gustaría que hagamos? Un plano, un estudio, un archivo…' },
+    { id: 'ciudad', tit: 'Quiero mi ciudad', ph: '¿Para qué lo usarías? (opcional)' },
+    { id: 'otro', tit: 'Otra cosa', ph: 'Escríbenos lo que quieras.' }
+  ];
+  function abrirMensaje(tipoIni) {
+    var m = document.getElementById('modal-mensaje'); if (m) m.remove();
+    var tipo = tipoIni || 'error', t0 = Date.now(), c = ''; try { c = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
+    m = document.createElement('div'); m.id = 'modal-mensaje'; m.className = 'checkout';
+    m.innerHTML = '<form class="checkout-caja msj" novalidate><button type="button" class="checkout-x" aria-label="Cerrar">×</button>' +
+      '<div class="maq-estudio-tit">Escríbenos</div>' +
+      '<div class="msj-tipos">' + TIPOS_MENSAJE.map(function (x) { return '<button type="button" data-tipo="' + x.id + '"' + (x.id === tipo ? ' class="activo"' : '') + '>' + x.tit + '</button>'; }).join('') + '</div>' +
+      '<input type="text" name="ciudad" placeholder="Tu ciudad" hidden>' +
+      '<textarea name="texto" rows="4"></textarea>' +
+      '<input type="email" name="correo" placeholder="Tu correo (opcional, para responderte)" value="' + esc(c) + '">' +
+      '<input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+      (estadoSeleccionado ? '<div class="maq-nota">Adjuntamos el predio que estás viendo (' + esc(estadoSeleccionado.esUnion ? estadoSeleccionado.claves.join(' + ') : estadoSeleccionado.clave || '') + ').</div>' : '') +
+      '<div class="modal-msg maq-nota" hidden></div><button type="submit" class="modal-ok">Enviar</button></form>';
+    document.body.appendChild(m);
+    var f = m.querySelector('form'), ta = f.querySelector('[name=texto]'), ciu = f.querySelector('[name=ciudad]'), msg = f.querySelector('.modal-msg');
+    function pintar() {
+      f.querySelectorAll('.msj-tipos button').forEach(function (b) { b.classList.toggle('activo', b.getAttribute('data-tipo') === tipo); });
+      var x = TIPOS_MENSAJE.filter(function (y) { return y.id === tipo; })[0]; ta.placeholder = x.ph; ciu.hidden = tipo !== 'ciudad';
+    }
+    pintar();
+    f.querySelectorAll('.msj-tipos button').forEach(function (b) { b.addEventListener('click', function () { tipo = b.getAttribute('data-tipo'); pintar(); }); });
+    m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var texto = ta.value.trim(), correo = f.querySelector('[name=correo]').value.trim(), ciudad = ciu.value.trim();
+      if (tipo === 'ciudad' && ciudad.length < 2) { msg.hidden = false; msg.textContent = 'Escribe tu ciudad.'; ciu.focus(); return; }
+      if (tipo !== 'ciudad' && texto.length < 5) { msg.hidden = false; msg.textContent = 'Escribe tu mensaje.'; ta.focus(); return; }
+      if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { msg.hidden = false; msg.textContent = 'Revisa tu correo.'; return; }
+      var e = estadoSeleccionado, clave = e ? (e.esUnion ? e.claves.join(' + ') : (e.clave || '')) : '';
+      var nombreTipo = TIPOS_MENSAJE.filter(function (y) { return y.id === tipo; })[0].tit;
+      var detalle = (tipo === 'ciudad' ? 'Ciudad: ' + ciudad + '\n' : '') + texto + '\n\nPágina: ' + location.href + '\nPantalla: ' + window.innerWidth + '×' + window.innerHeight + ' · ' + navigator.userAgent;
+      var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'mensaje-' + tipo, productoNombre: nombreTipo + (tipo === 'ciudad' ? ': ' + ciudad : ''), predio: clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: detalle, documentos: [], origen: 'mensaje', sitio_web: f.querySelector('[name=sitio_web]').value, t: Date.now() - t0 };
+      var bt = f.querySelector('.modal-ok'); bt.disabled = true; bt.textContent = 'Enviando…';
+      function listo() { f.innerHTML = '<button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">¡Gracias!</div><p class="maq-nota">' + (tipo === 'ciudad' ? 'Anotamos ' + esc(ciudad) + '. Abrimos nuevas ciudades según cuántas personas las piden.' : 'Lo revisamos pronto.' + (correo ? ' Si hace falta, te escribimos a ' + esc(correo) + '.' : '')) + '</p>'; }
+      if (window.__pedidoDePrueba) { window.__ultimoMensaje = cuerpo; listo(); return; }
+      fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
+        .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw new Error('sin ok'); listo(); })
+        .catch(function () { bt.disabled = false; bt.textContent = 'Enviar'; msg.hidden = false; msg.textContent = 'No se pudo enviar. Escríbenos a cotacero.pm@gmail.com.'; });
+    });
+  }
+  (function () { var b = document.getElementById('btn-mensaje'); if (b) b.addEventListener('click', function () { abrirMensaje(); }); })();
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('tienda')) cerrarTienda(); });
   function tramitesRecomendados(estado) {
     var r = estado.restriccionVolumen || '', L = [];
@@ -9688,6 +9754,7 @@
       fetch(APPS_SCRIPT_URL_DOCUMENTOS + '?action=catalogo')
         .then(function (r) { return r.json(); })
         .then(function (resp) {
+          if (resp && Array.isArray(resp.desactivados)) { PRODUCTOS_DESACTIVADOS = {}; resp.desactivados.forEach(function (id) { PRODUCTOS_DESACTIVADOS[id] = true; }); }
           if (resp && resp.ok && Array.isArray(resp.productos) && resp.productos.length) {
             CATALOGO_PRODUCTOS = resp.productos;
             renderBarra();
