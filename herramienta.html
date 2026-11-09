@@ -4179,12 +4179,9 @@
         '<div class="result-head">' +
           '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
           '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
-          '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : (estado.esAreaHistorica ? 'Área histórica · ' + estado.pitOficial : 'Normativa de referencia')) + '</span>' +
+          '<span class="badge badge-demo">' + (esCentroHistorico ? 'Centro histórico' : (estado.esAreaHistorica ? 'Área histórica · ' + estado.pitOficial : 'Detalle técnico')) + '</span>' +
         '</div>' +
-        '<div class="pedir-predio">' +
-          '<button type="button" class="btn" id="btn-pedir-informe">📄 Pedir informe de este predio</button>' +
-          '<button type="button" class="btn btn-ghost" id="btn-pedir-plano">📐 Pedir plano de este predio</button>' +
-        '</div>' +
+
         '<div class="stat-row">' +
           '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
           '<div class="stat"><div class="label">Patio interno</div><div class="value" id="info-patio" style="font-size:0.8rem;">—</div></div>' +
