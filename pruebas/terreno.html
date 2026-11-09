@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de terreno — Cota Cero</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;400;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root { --ink:#1c1a16; --soft:#6d6a63; --line:#e3e0d9; --bg:#faf9f6; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:'Bricolage Grotesque',system-ui,sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-weight:700; font-size: 1.8rem; margin: 0 0 4px; } h1 span { font-weight:200; }
+  h2 { font-weight:700; font-size:1.15rem; margin: 28px 0 8px; }
+  p, li { line-height:1.5; } .soft { color:var(--soft); font-size:.9rem; }
+  table { border-collapse: collapse; width:100%; font-size:.86rem; margin: 8px 0 16px; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:right; } th:first-child, td:first-child { text-align:left; }
+  th { font-weight:600; color:var(--soft); }
+  td.mej { font-weight:700; }
+  .mono { font-family:'IBM Plex Mono',monospace; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(250px,1fr)); gap:12px; }
+  figure { margin:0; } figure canvas { width:100%; height:auto; border:1px solid var(--line); background:#fff; }
+  figcaption { font-size:.78rem; color:var(--soft); margin-top:4px; }
+  .maq3d { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  @media (max-width: 760px) { .maq3d { grid-template-columns: 1fr; } }
+  .maq3d figure canvas { aspect-ratio: 4/3; background: radial-gradient(120% 90% at 50% 35%, #f2f1ee 0%, #e2e1dd 75%); cursor: grab; }
+  .botones button { font: inherit; font-size:.8rem; padding:6px 12px; border:1px solid var(--ink); background:#fff; cursor:pointer; margin-right:-1px; }
+  .botones button.activa { background: var(--ink); color:#fff; }
+  #estado { font-family:'IBM Plex Mono',monospace; font-size:.8rem; color:var(--soft); white-space:pre-wrap; }
+  .escala { display:flex; align-items:center; gap:8px; font-size:.75rem; color:var(--soft); }
+  .escala i { display:inline-block; width:160px; height:10px; background: linear-gradient(90deg,#2b5c8a,#ffffff,#a8432a); border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Terreno <span>sin modelo local</span></h1>
+  <p class="soft">¿Cuánto se acerca un modelo global de 30 m al MDT municipal de 3 m de Cuenca, y cuánto ayudan los edificios, las vías y los ríos de OpenStreetMap? Prueba interna — no es un producto.</p>
+  <h2>Maqueta: reconstrucción vs. verdad</h2>
+  <div class="botones" id="botones3d"></div>
+  <div class="maq3d">
+    <figure><canvas id="c3dA" width="900" height="675"></canvas><figcaption>Reconstruido: Copernicus 30 m + filtro de suelo + vías + ríos + calles interpretadas (terrazas de 1 m)</figcaption></figure>
+    <figure><canvas id="c3dB" width="900" height="675"></canvas><figcaption>Verdad: MDT municipal de Cuenca (~3 m), mismas terrazas</figcaption></figure>
+  </div>
+  <p class="soft">Arrastra para girar (las dos maquetas giran juntas). Edificios de OSM con altura por pisos o 6 m.</p>
+  <div id="estado">Preparando…</div>
+  <div id="resultados"></div>
+  <h2>Cómo se hizo</h2>
+  <ul class="soft">
+    <li><b>Verdad:</b> MDT municipal (IDE Cuenca, <span class="mono">ide:catastros_mdt4326</span>, ~3 m), leído por WCS.</li>
+    <li><b>A · Modelos globales de 30 m:</b> <b>Copernicus GLO-30</b> (ESA), <b>ALOS AW3D30</b> (JAXA) y <b>NASADEM</b> (NASA), leídos del catálogo abierto Microsoft Planetary Computer; y <b>AWS Terrain Tiles</b> (SRTM). Interpolación bilineal a 3 m.</li>
+    <li><b>B · + edificios y vegetación:</b> los modelos satelitales miden techos y copas. Se resta un sesgo proporcional a la fracción construida, a la vegetación de OSM (parques, bosques, hileras de árboles) y a la franja de ribera (35 m a cada lado del río). Los tres coeficientes se calibran SOLO en El Ejido y se aplican igual a las otras zonas: Barranco y Cristo Rey son validación fuera de muestra.</li>
+    <li><b>C · + vías:</b> red de calles de OSM como líneas de rasante: cada nodo se ajusta a B con continuidad a lo largo de la vía y misma cota en los cruces (mínimos cuadrados por relajación); las escalinatas pueden quebrar. La diferencia con B se reparte a las manzanas por difusión.</li>
+    <li><b>E · filtro de suelo:</b> sin usar la verdad. Se busca la envolvente baja del terreno (apertura morfológica en ventanas de 21, 39 y 63 m); lo que sobresale más de lo que permite la pendiente se marca como objeto (techo, copa) y se rellena desde el suelo vecino; luego vías y ríos como en D. No necesita calibración, así que sirve en cualquier ciudad.</li>
+    <li><b>G · calles interpretadas:</b> el criterio de Cota Cero sobre la reconstrucción: toda la sección de la calle (ancho por categoría) toma la rasante del eje, plana de bordillo a bordillo, vereda +20 cm, y la corrección se desvanece ~6 m.</li>
+    <li><b>D · + ríos:</b> el cauce baja siempre en el sentido del agua (mínimo acumulado aguas abajo) y talla el cauce con taludes 1:1 hasta 20 m de la orilla, sin subir nunca el terreno.</li>
+    <li><b>Métricas:</b> se descuenta el sesgo medio (los modelos usan distinto origen vertical) y se mide el error cuadrático medio (RMSE), el error al 95 % y la pendiente.</li>
+  </ul>
+  <p class="soft">Datos: IDE del GAD Municipal de Cuenca · produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved · ALOS AW3D30 © JAXA · NASADEM (NASA/JPL) · AWS Terrain Tiles (Tilezen, SRTM) · Microsoft Planetary Computer · © colaboradores de OpenStreetMap (ODbL).</p>
+</main>
+<script>
+(async function () {
+  var est = document.getElementById('estado');
+  function log(t) { est.textContent += '\n' + t; }
+  var ZONAS = [
+    { id: 'ejido', nombre: 'El Ejido (plano)', lat: -2.901824, lng: -79.007460 },
+    { id: 'barranco', nombre: 'El Barranco (talud al río)', lat: -2.901560, lng: -79.003840 },
+    { id: 'cristorey', nombre: 'Cristo Rey (ladera)', lat: -2.886800, lng: -79.003500 },
+    { id: 'totoracocha', nombre: 'Totoracocha (residencial plano)', lat: -2.887591, lng: -78.990765 },
+    { id: 'tejar', nombre: 'El Tejar (ladera oeste)', lat: -2.889804, lng: -79.040196 },
+    { id: 'yanuncay', nombre: 'Yanuncay (río sur)', lat: -2.911328, lng: -79.015225 },
+    { id: 'monay', nombre: 'Monay (este)', lat: -2.904500, lng: -78.978000 },
+    { id: 'turi', nombre: 'Turi (ladera fuerte)', lat: -2.925500, lng: -79.003000 }
+  ];
+  var LADO = 420, PASO = 3; // m
+  function proy(lat0, lng0) {
+    var kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 110574;
+    return { aM: function (lng, lat) { return [(lng - lng0) * kx, (lat - lat0) * ky]; }, aG: function (x, y) { return [lng0 + x / kx, lat0 + y / ky]; } };
+  }
+
+  // ---------- MDT municipal (GeoTIFF float32, mosaicos, sin compresión) ----------
+  function leerGeoTiffFloat(ab) {
+    var dv = new DataView(ab), le = dv.getUint16(0) === 0x4949, ifd = dv.getUint32(4, le), n = dv.getUint16(ifd, le), T = {};
+    function vals(tipo, cnt, pos) { var tam = tipo === 3 ? 2 : 4, base = (tam * cnt <= 4) ? pos : dv.getUint32(pos, le), o = []; for (var k = 0; k < cnt; k++) o.push(tipo === 3 ? dv.getUint16(base + k * 2, le) : dv.getUint32(base + k * 4, le)); return o; }
+    for (var i = 0; i < n; i++) { var e = ifd + 2 + i * 12, tag = dv.getUint16(e, le), tipo = dv.getUint16(e + 2, le), cnt = dv.getUint32(e + 4, le); if (tipo === 3 || tipo === 4) T[tag] = vals(tipo, cnt, e + 8); }
+    var W = T[256][0], H = T[257][0], z = new Float32Array(W * H).fill(NaN);
+    function blo(off, bw, bh, x0, y0) { for (var y = 0; y < bh; y++) for (var x = 0; x < bw; x++) { var X = x0 + x, Y = y0 + y; if (X >= W || Y >= H) continue; var v = dv.getFloat32(off + (y * bw + x) * 4, le); z[Y * W + X] = v < -1000 ? NaN : v; } }
+    if (T[322]) { var tw = T[322][0], th = T[323][0], ac = Math.ceil(W / tw); T[324].forEach(function (o, t) { blo(o, tw, th, (t % ac) * tw, Math.floor(t / ac) * th); }); }
+    else { var rps = (T[278] || [H])[0]; T[273].forEach(function (o, t) { blo(o, W, rps, 0, t * rps); }); }
+    return { W: W, H: H, z: z };
+  }
+  async function verdad(Z, P) {
+    var sw = P.aG(-LADO / 2, -LADO / 2), ne = P.aG(LADO / 2, LADO / 2), N = Math.round(LADO / PASO);
+    var url = 'https://ide.cuenca.gob.ec/geoserver/ows?service=WCS&version=1.0.0&request=GetCoverage&coverage=ide:catastros_mdt4326&crs=EPSG:4326&bbox=' + [sw[0], sw[1], ne[0], ne[1]].join(',') + '&width=' + N + '&height=' + N + '&format=GeoTIFF';
+    var g = leerGeoTiffFloat(await (await fetch(url)).arrayBuffer());
+    return { N: N, z: g.z }; // fila 0 = norte
+  }
+
+  // ---------- Global 30 m: AWS Terrain Tiles (terrarium) ----------
+  var cacheTiles = {};
+  function tile(z, x, y) {
+    var k = z + '/' + x + '/' + y; if (cacheTiles[k]) return cacheTiles[k];
+    cacheTiles[k] = new Promise(function (res, rej) {
+      var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x2 = c.getContext('2d'); x2.drawImage(im, 0, 0); var d = x2.getImageData(0, 0, 256, 256).data, h = new Float32Array(65536); for (var i = 0; i < 65536; i++) h[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768; res(h); };
+      im.onerror = rej; im.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + k + '.png';
+    });
+    return cacheTiles[k];
+  }
+  async function global30(P, N) {
+    var z = 15, n2 = Math.pow(2, z);
+    function px(lng, lat) { var s = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * n2 * 256, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n2 * 256]; }
+    var out = new Float32Array(N * N), need = {};
+    var coords = [];
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var x = -LADO / 2 + (i + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, g = P.aG(x, y), p = px(g[0], g[1]); coords.push(p); need[Math.floor(p[0] / 256) + ',' + Math.floor(p[1] / 256)] = 1; [[1, 0], [0, 1], [1, 1]].forEach(function (d) { need[Math.floor(p[0] / 256 + d[0] * 0.01) + ',' + Math.floor(p[1] / 256 + d[1] * 0.01)] = 1; }); }
+    var T = {}; await Promise.all(Object.keys(need).map(function (k) { var a = k.split(','); return tile(z, +a[0], +a[1]).then(function (h) { T[k] = h; }); }));
+    function val(X, Y) { var tx = Math.floor(X / 256), ty = Math.floor(Y / 256), t = T[tx + ',' + ty]; if (!t) { t = null; return NaN; } return t[(Y - ty * 256) * 256 + (X - tx * 256)]; }
+    coords.forEach(function (p, k) {
+      var X = p[0] - 0.5, Y = p[1] - 0.5, x0 = Math.floor(X), y0 = Math.floor(Y), fx = X - x0, fy = Y - y0;
+      out[k] = (val(x0, y0) * (1 - fx) + val(x0 + 1, y0) * fx) * (1 - fy) + (val(x0, y0 + 1) * (1 - fx) + val(x0 + 1, y0 + 1) * fx) * fy;
+    });
+    return out;
+  }
+
+  // ---------- Modelos globales en Microsoft Planetary Computer (COG + firma anónima) ----------
+  var cacheImg = {};
+  async function imagenPC(coleccion, lng, lat) {
+    var k = coleccion + Math.floor(lng) + ',' + Math.floor(lat);
+    if (cacheImg[k]) return cacheImg[k];
+    cacheImg[k] = (async function () {
+      var j = await (await fetch('https://planetarycomputer.microsoft.com/api/stac/v1/collections/' + coleccion + '/items?bbox=' + [lng - 0.001, lat - 0.001, lng + 0.001, lat + 0.001].join(',') + '&limit=1')).json();
+      var f = j.features[0], a = f.assets.data || f.assets.elevation;
+      var firmado = (await (await fetch('https://planetarycomputer.microsoft.com/api/sas/v1/sign?href=' + encodeURIComponent(a.href))).json()).href;
+      var tif = await GeoTIFF.fromUrl(firmado);
+      return await tif.getImage();
+    })();
+    return cacheImg[k];
+  }
+  async function globalPC(coleccion, P, N) {
+    var c = P.aG(0, 0), im = await imagenPC(coleccion, c[0], c[1]);
+    var bb = im.getBoundingBox(), rs = im.getResolution(), W = im.getWidth(), H = im.getHeight();
+    var sw = P.aG(-LADO / 2 - 60, -LADO / 2 - 60), ne = P.aG(LADO / 2 + 60, LADO / 2 + 60);
+    var x0 = Math.max(0, Math.floor((sw[0] - bb[0]) / rs[0])), x1 = Math.min(W, Math.ceil((ne[0] - bb[0]) / rs[0]) + 1);
+    var y0 = Math.max(0, Math.floor((ne[1] - bb[3]) / rs[1])), y1 = Math.min(H, Math.ceil((sw[1] - bb[3]) / rs[1]) + 1);
+    var r = (await im.readRasters({ window: [x0, y0, x1, y1] }))[0], ww = x1 - x0;
+    var out = new Float32Array(N * N);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var g = P.aG(-LADO / 2 + (i + 0.5) * PASO, LADO / 2 - (j + 0.5) * PASO);
+      var fx = (g[0] - bb[0]) / rs[0] - 0.5 - x0, fy = (g[1] - bb[3]) / rs[1] - 0.5 - y0, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      function v(a, b) { return r[b * ww + a]; }
+      out[j * N + i] = (v(ix, iy) * (1 - tx) + v(ix + 1, iy) * tx) * (1 - ty) + (v(ix, iy + 1) * (1 - tx) + v(ix + 1, iy + 1) * tx) * ty;
+    }
+    return out;
+  }
+
+  // ---------- OSM ----------
+  async function osm(P) {
+    var sw = P.aG(-LADO / 2 - 60, -LADO / 2 - 60), ne = P.aG(LADO / 2 + 60, LADO / 2 + 60);
+    var xml = new DOMParser().parseFromString(await (await fetch('https://api.openstreetmap.org/api/0.6/map?bbox=' + [sw[0], sw[1], ne[0], ne[1]].join(','))).text(), 'text/xml');
+    var nodos = {}; xml.querySelectorAll('node').forEach(function (n) { nodos[n.getAttribute('id')] = P.aM(+n.getAttribute('lon'), +n.getAttribute('lat')); });
+    var vias = [], rios = [], edif = [], veg = [], hileras = [];
+    xml.querySelectorAll('way').forEach(function (w) {
+      var t = {}; w.querySelectorAll('tag').forEach(function (g) { t[g.getAttribute('k')] = g.getAttribute('v'); });
+      var ids = [].map.call(w.querySelectorAll('nd'), function (n) { return n.getAttribute('ref'); }).filter(function (id) { return nodos[id]; });
+      if (ids.length < 2) return;
+      if (t.highway && !/^(proposed|construction|platform)$/.test(t.highway) && t.tunnel !== 'yes') vias.push({ ids: ids, tipo: t.highway, puente: !!(t.bridge && t.bridge !== 'no') });
+      if (t.waterway && /^(river|stream|canal|ditch)$/.test(t.waterway)) rios.push({ pts: ids.map(function (i) { return nodos[i]; }), ancho: t.waterway === 'river' ? 25 : 4 });
+      if (t.building && ids.length >= 3) edif.push(ids.map(function (i) { return nodos[i]; }));
+      if (ids.length >= 3 && (/^(park|garden)$/.test(t.leisure || '') || /^(grass|forest|recreation_ground|meadow|orchard)$/.test(t.landuse || '') || /^(wood|scrub)$/.test(t.natural || ''))) veg.push(ids.map(function (i) { return nodos[i]; }));
+      if (t.natural === 'tree_row') hileras.push(ids.map(function (i) { return nodos[i]; }));
+    });
+    return { nodos: nodos, vias: vias, rios: rios, edif: edif, veg: veg, hileras: hileras };
+  }
+
+  // ---------- utilidades de grilla ----------
+  function idx(N, x, y) { var i = Math.floor((x + LADO / 2) / PASO), j = Math.floor((LADO / 2 - y) / PASO); return (i < 0 || j < 0 || i >= N || j >= N) ? -1 : j * N + i; }
+  function muestrear(Z, N, x, y) {
+    var fi = (x + LADO / 2) / PASO - 0.5, fj = (LADO / 2 - y) / PASO - 0.5, i = Math.floor(fi), j = Math.floor(fj);
+    i = Math.max(0, Math.min(N - 2, i)); j = Math.max(0, Math.min(N - 2, j));
+    var tx = Math.min(1, Math.max(0, fi - i)), ty = Math.min(1, Math.max(0, fj - j)), k = j * N + i;
+    return (Z[k] * (1 - tx) + Z[k + 1] * tx) * (1 - ty) + (Z[k + N] * (1 - tx) + Z[k + N + 1] * tx) * ty;
+  }
+  function fraccionRaster(N, dibujar) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.fillStyle = '#000'; x.strokeStyle = '#000';
+    function aPx(p) { return [(p[0] + LADO / 2) / PASO, (LADO / 2 - p[1]) / PASO]; }
+    dibujar(x, aPx);
+    var d = x.getImageData(0, 0, N, N).data, f = new Float32Array(N * N); for (var k = 0; k < N * N; k++) f[k] = d[k * 4 + 3] / 255;
+    var r = 5, o = new Float32Array(N * N);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var sm = 0, n = 0; for (var dj = -r; dj <= r; dj++) for (var di = -r; di <= r; di++) { var jj = j + dj, ii = i + di; if (jj < 0 || ii < 0 || jj >= N || ii >= N) continue; sm += f[jj * N + ii]; n++; } o[j * N + i] = sm / n; }
+    return o;
+  }
+  function fraccionVegetacion(N, red) {
+    return fraccionRaster(N, function (x, aPx) {
+      red.veg.forEach(function (r) { x.beginPath(); r.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.closePath(); x.fill(); });
+      x.lineWidth = 12 / PASO; x.lineCap = 'round';
+      red.hileras.forEach(function (r) { x.beginPath(); r.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); });
+    });
+  }
+  function fraccionRibera(N, red) {
+    // franja de 35 m a cada lado de los ríos: en Cuenca las orillas son arboladas
+    return fraccionRaster(N, function (x, aPx) {
+      x.lineCap = 'round'; x.lineJoin = 'round';
+      red.rios.forEach(function (r) { x.lineWidth = (r.ancho + 70) / PASO; x.beginPath(); r.pts.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); });
+    });
+  }
+  // regresión lineal múltiple pequeña (mínimos cuadrados normales, 3 variables + constante)
+  function regresion(X, y) {
+    var m = X[0].length + 1, A = [], b = new Array(m).fill(0), i, j, k;
+    for (i = 0; i < m; i++) A.push(new Array(m).fill(0));
+    for (k = 0; k < y.length; k++) { var row = [1].concat(X[k]); for (i = 0; i < m; i++) { b[i] += row[i] * y[k]; for (j = 0; j < m; j++) A[i][j] += row[i] * row[j]; } }
+    for (i = 0; i < m; i++) A[i][i] += 1e-6 * y.length;
+    for (i = 0; i < m; i++) { var piv = A[i][i]; for (j = i + 1; j < m; j++) { var f = A[j][i] / piv; for (k = i; k < m; k++) A[j][k] -= f * A[i][k]; b[j] -= f * b[i]; } }
+    var x = new Array(m).fill(0); for (i = m - 1; i >= 0; i--) { var sm = b[i]; for (j = i + 1; j < m; j++) sm -= A[i][j] * x[j]; x[i] = sm / A[i][i]; }
+    return x;
+  }
+  function fraccionConstruida(N, edif) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.fillStyle = '#000';
+    edif.forEach(function (r) { x.beginPath(); r.forEach(function (p, i) { var u = (p[0] + LADO / 2) / PASO, v = (LADO / 2 - p[1]) / PASO; if (i) x.lineTo(u, v); else x.moveTo(u, v); }); x.closePath(); x.fill(); });
+    var d = x.getImageData(0, 0, N, N).data, f = new Float32Array(N * N); for (var k = 0; k < N * N; k++) f[k] = d[k * 4 + 3] / 255;
+    // promedio en una ventana de ~30 m (lo que "ve" un píxel del modelo global)
+    var r = 5, o = new Float32Array(N * N);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var s = 0, n = 0; for (var dj = -r; dj <= r; dj++) for (var di = -r; di <= r; di++) { var jj = j + dj, ii = i + di; if (jj < 0 || ii < 0 || jj >= N || ii >= N) continue; s += f[jj * N + ii]; n++; } o[j * N + i] = s / n; }
+    return o;
+  }
+  function difundir(N, fijos, valores, iter) {
+    // llena la grilla resolviendo Laplace con los valores fijos (relajación)
+    var v = new Float32Array(N * N); for (var k = 0; k < N * N; k++) v[k] = fijos[k] ? valores[k] : 0;
+    for (var it = 0; it < iter; it++) for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var k = j * N + i; if (fijos[k]) continue;
+      var s = 0, n = 0; if (i > 0) { s += v[k - 1]; n++; } if (i < N - 1) { s += v[k + 1]; n++; } if (j > 0) { s += v[k - N]; n++; } if (j < N - 1) { s += v[k + N]; n++; }
+      v[k] = 0.98 * s / n; // 0.98: la corrección se apaga lejos de las vías
+    }
+    return v;
+  }
+  // Categorías de vía → rigidez de la rasante y pendiente máxima (diseño vial habitual)
+  var CATEGORIAS = {
+    motorway: [12, 0.06], trunk: [12, 0.06], motorway_link: [10, 0.08], trunk_link: [10, 0.08],
+    primary: [10, 0.08], primary_link: [8, 0.10], secondary: [8, 0.10], secondary_link: [7, 0.12],
+    tertiary: [6, 0.12], tertiary_link: [6, 0.14], residential: [4, 0.18], unclassified: [4, 0.18], living_street: [4, 0.18], service: [3, 0.20], track: [2, 0.25],
+    pedestrian: [3, 0.20], footway: [2, 0.30], path: [1.5, 0.35], cycleway: [3, 0.10], steps: [0.05, 9]
+  };
+  function metodoVias(N, B, red, opc) {
+    opc = opc || {};
+    // nodos: OSM + densificados cada 6 m; aristas a lo largo de la vía; cruces = mismo id
+    var pos = {}, vecinos = {}, esPuente = {};
+    function nodo(id, p) { if (!pos[id]) { pos[id] = p; vecinos[id] = []; } }
+    var nuevo = 0;
+    red.vias.forEach(function (v) {
+      var cat = CATEGORIAS[v.tipo] || [4, 0.18];
+      var rig = opc.categorias ? cat[0] / 6 : (v.tipo === 'steps' ? 0.05 : 1), smax = opc.categorias ? cat[1] : 9;
+      for (var s = 0; s < v.ids.length - 1; s++) {
+        var a = v.ids[s], b = v.ids[s + 1], pa = red.nodos[a], pb = red.nodos[b], L = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), n = Math.max(1, Math.ceil(L / 6));
+        nodo(a, pa); nodo(b, pb); var prev = a;
+        for (var k = 1; k <= n; k++) {
+          var id = k === n ? b : ('d' + (nuevo++)), t = k / n; nodo(id, [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t]);
+          if (v.puente && k < n) esPuente[id] = 1;
+          var d = L / n;
+          vecinos[prev].push([id, rig, smax * d]); vecinos[id].push([prev, rig, smax * d]); prev = id;
+        }
+      }
+    });
+    var ids = Object.keys(pos).filter(function (id) { var p = pos[id]; return Math.abs(p[0]) < LADO / 2 && Math.abs(p[1]) < LADO / 2; });
+    var dentro = {}; ids.forEach(function (id) { dentro[id] = 1; });
+    var obs = {}, z = {}; ids.forEach(function (id) { obs[id] = muestrear(B, N, pos[id][0], pos[id][1]); z[id] = obs[id]; });
+    var LAM = 6;
+    for (var it = 0; it < 400; it++) {
+      ids.forEach(function (id) {
+        var W = esPuente[id] ? 0 : 1; // el tablero de un puente no lee el agua de abajo
+        var s = W * obs[id], w = W; vecinos[id].forEach(function (e) { if (!dentro[e[0]]) return; s += LAM * e[1] * z[e[0]]; w += LAM * e[1]; }); if (w > 0) z[id] = s / w;
+      });
+      if (opc.categorias && it % 4 === 3) ids.forEach(function (id) {
+        // pendiente máxima de su categoría: si el modelo la excede, es ruido (salvo escalinatas)
+        vecinos[id].forEach(function (e) { if (!dentro[e[0]]) return; var dz = z[id] - z[e[0]], lim = e[2]; if (Math.abs(dz) > lim) { var ex = (Math.abs(dz) - lim) / 2 * Math.sign(dz); z[id] -= ex; z[e[0]] += ex; } });
+      });
+    }
+    // la diferencia con B se fija en los píxeles de calle y se reparte a las manzanas
+    var fijos = new Uint8Array(N * N), val = new Float32Array(N * N), cnt = new Float32Array(N * N);
+    ids.forEach(function (id) { if (esPuente[id]) return; var k = idx(N, pos[id][0], pos[id][1]); if (k < 0) return; fijos[k] = 1; val[k] += z[id] - obs[id]; cnt[k]++; });
+    for (var k = 0; k < N * N; k++) if (cnt[k]) val[k] /= cnt[k];
+    var D = difundir(N, fijos, val, 300), C = new Float32Array(N * N);
+    for (var q = 0; q < N * N; q++) C[q] = B[q] + D[q];
+    return { C: C, ejes: ids.filter(function (id) { return !esPuente[id]; }).map(function (id) { return pos[id]; }) };
+  }
+  // ---------- E: filtro de suelo "desde abajo" (sin calibrar con la verdad) ----------
+  // 1) apertura morfológica (mínimo y luego máximo en una ventana) → envolvente de suelo;
+  // 2) lo que sobresale de esa envolvente más que lo permitido por la pendiente es "objeto"
+  //    (techo, copa, arboleda); 3) esas zonas se rellenan desde el suelo vecino (Laplace) y se suaviza.
+  function ventana(N, Z, r, op) {
+    var t = new Float32Array(N * N), o = new Float32Array(N * N), i, j, k, v;
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) { v = op === 'min' ? Infinity : -Infinity; for (k = Math.max(0, i - r); k <= Math.min(N - 1, i + r); k++) { var z = Z[j * N + k]; if (isNaN(z)) continue; v = op === 'min' ? Math.min(v, z) : Math.max(v, z); } t[j * N + i] = v; }
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) { v = op === 'min' ? Infinity : -Infinity; for (k = Math.max(0, j - r); k <= Math.min(N - 1, j + r); k++) { var z2 = t[k * N + i]; v = op === 'min' ? Math.min(v, z2) : Math.max(v, z2); } o[j * N + i] = v; }
+    return o;
+  }
+  function filtroSuelo(N, Z) {
+    var suelo = Z.slice(), objeto = new Uint8Array(N * N);
+    [3, 6, 10].forEach(function (r) { // ventanas de ~21, 39 y 63 m
+      var ab = ventana(N, ventana(N, suelo, r, 'min'), r, 'max');
+      for (var j = 1; j < N - 1; j++) for (var i = 1; i < N - 1; i++) {
+        var k = j * N + i, pend = Math.hypot((ab[k + 1] - ab[k - 1]) / (2 * PASO), (ab[k - N] - ab[k + N]) / (2 * PASO));
+        var tol = Math.min(4, 0.6 + pend * r * PASO * 0.5);
+        if (suelo[k] - ab[k] > tol) { objeto[k] = 1; suelo[k] = ab[k]; }
+      }
+    });
+    // relleno desde el suelo vecino
+    var v = suelo.slice();
+    for (var it = 0; it < 200; it++) for (var j2 = 1; j2 < N - 1; j2++) for (var i2 = 1; i2 < N - 1; i2++) {
+      var q = j2 * N + i2; if (!objeto[q]) continue;
+      v[q] = (v[q - 1] + v[q + 1] + v[q - N] + v[q + N]) / 4;
+    }
+    // suavizado leve (3×3, dos pasadas)
+    for (var pas = 0; pas < 2; pas++) { var w = v.slice(); for (var j3 = 1; j3 < N - 1; j3++) for (var i3 = 1; i3 < N - 1; i3++) { var q2 = j3 * N + i3, sm = 0; for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) sm += w[q2 + dj * N + di]; v[q2] = sm / 9; } }
+    var n = 0; for (var q3 = 0; q3 < N * N; q3++) if (objeto[q3]) n++;
+    return { Z: v, fraccionObjeto: n / (N * N) };
+  }
+  // ---------- G: calles interpretadas (criterio de Cota Cero) ----------
+  // Ancho por categoría (calzada, vereda por lado). Toda la sección toma la rasante del eje (perfil
+  // suavizado ~20 m): plana de bordillo a bordillo; vereda +20 cm; la corrección se desvanece 6 m.
+  var ANCHOS = { motorway: [16, 2], trunk: [14, 2], primary: [12, 3], secondary: [10, 2.5], tertiary: [8, 2], residential: [7, 1.8], unclassified: [7, 1.5], living_street: [6, 1.5], service: [5, 0], pedestrian: [6, 0], footway: [2.5, 0], path: [2, 0], cycleway: [2.5, 0], steps: [3, 0], track: [4, 0] };
+  function callesInterpretadas(N, Z, red) {
+    var tramos = [];
+    red.vias.forEach(function (v) {
+      if (v.puente) return;
+      var an = ANCHOS[v.tipo]; if (!an) return;
+      var pts = v.ids.map(function (id) { return red.nodos[id]; });
+      // perfil del eje cada 3 m, suavizado ±10 m
+      var m = [], acc = 0;
+      for (var i = 0; i < pts.length - 1; i++) { var a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 3)); for (var k = 0; k < n; k++) { var t = k / n; m.push({ p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], s: acc + L * t }); } acc += L; }
+      m.push({ p: pts[pts.length - 1], s: acc });
+      var z = m.map(function (o) { return (Math.abs(o.p[0]) < LADO / 2 && Math.abs(o.p[1]) < LADO / 2) ? muestrear(Z, N, o.p[0], o.p[1]) : NaN; });
+      var zs = z.map(function (_, i) { var sm = 0, n = 0; for (var k = Math.max(0, i - 3); k <= Math.min(z.length - 1, i + 3); k++) if (!isNaN(z[k])) { sm += z[k]; n++; } return n ? sm / n : NaN; });
+      tramos.push({ m: m, zs: zs, cal: an[0] / 2, ver: an[1], esc: v.tipo === 'steps' });
+    });
+    var out = Z.slice(), D = new Float32Array(N * N).fill(NaN);
+    for (var j = 0; j < N; j++) for (var i2 = 0; i2 < N; i2++) {
+      var x = -LADO / 2 + (i2 + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, mejor = null, dmin = Infinity;
+      tramos.forEach(function (t) {
+        var lim = t.cal + t.ver + 1.5;
+        for (var q = 0; q < t.m.length - 1; q++) {
+          var a = t.m[q].p, b = t.m[q + 1].p, abx = b[0] - a[0], aby = b[1] - a[1], L2 = abx * abx + aby * aby;
+          var u = L2 > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * abx + (y - a[1]) * aby) / L2)) : 0;
+          var d = Math.hypot(x - (a[0] + abx * u), y - (a[1] + aby * u));
+          if (d < dmin && d <= lim) { dmin = d; mejor = { t: t, z: t.zs[q] + (t.zs[q + 1] - t.zs[q]) * u, d: d }; }
+        }
+      });
+      if (!mejor || isNaN(mejor.z) || mejor.t.esc) continue;
+      var k2 = j * N + i2, zr = mejor.z + (mejor.d > mejor.t.cal ? 0.2 : 0), dd = zr - Z[k2];
+      if (Math.abs(dd) <= 3) D[k2] = dd;
+    }
+    // la corrección se desvanece ~6 m hacia afuera
+    for (var paso = 1; paso <= 2; paso++) {
+      var nuevos = [];
+      for (var j2 = 1; j2 < N - 1; j2++) for (var i3 = 1; i3 < N - 1; i3++) { var k3 = j2 * N + i3; if (!isNaN(D[k3])) continue; var sm = 0, n2 = 0; [k3 - 1, k3 + 1, k3 - N, k3 + N].forEach(function (q) { if (!isNaN(D[q])) { sm += D[q]; n2++; } }); if (n2) nuevos.push([k3, sm / n2 * (1 - paso / 3)]); }
+      nuevos.forEach(function (e) { D[e[0]] = e[1]; });
+    }
+    for (var q2 = 0; q2 < N * N; q2++) if (!isNaN(D[q2])) out[q2] += D[q2];
+    return out;
+  }
+  // franja de calles (ancho por categoría) en raster
+  function mascaraCalles(N, red) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.strokeStyle = '#000'; x.lineCap = 'round'; x.lineJoin = 'round';
+    red.vias.forEach(function (v) {
+      var an = ANCHOS[v.tipo]; if (!an || v.tipo === 'steps' || v.tipo === 'footway' || v.tipo === 'path') return;
+      x.lineWidth = (an[0] + 2 * an[1]) / PASO; x.beginPath();
+      v.ids.forEach(function (id, i) { var p = red.nodos[id], u = (p[0] + LADO / 2) / PASO, w = (LADO / 2 - p[1]) / PASO; if (i) x.lineTo(u, w); else x.moveTo(u, w); });
+      x.stroke();
+    });
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
+    return m;
+  }
+  function mascaraOrilla(N, red) {
+    var segsRio = [];
+    red.rios.forEach(function (r) { for (var i = 0; i < r.pts.length - 1; i++) segsRio.push([r.pts[i], r.pts[i + 1], r.ancho]); });
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.strokeStyle = '#000'; x.lineCap = 'butt';
+    red.vias.forEach(function (v) {
+      var an = ANCHOS[v.tipo]; if (!an || v.puente || /^(steps|footway|path)$/.test(v.tipo)) return;
+      for (var i = 0; i < v.ids.length - 1; i++) {
+        var a = red.nodos[v.ids[i]], b = red.nodos[v.ids[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1) continue;
+        var mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], mejor = null, dmin = Infinity;
+        segsRio.forEach(function (sr) { var p = sr[0], q = sr[1], abx = q[0] - p[0], aby = q[1] - p[1], L2 = abx * abx + aby * aby, u = L2 ? Math.max(0, Math.min(1, ((mid[0] - p[0]) * abx + (mid[1] - p[1]) * aby) / L2)) : 0, d = Math.hypot(mid[0] - p[0] - abx * u, mid[1] - p[1] - aby * u); if (d < dmin) { dmin = d; mejor = sr; } });
+        if (!mejor || dmin > 60) continue;
+        var rx = mejor[1][0] - mejor[0][0], ry = mejor[1][1] - mejor[0][1], cosA = Math.abs(((b[0] - a[0]) * rx + (b[1] - a[1]) * ry) / (L * Math.hypot(rx, ry)));
+        if (cosA < 0.8) continue; // cruza o se aleja del río: no es vía de orilla
+        x.lineWidth = (an[0] + 2 * an[1]) / PASO; x.beginPath();
+        x.moveTo((a[0] + LADO / 2) / PASO, (LADO / 2 - a[1]) / PASO); x.lineTo((b[0] + LADO / 2) / PASO, (LADO / 2 - b[1]) / PASO); x.stroke();
+      }
+    });
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
+    return m;
+  }
+  // ---------- manzanas: lo que queda entre vías se suaviza desde el nivel de sus calles ----------
+  // Las calles (todas las de OSM, salvo puentes y escalinatas) quedan fijas; dentro de cada manzana se
+  // resuelve la superficie más lisa que pasa por sus bordes (Laplace) y se mezcla con el modelo:
+  // Z' = Z + alfa·(H − Z). Manzanas de más de maxHa (parques, laderas abiertas) no se tocan.
+  function mascaraTodasVias(N, red) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'); x.strokeStyle = '#000'; x.lineCap = 'round'; x.lineJoin = 'round';
+    red.vias.forEach(function (v) {
+      if (v.puente || v.tipo === 'steps') return;
+      var an = ANCHOS[v.tipo] || ANCHOS[v.tipo.replace('_link', '')] || [4, 0];
+      x.lineWidth = Math.max(PASO, an[0]) / PASO; x.beginPath();
+      v.ids.forEach(function (id, i) { var p = red.nodos[id], u = (p[0] + LADO / 2) / PASO, w = (LADO / 2 - p[1]) / PASO; if (i) x.lineTo(u, w); else x.moveTo(u, w); });
+      x.stroke();
+    });
+    var d = x.getImageData(0, 0, N, N).data, m = new Uint8Array(N * N); for (var k = 0; k < N * N; k++) m[k] = d[k * 4 + 3] > 100 ? 1 : 0;
+    return m;
+  }
+  function suavizarManzanas(N, Z, red, alfa, maxHa, umbral) {
+    // bordes fijos: vías y también cauces (una quebrada dentro de la manzana no se rellena)
+    var via = mascaraTodasVias(N, red), mr = fraccionRaster(N, function (x, aPx) { x.lineCap = 'round'; x.lineJoin = 'round'; red.rios.forEach(function (r) { x.lineWidth = (r.ancho + 10) / PASO; x.beginPath(); r.pts.forEach(function (p, i) { var q = aPx(p); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }); x.stroke(); }); });
+    for (var kr = 0; kr < N * N; kr++) if (mr[kr] > 0.15) via[kr] = 1;
+    var comp = new Int32Array(N * N).fill(-1), areas = [], nc = 0;
+    for (var s0 = 0; s0 < N * N; s0++) {
+      if (via[s0] || comp[s0] >= 0) continue;
+      var pila = [s0], n = 0; comp[s0] = nc;
+      while (pila.length) { var k = pila.pop(), i = k % N, j = (k / N) | 0; n++;
+        [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]].forEach(function (q) { if (q[0] < 0 || q[1] < 0 || q[0] >= N || q[1] >= N) return; var kk = q[1] * N + q[0]; if (!via[kk] && comp[kk] < 0) { comp[kk] = nc; pila.push(kk); } }); }
+      areas.push(n * PASO * PASO / 1e4); nc++;
+    }
+    var libre = new Uint8Array(N * N), H = Z.slice();
+    for (var k2 = 0; k2 < N * N; k2++) if (!via[k2] && areas[comp[k2]] <= maxHa && !isNaN(Z[k2])) libre[k2] = 1;
+    for (var it = 0; it < 400; it++) for (var j2 = 0; j2 < N; j2++) for (var i2 = 0; i2 < N; i2++) {
+      var q = j2 * N + i2; if (!libre[q]) continue;
+      var sm = 0, c = 0;
+      if (i2 > 0) { sm += H[q - 1]; c++; } if (i2 < N - 1) { sm += H[q + 1]; c++; } if (j2 > 0) { sm += H[q - N]; c++; } if (j2 < N - 1) { sm += H[q + N]; c++; }
+      H[q] += 1.8 * (sm / c - H[q]);
+    }
+    // salvaguarda: si la manzana entera está más alta o más baja que sus calles (plataforma, relleno,
+    // hondonada, vía en terraplén), no es ruido sino forma real → esa manzana no se toca
+    var sumD = new Float32Array(nc), nD = new Float32Array(nc);
+    for (var q1 = 0; q1 < N * N; q1++) if (libre[q1]) { sumD[comp[q1]] += H[q1] - Z[q1]; nD[comp[q1]]++; }
+    var out = Z.slice(); for (var q2 = 0; q2 < N * N; q2++) if (libre[q2] && Math.abs(sumD[comp[q2]] / nD[comp[q2]]) <= (umbral || Infinity)) out[q2] = Z[q2] + alfa * (H[q2] - Z[q2]);
+    return out;
+  }
+  // cobertura de vías: qué parte de la zona queda a más de 40 m de cualquier vía de OSM
+  function coberturaVias(N, red) {
+    var via = mascaraTodasVias(N, red), d = new Float32Array(N * N).fill(1e9);
+    for (var k = 0; k < N * N; k++) if (via[k]) d[k] = 0;
+    for (var pas = 0; pas < 2; pas++) for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var q = pas ? (N - 1 - j) * N + (N - 1 - i) : j * N + i, ii = pas ? N - 1 - i : i, jj = pas ? N - 1 - j : j, s = pas ? 1 : -1;
+      if (ii + s >= 0 && ii + s < N) d[q] = Math.min(d[q], d[q + s] + PASO); if (jj + s >= 0 && jj + s < N) d[q] = Math.min(d[q], d[q + s * N] + PASO); }
+    var lejos = 0; for (var k2 = 0; k2 < N * N; k2++) if (d[k2] > 40) lejos++;
+    var km = {}; red.vias.forEach(function (v) { var L = 0; for (var i2 = 0; i2 < v.ids.length - 1; i2++) { var a = red.nodos[v.ids[i2]], b = red.nodos[v.ids[i2 + 1]]; if (Math.abs(a[0]) < LADO / 2 && Math.abs(a[1]) < LADO / 2) L += Math.hypot(b[0] - a[0], b[1] - a[1]); } var g = /^(motorway|trunk|primary|secondary|tertiary)/.test(v.tipo) ? 'principales' : /^(residential|unclassified|living_street|service|track)/.test(v.tipo) ? 'locales y de servicio' : 'peatonales y escalinatas'; km[g] = (km[g] || 0) + L / 1000; });
+    return { lejos: lejos / (N * N), km: km };
+  }
+  // nivel del agua por píxel cercano al río (cota del cauce más cercano, a ≤ 60 m)
+  function nivelAgua(N, Z, red) {
+    var agua = new Float32Array(N * N).fill(NaN), dist = new Float32Array(N * N).fill(Infinity), anchoR = new Float32Array(N * N);
+    red.rios.forEach(function (r) {
+      var m = []; for (var s = 0; s < r.pts.length - 1; s++) { var a = r.pts[s], b = r.pts[s + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 3)); for (var k = 0; k < n; k++) { var t = k / n; m.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
+      var dentro = m.filter(function (p) { return Math.abs(p[0]) < LADO / 2 + 30 && Math.abs(p[1]) < LADO / 2 + 30; });
+      if (dentro.length < 3) return;
+      var zw = dentro.map(function (p) { var mn = Infinity; for (var dx = -20; dx <= 20; dx += 4) for (var dy = -20; dy <= 20; dy += 4) mn = Math.min(mn, muestrear(Z, N, p[0] + dx, p[1] + dy)); return mn; });
+      for (var i = 1; i < zw.length; i++) zw[i] = Math.min(zw[i], zw[i - 1]);
+      for (var j = 0; j < N; j++) for (var i2 = 0; i2 < N; i2++) {
+        var x = -LADO / 2 + (i2 + 0.5) * PASO, y = LADO / 2 - (j + 0.5) * PASO, k2 = j * N + i2;
+        for (var q = 0; q < dentro.length; q += 2) { var d = Math.hypot(dentro[q][0] - x, dentro[q][1] - y) - r.ancho / 2; if (d < dist[k2]) { dist[k2] = d; agua[k2] = zw[q]; anchoR[k2] = r.ancho; } }
+      }
+    });
+    return { agua: agua, dist: dist, anchoR: anchoR };
+  }
+  var BORDO_LIBRE = 2.5; // m — se reemplaza por el medido en la verdad cuando se calibra
+  function metodoRios(N, C, red, opc) {
+    opc = opc || {};
+    var D = C.slice(), NA = nivelAgua(N, C, red), calles = opc.proteger ? mascaraCalles(N, red) : null, orilla = opc.proteger ? mascaraOrilla(N, red) : null, levantadas = 0;
+    var proteger = calles;
+    for (var k = 0; k < N * N; k++) {
+      if (isNaN(NA.agua[k]) || NA.dist[k] > 60) continue;
+      var bz = NA.agua[k], d = Math.max(0, NA.dist[k]);
+      if (proteger && proteger[k]) {
+        // regla 2: la calle de orilla nunca baja de agua + bordo libre
+        // bordo libre según el cauce: río (≥ 20 m de ancho) el medido; quebrada, 0,8 m. Solo vías de orilla.
+        var bordo = NA.anchoR[k] >= 20 ? opc.bordo : 0.8;
+        if (orilla[k] && D[k] < bz + bordo) { D[k] = bz + bordo; levantadas++; }
+        continue; // regla 1: el cauce no se talla dentro de una calle
+      }
+      if (d > 20) continue;
+      var objetivo = bz + d; // talud 1:1, solo junto al cauce
+      if (objetivo < D[k]) D[k] = objetivo;
+    }
+    if (proteger && levantadas) {
+      // suavizar el borde de lo levantado (2 pasadas sobre la franja de calle)
+      for (var pas = 0; pas < 2; pas++) { var W = D.slice(); for (var j = 1; j < N - 1; j++) for (var i = 1; i < N - 1; i++) { var q = j * N + i; if (!proteger[q] || isNaN(NA.agua[q]) || NA.dist[q] > 60) continue; D[q] = Math.max(D[q], (W[q - 1] + W[q + 1] + W[q - N] + W[q + N] + W[q]) / 5); } }
+    }
+    D.levantadas = levantadas;
+    return D;
+  }
+  // bordo libre real: en la verdad, cota de las calles a ≤ 60 m del río menos el nivel del agua
+  function bordoLibreReal(N, T, red) {
+    var NA = nivelAgua(N, T, red), mc = mascaraOrilla(N, red), v = [];
+    for (var k = 0; k < N * N; k++) if (mc[k] && NA.anchoR[k] >= 20 && !isNaN(NA.agua[k]) && NA.dist[k] <= 60 && NA.dist[k] > 2 && !isNaN(T[k])) v.push(T[k] - NA.agua[k]);
+    if (!v.length) return null;
+    v.sort(function (a, b) { return a - b; });
+    return { p10: v[Math.floor(v.length * 0.1)], mediana: v[Math.floor(v.length / 2)], n: v.length };
+  }
+  function metricas(N, M, T, mascara) {
+    var dif = [], k;
+    for (k = 0; k < N * N; k++) if (!isNaN(T[k]) && !isNaN(M[k]) && (!mascara || mascara[k])) dif.push(M[k] - T[k]);
+    var sesgo = dif.reduce(function (a, b) { return a + b; }, 0) / dif.length;
+    var c = dif.map(function (d) { return d - sesgo; }), rmse = Math.sqrt(c.reduce(function (a, b) { return a + b * b; }, 0) / c.length);
+    var abs = c.map(Math.abs).sort(function (a, b) { return a - b; }), p95 = abs[Math.floor(abs.length * 0.95)];
+    return { sesgo: sesgo, rmse: rmse, p95: p95, n: dif.length, c: c };
+  }
+  function pendienteRMSE(N, M, T) {
+    var e = [], k;
+    for (var j = 1; j < N - 1; j++) for (var i = 1; i < N - 1; i++) {
+      k = j * N + i; if ([k - 1, k + 1, k - N, k + N].some(function (q) { return isNaN(T[q]) || isNaN(M[q]); })) continue;
+      var gt = Math.hypot((T[k + 1] - T[k - 1]) / (2 * PASO), (T[k - N] - T[k + N]) / (2 * PASO)), gm = Math.hypot((M[k + 1] - M[k - 1]) / (2 * PASO), (M[k - N] - M[k + N]) / (2 * PASO));
+      e.push((gm - gt) * 100);
+    }
+    return Math.sqrt(e.reduce(function (a, b) { return a + b * b; }, 0) / e.length);
+  }
+  function dibujarError(N, M, T, sesgo, titulo, red) {
+    var c = document.createElement('canvas'); c.width = c.height = N; var x = c.getContext('2d'), im = x.createImageData(N, N);
+    for (var k = 0; k < N * N; k++) {
+      var d = (M[k] - sesgo) - T[k]; if (isNaN(d)) d = 0; var t = Math.max(-1, Math.min(1, d / 6));
+      var r, g, b; if (t > 0) { r = 255 - (255 - 168) * t; g = 255 - (255 - 67) * t; b = 255 - (255 - 42) * t; } else { r = 255 + (43 - 255) * -t; g = 255 + (92 - 255) * -t; b = 255 + (138 - 255) * -t; }
+      im.data[k * 4] = r; im.data[k * 4 + 1] = g; im.data[k * 4 + 2] = b; im.data[k * 4 + 3] = 255;
+    }
+    x.putImageData(im, 0, 0);
+    // curvas de la verdad cada 2 m, encima, para orientarse
+    x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 0.6;
+    if (red) { x.strokeStyle = 'rgba(0,0,0,.35)'; red.vias.forEach(function (v) { x.beginPath(); v.ids.forEach(function (id, i) { var p = red.nodos[id], u = (p[0] + LADO / 2) / PASO, w = (LADO / 2 - p[1]) / PASO; if (i) x.lineTo(u, w); else x.moveTo(u, w); }); x.stroke(); }); }
+    var f = document.createElement('figure'); f.appendChild(c); var cap = document.createElement('figcaption'); cap.textContent = titulo; f.appendChild(cap); return f;
+  }
+
+  var res = document.getElementById('resultados'), filas = [], calib = {}, zonas3d = [], ablacion = [], bordos = [], coberturas = [];
+  var BASES = [
+    { id: 'cop', nombre: 'Copernicus GLO-30', leer: function (P, N) { return globalPC('cop-dem-glo-30', P, N); } },
+    { id: 'alos', nombre: 'ALOS AW3D30', leer: function (P, N) { return globalPC('alos-dem', P, N); } },
+  ];
+  for (var zi = 0; zi < ZONAS.length; zi++) {
+    var Z = ZONAS[zi], P = proy(Z.lat, Z.lng);
+    try {
+      log('· ' + Z.nombre + ': MDT municipal…');
+      var V = await verdad(Z, P), N = V.N, T = V.z;
+      log('  OpenStreetMap…'); var red = await osm(P);
+      var fb = fraccionConstruida(N, red.edif), fv = fraccionVegetacion(N, red), fr = fraccionRibera(N, red);
+      var cob = coberturaVias(N, red); coberturas.push({ zona: Z.nombre, lejos: cob.lejos, km: cob.km });
+      log('  vías de OSM en la zona: ' + Object.keys(cob.km).map(function (g) { return g + ' ' + cob.km[g].toFixed(1) + ' km'; }).join(' · ') + ' · superficie a más de 40 m de una vía: ' + Math.round(cob.lejos * 100) + ' %');
+      var bl = red.rios.length ? bordoLibreReal(N, T, red) : null;
+      if (bl) { bordos.push({ zona: Z.nombre, p10: bl.p10, mediana: bl.mediana }); log('  bordo libre real de vías de orilla (ríos grandes): p10 ' + bl.p10.toFixed(1) + ' m · mediana ' + bl.mediana.toFixed(1) + ' m'); }
+      if (zi === 0 && bl) { BORDO_LIBRE = Math.max(1.5, +bl.p10.toFixed(1)); log('  bordo libre adoptado (p10 de El Ejido): ' + BORDO_LIBRE + ' m'); }
+      var filasZona = [], copD = null, sesgoCop = 0, mapas = [];
+      for (var bi = 0; bi < BASES.length; bi++) {
+        var BS = BASES[bi];
+        try {
+          log('  ' + BS.nombre + '…');
+          var A = await BS.leer(P, N);
+          if (!calib[BS.id]) {
+            // calibración SOLO en la primera zona (El Ejido)
+            var Xs = [], ys = [];
+            for (var k = 0; k < N * N; k += 2) { if (isNaN(T[k]) || isNaN(A[k])) continue; Xs.push([fb[k], fv[k], fr[k]]); ys.push(A[k] - T[k]); }
+            var coef = regresion(Xs, ys);
+            calib[BS.id] = { b: Math.max(0, coef[1]), v: Math.max(0, coef[2]), r: Math.max(0, coef[3]) };
+            log('    calibración ' + BS.nombre + ': edificios ' + calib[BS.id].b.toFixed(1) + ' · vegetación ' + calib[BS.id].v.toFixed(1) + ' · ribera ' + calib[BS.id].r.toFixed(1) + ' m');
+          }
+          var kc = calib[BS.id], B = new Float32Array(N * N);
+          for (var q = 0; q < N * N; q++) B[q] = A[q] - kc.b * fb[q] - kc.v * fv[q] - kc.r * fr[q];
+          var MV = metodoVias(N, B, red), C = MV.C, D = metodoRios(N, C, red);
+          var FS = filtroSuelo(N, A), E = metodoRios(N, metodoVias(N, FS.Z, red).C, red);
+          if (BS.id === 'alos') {
+            var V1 = metodoVias(N, FS.Z, red, { sinPuentes: true }).C, V2 = metodoVias(N, FS.Z, red, { sinPuentes: true, categorias: true }).C;
+            var variantes = [
+              ['F · solo filtro', FS.Z], ['F → vías', V1], ['F → vías → ríos', metodoRios(N, V1, red)],
+              ['F → ríos → vías (orden inverso)', metodoVias(N, metodoRios(N, FS.Z, red), red, { sinPuentes: true }).C],
+              ['F → vías por categoría', V2], ['F → vías por categoría → ríos', metodoRios(N, V2, red)],
+              ['F → vías → ríos con bordo libre', metodoRios(N, V1, red, { proteger: true, bordo: BORDO_LIBRE })],
+              ['F → vías → ríos con bordo libre → calles interpretadas', callesInterpretadas(N, metodoRios(N, V1, red, { proteger: true, bordo: BORDO_LIBRE }), red)],
+              ['F → vías → ríos → calles interpretadas', callesInterpretadas(N, metodoRios(N, V1, red), red)],
+              ['… → calles interpretadas → vías de nuevo (2ª corrida)', metodoVias(N, callesInterpretadas(N, metodoRios(N, V1, red), red), red, { sinPuentes: true }).C]
+            ];
+            var VR = metodoRios(N, V1, red);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 30 %', suavizarManzanas(N, VR, red, 0.3, 2)]);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 60 %', suavizarManzanas(N, VR, red, 0.6, 2)]);
+            variantes.push(['F → vías → ríos → manzanas suavizadas 100 %', suavizarManzanas(N, VR, red, 1, 2)]);
+            variantes.push(['F → vías → ríos → manzanas 60 %, salvo manzanas en plataforma (> 1 m)', suavizarManzanas(N, VR, red, 0.6, 2, 1)]);
+            variantes.push(['F → vías → ríos → manzanas 60 %, salvo manzanas en plataforma (> 1 m) → calles interpretadas', callesInterpretadas(N, suavizarManzanas(N, VR, red, 0.6, 2, 1), red)]);
+            var callesV = new Uint8Array(N * N); metodoVias(N, FS.Z, red).ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k4 = idx(N, p[0] + dx, p[1] + dy); if (k4 >= 0) callesV[k4] = 1; } });
+            ablacion.push({ zona: Z.nombre, filas: [['A · ALOS solo', A]].concat(variantes).map(function (v) { var m1 = metricas(N, v[1], T), m2 = metricas(N, v[1], T, callesV); return [v[0], m1.rmse, m2.rmse, pendienteRMSE(N, v[1], T)]; }) });
+            pintarAblacion();
+          }
+          var calles = new Uint8Array(N * N); MV.ejes.forEach(function (p) { for (var dx = -6; dx <= 6; dx += 3) for (var dy = -6; dy <= 6; dy += 3) { var k3 = idx(N, p[0] + dx, p[1] + dy); if (k3 >= 0) calles[k3] = 1; } });
+          var mA = metricas(N, A, T), mD = metricas(N, D, T), mE = metricas(N, E, T), cA = metricas(N, A, T, calles), cD = metricas(N, D, T, calles), cE = metricas(N, E, T, calles);
+          filasZona.push({ base: BS.nombre, A: mA, D: mD, E: mE, cA: cA, cD: cD, cE: cE, pA: pendienteRMSE(N, A, T), pD: pendienteRMSE(N, D, T), pE: pendienteRMSE(N, E, T), obj: FS.fraccionObjeto });
+          if (BS.id === 'cop') { var G = callesInterpretadas(N, suavizarManzanas(N, metodoRios(N, metodoVias(N, FS.Z, red, { sinPuentes: true }).C, red, { proteger: true, bordo: BORDO_LIBRE }), red, 0.6, 2, 1), red); copD = G; sesgoCop = metricas(N, G, T).sesgo; mapas.push([A, mA.sesgo, 'Copernicus solo']); mapas.push([D, mD.sesgo, 'D · calibrado + vías + ríos']); mapas.push([E, mE.sesgo, 'E · filtro de suelo + vías + ríos']); }
+        } catch (e) { log('    ✗ ' + BS.nombre + ': ' + e); }
+      }
+      var todos = []; filasZona.forEach(function (f) { todos.push(f.A.rmse, f.D.rmse, f.E.rmse); });
+      var mejor = Math.min.apply(null, todos);
+      function celda(v) { return '<td' + (v === mejor ? ' class="mej"' : '') + '>' + v.toFixed(2) + ' m</td>'; }
+      var html = '<h2>' + Z.nombre + (zi === 0 ? ' <span class="soft">— zona de calibración de D</span>' : '') + '</h2><table><tr><th>Modelo global</th><th>A · solo</th><th>D · calibrado + vías + ríos</th><th>E · filtro de suelo + vías + ríos</th><th>En calles (A → D → E)</th><th>Pendiente (A → D → E)</th><th>Marcado como objeto</th></tr>' +
+        filasZona.map(function (f) { return '<tr><td>' + f.base + '</td>' + celda(f.A.rmse) + celda(f.D.rmse) + celda(f.E.rmse) + '<td>' + f.cA.rmse.toFixed(1) + ' → ' + f.cD.rmse.toFixed(1) + ' → ' + f.cE.rmse.toFixed(1) + ' m</td><td>' + f.pA.toFixed(0) + ' → ' + f.pD.toFixed(0) + ' → ' + f.pE.toFixed(0) + ' %</td><td>' + Math.round(f.obj * 100) + ' %</td></tr>'; }).join('') + '</table>';
+      var cont = document.createElement('section'); cont.innerHTML = html;
+      var g = document.createElement('div'); g.className = 'grid';
+      mapas.forEach(function (m) { g.appendChild(dibujarError(N, m[0], T, m[1], m[2] + ' — error (azul: bajo, rojo: alto; ±6 m)', red)); });
+      cont.appendChild(g);
+      var esc = document.createElement('div'); esc.className = 'escala'; esc.innerHTML = '−6 m <i></i> +6 m · líneas: vías de OSM · zona de ' + LADO + ' m'; cont.appendChild(esc);
+      res.appendChild(cont);
+      filas.push({ zona: Z.nombre, t: filasZona.map(function (f) { return [f.base, +f.A.rmse.toFixed(2), +f.D.rmse.toFixed(2), +f.E.rmse.toFixed(2), +f.cA.rmse.toFixed(2), +f.cE.rmse.toFixed(2), +f.pA.toFixed(1), +f.pE.toFixed(1)]; }) });
+      pintarResumen();
+      if (copD) { var Dd = new Float32Array(N * N); for (var q2 = 0; q2 < N * N; q2++) Dd[q2] = copD[q2] - sesgoCop; zonas3d.push({ nombre: Z.nombre, N: N, rec: Dd, ver: T, red: red }); }
+    } catch (e) { log('  ✗ ' + Z.nombre + ': ' + e); }
+  }
+  function pintarAblacion() {
+    var cont = document.getElementById('ablacion') || (function () { var d = document.createElement('section'); d.id = 'ablacion'; res.parentNode.insertBefore(d, res); return d; })();
+    var nombres = ablacion[0].filas.map(function (f) { return f[0]; });
+    function prom(i, c) { var v = ablacion.map(function (a) { return a.filas[i][c]; }); return v.reduce(function (x, y) { return x + y; }, 0) / v.length; }
+    var base = prom(0, 1), baseC = prom(0, 2);
+    cont.innerHTML = '<h2>¿Cuánto aporta cada paso y en qué orden? (ALOS, promedio de ' + ablacion.length + ' zonas)</h2><table><tr><th>Secuencia</th><th>RMSE general</th><th>vs. solo</th><th>RMSE en calles</th><th>vs. solo</th><th>RMSE pendiente</th></tr>' +
+      nombres.map(function (n, i) { var a = prom(i, 1), c = prom(i, 2); return '<tr><td>' + n + '</td><td>' + a.toFixed(2) + ' m</td><td>' + Math.round((a / base - 1) * 100) + ' %</td><td>' + c.toFixed(2) + ' m</td><td>' + Math.round((c / baseC - 1) * 100) + ' %</td><td>' + prom(i, 3).toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
+    window.__bordos = bordos; window.__coberturas = coberturas;
+    window.__ablacion = ablacion.map(function (a) { return { zona: a.zona, filas: a.filas.map(function (f) { return [f[0], +f[1].toFixed(2), +f[2].toFixed(2), +f[3].toFixed(1)]; }) }; });
+  }
+  function pintarResumen() {
+    var cont = document.getElementById('resumen') || (function () { var d = document.createElement('section'); d.id = 'resumen'; res.parentNode.insertBefore(d, res); return d; })();
+    var val = filas.slice(1); if (!val.length) return;
+    function prom(base, col) { var v = []; val.forEach(function (f) { f.t.forEach(function (r) { if (r[0] === base) v.push(r[col]); }); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : NaN; }
+    var bases = ['Copernicus GLO-30', 'ALOS AW3D30'];
+    cont.innerHTML = '<h2>Resumen — promedio en ' + val.length + ' zonas de validación (sin El Ejido)</h2><table><tr><th>Modelo</th><th>A · solo</th><th>D · calibrado</th><th>E · filtro de suelo</th><th>En calles A → E</th><th>Pendiente A → E</th></tr>' +
+      bases.map(function (b) { return '<tr><td>' + b + '</td><td>' + prom(b, 1).toFixed(2) + ' m</td><td>' + prom(b, 2).toFixed(2) + ' m</td><td>' + prom(b, 3).toFixed(2) + ' m</td><td>' + prom(b, 4).toFixed(2) + ' → ' + prom(b, 5).toFixed(2) + ' m</td><td>' + prom(b, 6).toFixed(1) + ' → ' + prom(b, 7).toFixed(1) + ' %</td></tr>'; }).join('') + '</table>';
+  }
+  var bt = document.getElementById('botones3d');
+  zonas3d.forEach(function (z, i) { var b = document.createElement('button'); b.textContent = z.nombre; b.onclick = function () { mostrar3D(i); }; bt.appendChild(b); });
+  setTimeout(function () { try { mostrar3D(0); } catch (e) { log('3D: ' + e + ' ' + (e.stack || '').split('\n')[1]); } }, 400);
+  function marcarBoton(i) { if (!bt) return; [].forEach.call(bt.children, function (b, k) { b.classList.toggle('activa', k === i); }); }
+
+  // ---------- Maqueta 3D en terrazas ----------
+  function curvasCerradas(Z, N, L) {
+    // marching squares sobre la grilla con borde bajo → anillos cerrados del nivel L
+    var W2 = N + 2, G = new Float32Array(W2 * W2).fill(-1e9);
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) { var z = Z[j * N + i]; G[(j + 1) * W2 + (i + 1)] = isNaN(z) ? -1e9 : z; }
+    function X(i) { return -LADO / 2 + (i - 0.5) * PASO; } function Y(j) { return LADO / 2 - (j - 0.5) * PASO; }
+    var segs = [];
+    for (var j2 = 0; j2 < W2 - 1; j2++) for (var i2 = 0; i2 < W2 - 1; i2++) {
+      var a = G[j2 * W2 + i2], b = G[j2 * W2 + i2 + 1], c = G[(j2 + 1) * W2 + i2 + 1], d = G[(j2 + 1) * W2 + i2];
+      var id = (a > L ? 8 : 0) | (b > L ? 4 : 0) | (c > L ? 2 : 0) | (d > L ? 1 : 0); if (id === 0 || id === 15) continue;
+      function it(z1, z2) { return (L - z1) / (z2 - z1); }
+      var T_ = [X(i2) + it(a, b) * PASO, Y(j2)], R_ = [X(i2 + 1), Y(j2) - it(b, c) * PASO], B_ = [X(i2) + it(d, c) * PASO, Y(j2 + 1)], L_ = [X(i2), Y(j2) - it(a, d) * PASO];
+      var m = { 1: [[L_, B_]], 14: [[L_, B_]], 2: [[B_, R_]], 13: [[B_, R_]], 3: [[L_, R_]], 12: [[L_, R_]], 4: [[T_, R_]], 11: [[T_, R_]], 6: [[T_, B_]], 9: [[T_, B_]], 7: [[L_, T_]], 8: [[L_, T_]], 5: [[L_, T_], [B_, R_]], 10: [[T_, R_], [L_, B_]] }[id];
+      m.forEach(function (sg) { segs.push(sg); });
+    }
+    // unir en anillos
+    function key(p) { return Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); }
+    var porP = {}; segs.forEach(function (s2, i) { [0, 1].forEach(function (e) { (porP[key(s2[e])] = porP[key(s2[e])] || []).push(i); }); });
+    var usado = [], anillos = [];
+    for (var i3 = 0; i3 < segs.length; i3++) {
+      if (usado[i3]) continue; usado[i3] = 1; var r = [segs[i3][0], segs[i3][1]];
+      while (true) { var e = r[r.length - 1], cand = (porP[key(e)] || []).filter(function (q) { return !usado[q]; }); if (!cand.length) break; var q = cand[0]; usado[q] = 1; var s3 = segs[q]; r.push(key(s3[0]) === key(e) ? s3[1] : s3[0]); }
+      if (r.length > 4) anillos.push(r);
+    }
+    return anillos;
+  }
+  function areaR(r) { var a = 0; for (var i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return a / 2; }
+  function dentro(p, r) { var c = false; for (var i = 0, j = r.length - 1; i < r.length; j = i++) { if (((r[i][1] > p[1]) !== (r[j][1] > p[1])) && (p[0] < (r[j][0] - r[i][0]) * (p[1] - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0])) c = !c; } return c; }
+  var vistas = [];
+  function crearVista(canvas) {
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(canvas.clientWidth || 450, (canvas.clientWidth || 450) * 0.75, false);
+    renderer.shadowMap.enabled = true; renderer.outputEncoding = THREE.sRGBEncoding;
+    var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(35, 4 / 3, 5, 5000);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xa79e8c, 0.5));
+    var sol = new THREE.DirectionalLight(0xfff6ea, 1.35); sol.position.set(-300, 500, 250); sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048);
+    var sc = sol.shadow.camera; sc.left = -300; sc.right = 300; sc.top = 300; sc.bottom = -300; sc.far = 2000; sol.shadow.bias = -0.0005; scene.add(sol);
+    var grupo = new THREE.Group(); scene.add(grupo);
+    return { renderer: renderer, scene: scene, cam: cam, grupo: grupo };
+  }
+  var tita = 0.7, fi = 0.95;
+  function render() {
+    vistas.forEach(function (v) {
+      var r = 720; v.cam.position.set(r * Math.sin(fi) * Math.sin(tita), r * Math.cos(fi), r * Math.sin(fi) * Math.cos(tita)); v.cam.lookAt(0, 10, 0);
+      v.renderer.render(v.scene, v.cam);
+    });
+  }
+  function armar(v, Z, N, base, red) {
+    while (v.grupo.children.length) { var o = v.grupo.children.pop(); if (o.geometry) o.geometry.dispose(); }
+    var matTop = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.95 }), matLado = new THREE.MeshStandardMaterial({ color: 0xc9bea9, roughness: 0.95 });
+    var matEd = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    var matArista = new THREE.LineBasicMaterial({ color: 0xb9b0a0 });
+    var zmin = Infinity, zmax = -Infinity; for (var k = 0; k < N * N; k++) if (!isNaN(Z[k])) { zmin = Math.min(zmin, Z[k]); zmax = Math.max(zmax, Z[k]); }
+    // zócalo
+    var zo = new THREE.Mesh(new THREE.BoxGeometry(LADO, 6, LADO), matLado); zo.position.y = -3; zo.receiveShadow = true; v.grupo.add(zo);
+    for (var L = Math.floor(base) + 1; L <= Math.floor(zmax); L++) {
+      var an = curvasCerradas(Z, N, L).filter(function (r) { return Math.abs(areaR(r)) > 4; });
+      if (!an.length) continue;
+      an.sort(function (a, b) { return Math.abs(areaR(b)) - Math.abs(areaR(a)); });
+      var ext = [];
+      an.forEach(function (r) {
+        var prof = an.filter(function (o) { return o !== r && Math.abs(areaR(o)) > Math.abs(areaR(r)) && dentro(r[0], o); }).length;
+        if (prof % 2 === 0) ext.push({ r: r, h: [] });
+        else { for (var e = ext.length - 1; e >= 0; e--) if (dentro(r[0], ext[e].r)) { ext[e].h.push(r); break; } }
+      });
+      var shapes = ext.map(function (e) {
+        var sh = new THREE.Shape(e.r.map(function (p) { return new THREE.Vector2(Math.max(-LADO / 2, Math.min(LADO / 2, p[0])), Math.max(-LADO / 2, Math.min(LADO / 2, p[1]))); }));
+        e.h.forEach(function (h) { sh.holes.push(new THREE.Path(h.map(function (p) { return new THREE.Vector2(p[0], p[1]); }))); });
+        return sh;
+      });
+      shapes.forEach(function (sh) {
+        try {
+          var g = new THREE.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); g.translate(0, L - 1 - base, 0);
+          var m = new THREE.Mesh(g, [matTop, matLado]); m.castShadow = true; m.receiveShadow = true; v.grupo.add(m);
+          var ar = new THREE.LineSegments(new THREE.EdgesGeometry(g, 40), matArista); v.grupo.add(ar);
+        } catch (e) { }
+      });
+    }
+    // puentes: no son terreno; tablero aparte a la cota de su extremo más alto
+    var matPuente = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+    red.vias.forEach(function (vv) {
+      if (!vv.puente) return;
+      var pts = vv.ids.map(function (id) { return red.nodos[id]; }); if (!pts.every(function (p) { return Math.abs(p[0]) < LADO / 2 && Math.abs(p[1]) < LADO / 2; })) return;
+      var zi = function (p) { var i = Math.floor((p[0] + LADO / 2) / PASO), j = Math.floor((LADO / 2 - p[1]) / PASO); var z = Z[j * N + i]; return isNaN(z) ? null : z - base; };
+      var e1 = zi(pts[0]), e2 = zi(pts[pts.length - 1]); if (e1 == null || e2 == null) return;
+      var zt = Math.ceil(Math.max(e1, e2)), an = (ANCHOS[vv.tipo] || [6, 1])[0] + 2 * (ANCHOS[vv.tipo] || [6, 1])[1];
+      for (var i = 0; i < pts.length - 1; i++) {
+        var a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.5) continue;
+        var m = new THREE.Mesh(new THREE.BoxGeometry(L + 1, 0.8, an), matPuente);
+        m.position.set((a[0] + b[0]) / 2, zt + 0.4, -(a[1] + b[1]) / 2); m.rotation.y = Math.atan2(b[1] - a[1], b[0] - a[0]); m.castShadow = true; m.receiveShadow = true; v.grupo.add(m);
+      }
+    });
+    // edificios de OSM apoyados en su terraza más baja
+    function cota(p) { var i = Math.floor((p[0] + LADO / 2) / PASO), j = Math.floor((LADO / 2 - p[1]) / PASO); if (i < 0 || j < 0 || i >= N || j >= N) return null; var z = Z[j * N + i]; return isNaN(z) ? null : Math.max(0, Math.floor(z) - base); }
+    red.edif.forEach(function (r) {
+      if (!r.every(function (p) { return Math.abs(p[0]) < LADO / 2 && Math.abs(p[1]) < LADO / 2; })) return;
+      var cs = r.map(cota).filter(function (c) { return c != null; }); if (!cs.length) return;
+      var zb = Math.min.apply(null, cs), zc = cs.reduce(function (a, b) { return a + b; }, 0) / cs.length, h = 6 + Math.min(12, zc - zb);
+      try { var g2 = new THREE.ExtrudeGeometry(new THREE.Shape(r.map(function (p) { return new THREE.Vector2(p[0], p[1]); })), { depth: h, bevelEnabled: false }); g2.rotateX(-Math.PI / 2); g2.translate(0, zb, 0); var me = new THREE.Mesh(g2, matEd); me.castShadow = true; me.receiveShadow = true; v.grupo.add(me); } catch (e) { }
+    });
+  }
+  function mostrar3D(i) {
+    var z = zonas3d[i]; if (!z) return;
+    if (!vistas.length) { vistas.push(crearVista(document.getElementById('c3dA'))); vistas.push(crearVista(document.getElementById('c3dB'))); }
+    var base = Infinity; [z.rec, z.ver].forEach(function (Z) { for (var k = 0; k < z.N * z.N; k++) if (!isNaN(Z[k])) base = Math.min(base, Z[k]); }); base = Math.floor(base);
+    armar(vistas[0], z.rec, z.N, base, z.red); armar(vistas[1], z.ver, z.N, base, z.red);
+    marcarBoton(i); render();
+  }
+  // girar arrastrando (ambas juntas)
+  ['c3dA', 'c3dB'].forEach(function (id) {
+    var c = document.getElementById(id), arr = null;
+    c.addEventListener('pointerdown', function (e) { arr = [e.clientX, e.clientY]; c.setPointerCapture(e.pointerId); });
+    c.addEventListener('pointermove', function (e) { if (!arr) return; tita -= (e.clientX - arr[0]) * 0.008; fi = Math.max(0.25, Math.min(1.35, fi - (e.clientY - arr[1]) * 0.006)); arr = [e.clientX, e.clientY]; render(); });
+    c.addEventListener('pointerup', function () { arr = null; });
+  });
+  window.__resumen = { calib: calib, filas: filas };
+  log('Listo.');
+})();
+</script>
+</body>
+</html>
