@@ -334,9 +334,13 @@
   .maq-resumen[hidden], .restr-patri[hidden] { display: none !important; }
   .maq-volver { justify-self: start; font: 600 0.8rem 'Inter Tight', sans-serif; color: #1C1A16; background: none; border: 0; padding: 4px 0; cursor: pointer; text-transform: none !important; letter-spacing: normal !important; }
   .res-predio { border: 1px solid #1C1A16; border-radius: 14px; padding: 12px 14px; background: #fff; text-align: left; display: grid; gap: 10px; }
-  .res-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; } .res-cab > b { font-size: 1rem; }
-  .res-modos { display: flex; gap: 4px; background: #F3F1EC; border-radius: 999px; padding: 3px; }
-  .res-modos button { border: 0; background: none; font: 600 0.72rem 'Inter Tight', sans-serif; padding: 5px 9px; border-radius: 999px; color: #5E5B55; cursor: pointer; }
+  .res-cab { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; } .res-cab > b { font-size: 1rem; white-space: nowrap; }
+  .res-modos { display: flex; gap: 2px; background: #F3F1EC; border-radius: 999px; padding: 3px; flex: none; }
+  .res-modos button { border: 0; background: none; font: 600 0.7rem 'Inter Tight', sans-serif; padding: 5px 8px; border-radius: 999px; color: #5E5B55; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+  @media (max-width: 360px) { .res-modos button { padding: 5px 6px; font-size: 0.66rem; } }
+  .res-cambio .res-texto, .res-cambio .res-acc li { animation: resEntra .35s ease both; }
+  .res-cambio .res-acc li:nth-child(2) { animation-delay: .05s; } .res-cambio .res-acc li:nth-child(3) { animation-delay: .1s; } .res-cambio .res-acc li:nth-child(4) { animation-delay: .15s; }
+  @keyframes resEntra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .res-modos button.activo { background: #1C1A16; color: #f3f1ec; }
   .res-nota { margin: 0; font-size: 0.74rem; color: #5E5B55; line-height: 1.45; }
   .res-predio .res-link { font: inherit !important; font-weight: 700 !important; color: #1C1A16 !important; background: none !important; border: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; text-decoration: underline; cursor: pointer; display: inline !important; box-shadow: none !important; }
@@ -1478,14 +1482,14 @@
       { a: 'norma', t: conserva ? 'Ver la normativa' : 'Ver qué puedes construir' },
       { a: 'ficha', t: 'Ficha del predio en PDF', p: 'Gratis' },
       { a: 'tienda', t: 'Servicios para tu terreno' }];
-    var modos = [['terreno', 'Mi terreno'], ['pro', 'Profesional'], ['edu', 'Estudiante']];
+    var modos = [['terreno', 'Terreno'], ['pro', 'Profesional'], ['edu', 'Estudiante']];
     return '<section class="res-predio"><div class="res-cab"><b>Tu predio</b><div class="res-modos" role="tablist" aria-label="Ver como">' +
       modos.map(function (m) { return '<button type="button" data-modo="' + m[0] + '"' + (m[0] === modo ? ' class="activo"' : '') + '>' + m[1] + '</button>'; }).join('') + '</div></div>' +
-      '<p class="res-nota">Esta es información general de referencia. Los datos oficiales los da el <button type="button" class="res-link" data-accion="pedir:planimetrico-iprus">IPRUS</button>, el informe de regulación que emite el municipio.</p>' +
-      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details>' +
+      '<p class="res-nota">Información de referencia. El dato oficial es el <button type="button" class="res-link" data-accion="pedir:planimetrico-iprus">IPRUS</button> que emite el municipio.</p>' +
       '<p class="res-texto">' + txt + '</p>' +
  (boton && modo !== 'edu' ? '<button type="button" class="res-boton" data-accion="' + boton.a + '">' + boton.t + ' ›</button>' : '') +
-      '<ul class="res-acc">' + acc.map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span>' + (x.p ? '<b class="res-precio">' + x.p + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul></section>';
+      '<ul class="res-acc">' + acc.map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span>' + (x.p ? '<b class="res-precio">' + x.p + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul>' +
+      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details></section>';
   }
   function recomendacionesGestion(estado) {
     var R = [], a = estado.antecedentes, r = estado.restriccionVolumen || '';
@@ -6816,9 +6820,10 @@
       // los avisos del predio y de la maqueta van debajo de los tres botones (y de la sección abierta)
       var avisosAbajo = document.createElement('div'); avisosAbajo.className = 'maq-avisos';
       var resumen = document.createElement('div'); resumen.className = 'maq-resumen'; avisosAbajo.appendChild(resumen);
-      function pintarResumen() {
+      function pintarResumen(animar) {
+        resumen.classList.toggle('res-cambio', !!animar);
         resumen.innerHTML = htmlResumenPredio(estado, typeof modoNav === 'string' ? modoNav : 'terreno');
-        resumen.querySelectorAll('[data-modo]').forEach(function (b) { b.addEventListener('click', function () { if (typeof cambiarModoNav === 'function') cambiarModoNav(b.getAttribute('data-modo')); pintarResumen(); }); });
+        resumen.querySelectorAll('[data-modo]').forEach(function (b) { b.addEventListener('click', function () { if (typeof cambiarModoNav === 'function') cambiarModoNav(b.getAttribute('data-modo')); pintarResumen(true); }); });
         resumen.querySelectorAll('[data-accion]').forEach(function (b) { b.addEventListener('click', function () {
           var a = b.getAttribute('data-accion');
           if (a === 'ficha') { abrirFichaGratis(); return; }
