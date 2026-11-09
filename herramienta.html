@@ -804,7 +804,7 @@
   .btn-flot.btn-ficha { right: 148px !important; }
   @media (max-width: 640px) { .btn-flot.btn-mensaje { right: 76px; } .btn-flot.btn-ficha { right: 140px !important; } }
   .msj-tipos { display: flex; flex-wrap: wrap; gap: 6px; } .msj-tipos button { font: 600 0.8rem 'Inter Tight', sans-serif; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(28,26,22,.25); background: #fff; color: #1C1A16; cursor: pointer; } .msj-tipos button.activo { background: #1C1A16; color: #f3f1ec; border-color: #1C1A16; }
-  .checkout-caja.msj textarea, .checkout-caja.msj input[type=text], .checkout-caja.msj input[type=email] { width: 100%; box-sizing: border-box; font: 400 0.9rem 'Inter Tight', sans-serif; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(28,26,22,.25); background: #fff; }
+  .checkout-caja.msj textarea, .checkout-caja.msj input[type=text], .checkout-caja.msj input[type=email], .checkout-caja.msj input[type=url] { width: 100%; box-sizing: border-box; font: 400 0.9rem 'Inter Tight', sans-serif; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(28,26,22,.25); background: #fff; }
   .checkout-caja.msj .campo-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; }
   .btn-tienda svg { width: 24px !important; height: 24px !important; }
   .btn-tienda .tn-badge { position: absolute; top: -3px; right: -3px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #B2502E; color: #fff; font: 700 0.7rem/20px 'Inter Tight', sans-serif; font-style: normal; text-align: center; }
@@ -8069,6 +8069,9 @@
   // Cambiar aquí cualquier valor recalcula toda la tienda.
   var PRECIOS_CFG = {
     indirectos: 0.10, utilidad: 0.25, iva: 0.15, redondeo: 5,
+    // comisión de la pasarela de pago (Payphone 5 % + IVA de la comisión = 5,75 %). En Ecuador no se
+    // puede cobrar recargo por pagar con tarjeta, así que va repartida en el precio de todos.
+    comisionCobro: 0.0575,
     topografoDia: 120, ayudanteDia: 40, dibujoHora: 12, arqHora: 20,
     transporte: { urbano: 15, periurbano: 30, rural: 60 },
     // equipo: el dron propio (fotos/video) se amortiza por día; estación total, GNSS RTK y LiDAR se
@@ -8086,7 +8089,7 @@
   }
   var NOMBRE_ZONA = { urbano: 'urbano', periurbano: 'periurbano', rural: 'rural' };
   function precioDesdeCosto(costo) {
-    var c = PRECIOS_CFG, sinIva = costo * (1 + c.indirectos) * (1 + c.utilidad), con = sinIva * (1 + c.iva);
+    var c = PRECIOS_CFG, sinIva = costo * (1 + c.indirectos) * (1 + c.utilidad) / (1 - c.comisionCobro), con = sinIva * (1 + c.iva);
     return { costo: costo, indirectos: costo * c.indirectos, utilidad: costo * (1 + c.indirectos) * c.utilidad, iva: con - sinIva, total: Math.max(c.redondeo, Math.round(con / c.redondeo) * c.redondeo) };
   }
   function receta(dib, arq, salidas, zona, extra) { var c = PRECIOS_CFG; return (dib || 0) * c.dibujoHora + (arq || 0) * c.arqHora + (salidas || 0) * c.transporte[zona || 'urbano'] + (extra || 0); }
@@ -8376,11 +8379,12 @@
             '<input type="email" name="correo" placeholder="Correo" autocomplete="email" value="' + esc(c) + '">' +
             '<input type="tel" name="tel" placeholder="Teléfono (opcional)" autocomplete="tel" inputmode="tel" value="' + esc(tel) + '">' +
             '<textarea name="nota" rows="3" placeholder="Cuéntanos algo más (opcional): para cuándo lo necesitas, qué piensas construir…"></textarea>' +
+            '<input type="text" name="codigo" placeholder="Código de descuento (opcional)" autocomplete="off" style="text-transform:uppercase">' +
             '<input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true">' +
             '<label class="ficha-chk"><input type="checkbox" name="acepto"><span>Acepto los <a href="#" class="ficha-ter">Términos</a> y la <a href="#" class="ficha-priv">Política de privacidad</a>.</span></label>' +
             '<div class="tn-msg" hidden></div>' +
             '<button type="submit" class="tn-enviar">' + (fijos.length ? 'Enviar pedido' : 'Pedir cotización') + '</button>' +
-            '<p class="tn-nota">No pagas nada todavía: te escribimos para confirmar alcance, fecha y forma de pago.</p>' +
+            '<p class="tn-nota">No pagas nada todavía: te escribimos para confirmar alcance, fecha y forma de pago. Si tienes un código de descuento, lo aplicamos al confirmar.</p>' +
           '</form>' : '') +
         '</div>';
       comunes(); conectarEnlacesLegales(t);
@@ -8390,7 +8394,7 @@
       f.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var msg = f.querySelector('.tn-msg'), q = function (k) { return f.querySelector('[name="' + k + '"]'); };
-        var nombre = q('nombre').value.trim(), correo = q('correo').value.trim(), telefono = q('tel').value.replace(/[^\d+]/g, ''), nota = q('nota').value.trim();
+        var nombre = q('nombre').value.trim(), correo = q('correo').value.trim(), telefono = q('tel').value.replace(/[^\d+]/g, ''), nota = q('nota').value.trim(), codigo = q('codigo').value.trim().toUpperCase().slice(0, 30);
         function error(txt, campo) { msg.hidden = false; msg.className = 'tn-msg alerta'; msg.textContent = txt; if (campo) try { campo.focus(); } catch (e) { } }
         if (nombre.length < 3) return error('Escribe tu nombre.', q('nombre'));
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return error('Revisa tu correo: ahí te escribimos.', q('correo'));
@@ -8398,7 +8402,7 @@
         if (!q('acepto').checked) return error('Para enviar el pedido tienes que aceptar los Términos y la Política de privacidad.');
         try { localStorage.setItem('cotacero-correo', correo); localStorage.setItem('cotacero-nombre', nombre); if (telefono) localStorage.setItem('cotacero-telefono', telefono); } catch (e) { }
         var boton = f.querySelector('.tn-enviar'); boton.disabled = true; boton.textContent = 'Enviando…';
-        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + '\n' + textoOrigen();
+        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + (codigo ? '\nCódigo de descuento: ' + codigo + ' (se aplica al confirmar)' : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + '\n' + textoOrigen();
         var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: it.map(function (x) { return x.id; }).join(','), productoNombre: it.map(function (x) { return x.nombre; }).join(' + '),
           predio: conPredio ? claveTxt : '', nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle, documentos: [], origen: 'tienda', sitio_web: q('sitio_web').value, t: Date.now() - t0 };
         if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
@@ -8459,6 +8463,7 @@
     { id: 'error', tit: 'Algo está mal', ph: 'Cuéntanos qué viste: por ejemplo, "dice que no da a ninguna calle, pero da a la Av. de las Américas".' },
     { id: 'producto', tit: 'Quiero un producto', ph: '¿Qué te gustaría que hagamos? Un plano, un estudio, un archivo…' },
     { id: 'ciudad', tit: 'Quiero mi ciudad', ph: '¿Para qué lo usarías? (opcional)' },
+    { id: 'aporte', tit: 'Aportar información', ph: '¿Qué aportas? Levantamiento, modelo 3D, fotos de fachadas, una corrección… ¿De qué predio o manzana?' },
     { id: 'otro', tit: 'Otra cosa', ph: 'Escríbenos lo que quieras.' }
   ];
   function abrirMensaje(tipoIni) {
@@ -8469,6 +8474,8 @@
       '<div class="maq-estudio-tit">Escríbenos</div>' +
       '<div class="msj-tipos">' + TIPOS_MENSAJE.map(function (x) { return '<button type="button" data-tipo="' + x.id + '"' + (x.id === tipo ? ' class="activo"' : '') + '>' + x.tit + '</button>'; }).join('') + '</div>' +
       '<input type="text" name="ciudad" placeholder="Tu ciudad" hidden>' +
+      '<div class="msj-aporte maq-nota" hidden>Si tu aporte es válido y lo usamos, te enviamos un código de <b>20 % de descuento</b> (hasta $100) para tu próximo pedido; por un levantamiento completo de un predio o manzana, <b>50 %</b>. Si aparece en la maqueta, lleva tu nombre como crédito. Al enviarlo confirmas que la información es tuya y autorizas a Cota Cero a usarla.</div>' +
+      '<input type="url" name="enlace" placeholder="Enlace al archivo (Drive, WeTransfer…)" hidden>' +
       '<textarea name="texto" rows="4"></textarea>' +
       '<input type="email" name="correo" placeholder="Tu correo (opcional, para responderte)" value="' + esc(c) + '">' +
       '<input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true">' +
@@ -8479,6 +8486,8 @@
     function pintar() {
       f.querySelectorAll('.msj-tipos button').forEach(function (b) { b.classList.toggle('activo', b.getAttribute('data-tipo') === tipo); });
       var x = TIPOS_MENSAJE.filter(function (y) { return y.id === tipo; })[0]; ta.placeholder = x.ph; ciu.hidden = tipo !== 'ciudad';
+      f.querySelector('.msj-aporte').hidden = tipo !== 'aporte'; f.querySelector('[name=enlace]').hidden = tipo !== 'aporte';
+      f.querySelector('[name=correo]').placeholder = tipo === 'aporte' ? 'Tu correo (para enviarte el descuento)' : 'Tu correo (opcional, para responderte)';
     }
     pintar();
     f.querySelectorAll('.msj-tipos button').forEach(function (b) { b.addEventListener('click', function () { tipo = b.getAttribute('data-tipo'); pintar(); }); });
@@ -8489,12 +8498,15 @@
       if (tipo === 'ciudad' && ciudad.length < 2) { msg.hidden = false; msg.textContent = 'Escribe tu ciudad.'; ciu.focus(); return; }
       if (tipo !== 'ciudad' && texto.length < 5) { msg.hidden = false; msg.textContent = 'Escribe tu mensaje.'; ta.focus(); return; }
       if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { msg.hidden = false; msg.textContent = 'Revisa tu correo.'; return; }
+      var enlace = f.querySelector('[name=enlace]').value.trim();
+      if (tipo === 'aporte' && !correo) { msg.hidden = false; msg.textContent = 'Déjanos tu correo para enviarte el descuento.'; return; }
+      if (tipo === 'aporte' && enlace && !/^https?:\/\//i.test(enlace)) { msg.hidden = false; msg.textContent = 'El enlace debe empezar con https://'; return; }
       var e = estadoSeleccionado, clave = e ? (e.esUnion ? e.claves.join(' + ') : (e.clave || '')) : '';
       var nombreTipo = TIPOS_MENSAJE.filter(function (y) { return y.id === tipo; })[0].tit;
-      var detalle = (tipo === 'ciudad' ? 'Ciudad: ' + ciudad + '\n' : '') + texto + '\n\n' + textoOrigen() + '\nPágina: ' + location.href + '\nPantalla: ' + window.innerWidth + '×' + window.innerHeight + ' · ' + navigator.userAgent;
+      var detalle = (tipo === 'ciudad' ? 'Ciudad: ' + ciudad + '\n' : '') + (tipo === 'aporte' && enlace ? 'Archivo: ' + enlace + '\n' : '') + texto + '\n\n' + textoOrigen() + '\nPágina: ' + location.href + '\nPantalla: ' + window.innerWidth + '×' + window.innerHeight + ' · ' + navigator.userAgent;
       var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'mensaje-' + tipo, productoNombre: nombreTipo + (tipo === 'ciudad' ? ': ' + ciudad : ''), predio: clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: detalle, documentos: [], origen: 'mensaje', sitio_web: f.querySelector('[name=sitio_web]').value, t: Date.now() - t0 };
       var bt = f.querySelector('.modal-ok'); bt.disabled = true; bt.textContent = 'Enviando…';
-      function listo() { f.innerHTML = '<button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">¡Gracias!</div><p class="maq-nota">' + (tipo === 'ciudad' ? 'Anotamos ' + esc(ciudad) + '. Abrimos nuevas ciudades según cuántas personas las piden.' : 'Lo revisamos pronto.' + (correo ? ' Si hace falta, te escribimos a ' + esc(correo) + '.' : '')) + '</p>'; }
+      function listo() { f.innerHTML = '<button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">¡Gracias!</div><p class="maq-nota">' + (tipo === 'ciudad' ? 'Anotamos ' + esc(ciudad) + '. Abrimos nuevas ciudades según cuántas personas las piden.' : tipo === 'aporte' ? 'Gracias por aportar. Lo revisamos y, si lo usamos, te enviamos tu código de descuento a ' + esc(correo) + '.' : 'Lo revisamos pronto.' + (correo ? ' Si hace falta, te escribimos a ' + esc(correo) + '.' : '')) + '</p>'; }
       if (window.__pedidoDePrueba) { window.__ultimoMensaje = cuerpo; listo(); return; }
       fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
         .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw new Error('sin ok'); listo(); })
