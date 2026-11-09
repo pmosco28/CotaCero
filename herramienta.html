@@ -642,7 +642,12 @@
      map inset") en la esquina superior derecha del render 3D, convención real de lámina de
      arquitectura. .render-combo es el marco común; .ubicacion-inset se posiciona ABSOLUTO relativo a
      él, nunca a la página entera. */
-  .reporte-pdf .render-combo { position: relative; width: 100%; max-width: 560px; margin: 16px auto; }
+  .reporte-pdf .render-combo { position: relative; width: 100%; max-width: 680px; margin: 14px auto 4px; }
+  .reporte-pdf .pie-foto { font-size: 0.68rem; color: var(--ink-soft); text-align: center; margin: 0 0 16px; }
+  .reporte-pdf .solar-fila { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: center; }
+  .reporte-pdf .solar-img { width: 300px; height: 300px; object-fit: cover; border-radius: 50%; display: block; border: 1px solid var(--line-soft); }
+  .reporte-pdf .recos-pdf { font-size: 0.82rem; line-height: 1.45; margin: 0 0 6px; padding-left: 20px; } .reporte-pdf .recos-pdf li { margin-bottom: 4px; }
+  .reporte-pdf .solar-txt { font-size: 0.78rem; line-height: 1.45; } .reporte-pdf .solar-txt p { margin: 0 0 8px; }
   .reporte-pdf .render-3d-img { width: 100%; display: block; border-radius: 12px; }
   .reporte-pdf .ubicacion-inset {
     position: absolute; top: 10px; right: 10px; width: 26%;
@@ -659,6 +664,7 @@
   .reporte-pdf .notas-texto { font-size: 0.85rem; white-space: pre-wrap; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; }
   .reporte-pdf .tabla-usos { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 8px; } .reporte-pdf .tabla-usos td { padding: 3px 6px; border-bottom: 1px solid var(--line-soft); } .reporte-pdf .tabla-usos td:last-child { font-weight: 600; text-align: right; }
   .reporte-pdf .usos-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 0.68rem; }
+  .reporte-pdf .usos-bloque { font-size: 0.68rem; margin-bottom: 8px; } .reporte-pdf .usos-bloque strong { font-size: 0.72rem; } .reporte-pdf .usos-par { margin: 2px 0 0; line-height: 1.45; color: var(--ink); } .reporte-pdf .usos-par b { font-weight: 600; }
   .reporte-pdf .usos-tec { margin: 4px 0 0; padding-left: 12px; } .reporte-pdf .usos-tec li { margin-bottom: 2px; line-height: 1.3; }
   .reporte-pdf .uso-suelo { font-size: 0.85rem; background: var(--paper-raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
   .reporte-pdf .uso-suelo strong { color: var(--ink-soft); font-weight: 600; }
@@ -4282,6 +4288,7 @@
     // alcanza con que la clase ya esté puesta ANTES de esa lectura.
     activarModo3D(estado, areaM2);
     mostrarVolumenNormativa = false; // predio nuevo: se abre sin volumen
+    secAbierta.norma = secAbierta.lotes = secAbierta.pedir = false; cartaSolarVisible = false; // y con los tres botones apagados
     recomputarYRenderizar(estado);
     if (estado.editarPerimetro) construirEditorPerimetro(estado); else capaVertices.clearLayers();
 
@@ -4301,6 +4308,7 @@
       onSliderPisosEtiqueta = function () {
         var v = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
         if (labelPisos) labelPisos.textContent = v + ' / ' + estado.maxPisosLote;
+        if (window.__previsualizarPisos) window.__previsualizarPisos(v); // el volumen sube/baja mientras se arrastra
       };
       sliderPisos.addEventListener('input', onSliderPisosEtiqueta);
       onSliderPisosInput = function () {
@@ -4316,7 +4324,10 @@
           });
         }
         mostrarVolumenNormativa = !estado.restriccionVolumen;
-        recomputarYRenderizar(estado);
+        if (window.__previsualizarPisos) window.__previsualizarPisos(estado.pisos);
+        // se deja terminar la animación antes de rearmar la maqueta (el rearmado congela un instante)
+        clearTimeout(onSliderPisosInput._t);
+        onSliderPisosInput._t = setTimeout(function () { recomputarYRenderizar(estado); }, 320);
       };
       sliderPisos.addEventListener('change', onSliderPisosInput);
     }
@@ -6184,6 +6195,24 @@
       overlayEscala.querySelector('span').textContent = m + ' m';
     }
     // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
+    // Vista previa al arrastrar la barra de pisos: el volumen actual se estira o encoge suavemente
+    // hacia la nueva altura; al soltar se rearma con la geometría exacta (retiros del nuevo tramo).
+    var escalaPrevia = 1, objetivoPrevia = 1, animPrevia = null;
+    window.__previsualizarPisos = function (v) {
+      if (miEscena !== generacionEscena || !grupoVolumen.visible || !pisosEscena) return;
+      window.__pisosPrevia = v;
+      objetivoPrevia = Math.max(0.05, v / pisosEscena);
+      if (animPrevia) return;
+      var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; }); if (!objs.length) objs = [grupoVolumen];
+      (function paso() {
+        if (miEscena !== generacionEscena) { animPrevia = null; return; }
+        escalaPrevia += (objetivoPrevia - escalaPrevia) * 0.22;
+        if (Math.abs(objetivoPrevia - escalaPrevia) < 0.003) escalaPrevia = objetivoPrevia;
+        objs.forEach(function (o) { o.scale.y = escalaPrevia; });
+        renderer.render(scene, camera); actualizarOverlay();
+        animPrevia = escalaPrevia !== objetivoPrevia ? requestAnimationFrame(paso) : null;
+      })();
+    };
     function animarCrecimiento(desde) {
       var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
       if (!objs.length) objs = [grupoVolumen];
@@ -6318,14 +6347,23 @@
     canvas.addEventListener('pointerdown', filtroToque, true);
     // Freno al volver a la maqueta: al subir desde la información, la página se detiene justo en la
     // maqueta; para salir hacia arriba hay que "estirar" (jalar hacia abajo fuera del 3D) y soltar.
-    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0;
+    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0, frenando = false;
     function contMaq() { return canvas.closest('.vol3d-wrap'); }
     function esMovilMaq() { return window.matchMedia('(max-width: 640px)').matches; }
     function frenoScroll() {
       var c = contMaq(); if (!esMovilMaq() || !c || !c.offsetParent) { cruceTop = null; return; }
       var t = c.getBoundingClientRect().top;
       if (t > 60) salidaLibre = false;
-      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
+      if (frenando) { cruceTop = t; return; }
+      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) {
+        // se corta la inercia del dedo (si no, el navegador sigue empujando y la página "tiembla")
+        frenando = true;
+        var de = document.documentElement, y = window.scrollY + t;
+        de.style.overflow = 'hidden';
+        try { window.scrollTo({ top: y, behavior: 'instant' }); } catch (e) { window.scrollTo(0, y); }
+        setTimeout(function () { de.style.overflow = ''; if (!salidaLibre) { try { window.scrollTo({ top: y, behavior: 'instant' }); } catch (e) { window.scrollTo(0, y); } } setTimeout(function () { frenando = false; cruceTop = 0; }, 120); }, 160);
+        t = 0;
+      }
       cruceTop = t;
     }
     function avisoTira() {
@@ -6356,7 +6394,7 @@
     function tEnd() {
       if (tiraY0 === null) return;
       var salir = tirando > 110; tiraY0 = null; tirando = 0; pintarTira(0);
-      if (salir) { salidaLibre = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      if (salir) { salidaLibre = true; document.documentElement.style.overflow = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
     window.addEventListener('scroll', frenoScroll, { passive: true });
     document.addEventListener('touchstart', tStart, { passive: true });
@@ -6824,7 +6862,8 @@
       camaraLista = true; actualizarCamara(); solicitarRender();
       // predio nuevo: la página se acomoda directo en la maqueta, lista para girar
       if (!memo) setTimeout(enfocarMaqueta, 250);
-      if (memo && pisosAntes && pisosAntes !== estado.pisos && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
+      var yaPrevisto = window.__pisosPrevia === estado.pisos; window.__pisosPrevia = null;
+      if (memo && pisosAntes && pisosAntes !== estado.pisos && !yaPrevisto && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
       // norte y escala (abajo a la izquierda)
       var ovViejo = escena.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
       var ov = document.createElement('div'); ov.className = 'maq-overlay';
@@ -6899,6 +6938,87 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { dibujarLamina(); solicitarRender(); });
 
     ultimoRender3D = { renderer: renderer, scene: scene, camera: camera, grupoVolumen: grupoVolumen, grupoExistente: grupoExistente };
+    // Fotos para la ficha PDF: 'volumen' = el volumen normativo sobre el terreno, sin los edificios
+    // vecinos (vista 3/4 desde el ángulo en que el usuario dejó la maqueta); 'solar' = la carta solar
+    // en planta (norte arriba) con los recorridos del sol y la sombra del volumen.
+    ultimoRender3D.capturaEspecial = function (tipo, ancho, alto) {
+      var restr = !!estado.restriccionVolumen;
+      var vis = [grupoEdificios.visible, grupoExistente.visible, grupoVolumen.visible, gCarta.visible];
+      var luz = { p: dirLight.position.clone(), i: dirLight.intensity };
+      var cam = new THREE.PerspectiveCamera(camera.fov, ancho / alto, camera.near, camera.far);
+      try {
+        grupoEdificios.visible = false;
+        if (!restr) { grupoVolumen.visible = true; grupoExistente.visible = false; grupoVolumen.children.forEach(function (o) { if (o.userData && o.userData.cotaRef) o.scale.y = 1; }); }
+        var bb = new THREE.Box3().setFromObject(restr ? grupoExistente : grupoVolumen);
+        var y0 = isFinite(bb.min.y) ? bb.min.y : C0.y, hV = isFinite(bb.max.y) ? Math.max(3, bb.max.y - bb.min.y) : 6;
+        if (tipo === 'solar') {
+          actualizarSol(); gCarta.visible = false; // las líneas se dibujan en 2D encima
+          var r = Rd * 2.95; cam.up.set(0, 0, -1); cam.position.set(C0.x, C0.y + r, C0.z + 0.001); cam.lookAt(C0);
+        } else {
+          gCarta.visible = false; dirLight.position.copy(luzBase.p); dirLight.intensity = luzBase.i;
+          var c = estado.centroideLote, tg = new THREE.Vector3(c[0], y0 + hV * 0.35, -c[1]);
+          var rr = Math.max(maxDim * 1.9, hV * 2.6, 42), ph = 0.95;
+          cam.position.set(tg.x + rr * Math.sin(ph) * Math.sin(theta), tg.y + rr * Math.cos(ph), tg.z + rr * Math.sin(ph) * Math.cos(theta)); cam.lookAt(tg);
+        }
+        cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+        if (tipo !== 'solar') return renderACaptura(renderer, scene, cam, ancho, alto);
+        // carta solar: las líneas de WebGL salen muy finas en una foto; se dibujan encima en 2D, gruesas
+        var cv = renderACaptura(renderer, scene, cam, ancho, alto, true); if (!cv) return '';
+        var x = cv.getContext('2d');
+        function aPx(v3) { var q = v3.clone().project(cam); return [(q.x + 1) / 2 * ancho, (1 - q.y) / 2 * alto]; }
+        // proyección ortográfica de la bóveda (carta solar clásica): radio = cos(altura)
+        var c0 = aPx(C0), bordeE = aPx(C0.clone().add(new THREE.Vector3(Rd, 0, 0))), rPx = Math.hypot(bordeE[0] - c0[0], bordeE[1] - c0[1]);
+        function punto(alt, az) { var k2 = Math.cos(alt) * rPx; return [c0[0] + Math.sin(az) * k2, c0[1] - Math.cos(az) * k2]; }
+        x.save(); x.lineCap = 'round'; x.lineJoin = 'round';
+        // horizonte y anillos de altura (30° y 60°)
+        x.strokeStyle = 'rgba(28,26,22,.55)'; x.lineWidth = 2; x.beginPath(); x.arc(c0[0], c0[1], rPx, 0, 2 * Math.PI); x.stroke();
+        x.strokeStyle = 'rgba(28,26,22,.22)'; x.lineWidth = 1.2; [30, 60].forEach(function (g) { x.beginPath(); x.arc(c0[0], c0[1], rPx * Math.cos(g * Math.PI / 180), 0, 2 * Math.PI); x.stroke(); });
+        x.beginPath(); x.moveTo(c0[0] - rPx, c0[1]); x.lineTo(c0[0] + rPx, c0[1]); x.moveTo(c0[0], c0[1] - rPx); x.lineTo(c0[0], c0[1] + rPx); x.stroke();
+        function recorrido(dia, color, ancho2, horas) {
+          var pts = []; for (var h = 5; h <= 19.01; h += 0.1) { var q = posSolar(dia, h); if (q.alt > 0) pts.push(punto(q.alt, q.az)); }
+          if (pts.length < 2) return;
+          x.strokeStyle = color; x.lineWidth = ancho2; x.beginPath(); pts.forEach(function (p2, i) { if (i) x.lineTo(p2[0], p2[1]); else x.moveTo(p2[0], p2[1]); }); x.stroke();
+          if (horas) { x.fillStyle = color; x.font = '600 15px sans-serif'; x.textAlign = 'center';
+            [7, 9, 12, 15, 17].forEach(function (hh) { var q = posSolar(dia, hh); if (q.alt <= 0) return; var pp = punto(q.alt, q.az); x.beginPath(); x.arc(pp[0], pp[1], 4, 0, 2 * Math.PI); x.fill(); x.fillText(hh + 'h', pp[0], pp[1] - 9); }); }
+        }
+        recorrido(172, 'rgba(46,92,140,.9)', 3, false);   // 21 jun
+        recorrido(355, 'rgba(46,92,140,.9)', 3, false);   // 21 dic
+        recorrido(80, 'rgba(28,26,22,.75)', 2.5, true);   // equinoccio, con horas
+        recorrido(diaSol, '#E08A1E', 4, false);           // fecha elegida
+        var s0 = posSolar(diaSol, horaSol);
+        if (s0.alt > 0) { var ps = punto(s0.alt, s0.az); x.fillStyle = '#F2A93B'; x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.arc(ps[0], ps[1], 11, 0, 2 * Math.PI); x.fill(); x.stroke(); }
+        // puntos cardinales
+        x.fillStyle = '#1C1A16'; x.font = '700 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        [['N', 0], ['E', Math.PI / 2], ['S', Math.PI], ['O', 3 * Math.PI / 2]].forEach(function (c) { var pp = punto(0, c[1]), dx = pp[0] - c0[0], dy = pp[1] - c0[1], d = Math.hypot(dx, dy) || 1; var lx = c0[0] + dx / d * (rPx - 22), ly = c0[1] + dy / d * (rPx - 22); x.fillStyle = 'rgba(255,255,255,.85)'; x.beginPath(); x.arc(lx, ly, 15, 0, 2 * Math.PI); x.fill(); x.fillStyle = '#1C1A16'; x.fillText(c[0], lx, ly + 1); });
+        // leyenda
+        x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.font = '600 15px sans-serif';
+        [['rgba(46,92,140,.9)', '21 jun · 21 dic'], ['rgba(28,26,22,.75)', '21 mar / sep (horas)'], ['#E08A1E', fechaDeDia(diaSol)]].forEach(function (l, i) { var ly = alto - 70 + i * 22; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillRect(ancho / 2 - 95, ly - 15, 190, 21); x.strokeStyle = l[0]; x.lineWidth = 4; x.beginPath(); x.moveTo(ancho / 2 - 88, ly - 5); x.lineTo(ancho / 2 - 60, ly - 5); x.stroke(); x.fillStyle = '#1C1A16'; x.fillText(l[1], ancho / 2 - 52, ly); });
+        x.restore();
+        return cv.toDataURL('image/png');
+      } catch (e) { console.warn('capturaEspecial', tipo, e); return ''; }
+      finally {
+        grupoEdificios.visible = vis[0]; grupoExistente.visible = vis[1]; grupoVolumen.visible = vis[2]; gCarta.visible = vis[3];
+        dirLight.position.copy(luz.p); dirLight.intensity = luz.i;
+        if (cartaSolarVisible) actualizarSol();
+        try { renderer.render(scene, camera); } catch (e2) { }
+      }
+    };
+  }
+  // Render a una imagen (sin crear contextos WebGL nuevos: usa un render target del renderer actual).
+  function renderACaptura(renderer, scene, cam, ancho, alto, devolverCanvas) {
+    var rt = null, previo = renderer.getRenderTarget(), url = '';
+    try {
+      rt = new THREE.WebGLRenderTarget(ancho, alto);
+      renderer.setRenderTarget(rt); renderer.render(scene, cam);
+      var buf = new Uint8Array(ancho * alto * 4); renderer.readRenderTargetPixels(rt, 0, 0, ancho, alto, buf);
+      var cv = document.createElement('canvas'); cv.width = ancho; cv.height = alto;
+      var cx = cv.getContext('2d'), im = cx.createImageData(ancho, alto);
+      for (var y = 0; y < alto; y++) { var o = (alto - 1 - y) * ancho * 4; im.data.set(buf.subarray(o, o + ancho * 4), y * ancho * 4); }
+      cx.putImageData(im, 0, 0);
+      if (devolverCanvas) { url = cv; } else { url = cv.toDataURL('image/png'); if (url.length < 200) url = ''; }
+    } catch (e) { console.warn('renderACaptura', e); url = ''; }
+    finally { renderer.setRenderTarget(previo); if (rt) rt.dispose(); }
+    return url;
   }
 
   // Captura un cuadro de la escena 3D para el informe PDF. VERSIÓN ANTERIOR (no repetir): creaba un
@@ -7547,12 +7667,12 @@
     var base = construirBloqueUsoSueloBase(usoSuelo);
     if (!usos) return base;
     var G = window.GLOSARIO_USOS || {};
-    var lista = function (cs) { return cs.length ? '<ul class="usos-tec">' + cs.map(function (c) { var g = G[c]; return '<li><b>' + c + '</b> ' + (g ? g[1] : '') + '</li>'; }).join('') + '</ul>' : '<div>—</div>'; };
+    var lista = function (cs) { return cs.length ? '<p class="usos-par">' + cs.map(function (c) { var g = G[c]; return '<b>' + c + '</b> ' + (g ? g[1] : ''); }).join(' · ') + '</p>' : '<p class="usos-par">—</p>'; };
     var amig = usosAmigables(usos).map(function (x) { return '<tr><td>' + x.nombre + '</td><td>' + x.texto + '</td></tr>'; }).join('');
     return base +
       '<div class="seccion-titulo">Qué se puede poner en el predio</div><table class="tabla-usos">' + amig + '</table>' +
       '<div class="seccion-titulo">Usos de suelo · detalle técnico (' + (usoSuelo.codPit || '') + ', ámbito ' + (usos.ambito || '—') + ')</div>' +
-      '<div class="usos-col"><div><strong>Uso principal</strong>' + lista(usos.principal) + '</div><div><strong>Uso complementario</strong>' + lista(usos.complementario) + '</div><div><strong>Uso restringido</strong>' + lista(usos.restringido) + '</div></div>' +
+      '<div class="usos-bloque"><strong>Uso principal</strong>' + lista(usos.principal) + '</div><div class="usos-bloque"><strong>Uso complementario</strong>' + lista(usos.complementario) + '</div><div class="usos-bloque"><strong>Uso restringido</strong>' + lista(usos.restringido) + '</div>' +
       '<div class="aviso-legal">Fuente: PUGS 2025, Anexo 7.4 (o 7.3 en expansión urbana), asignación de usos; descripciones del Anexo 7.1. Las actividades que no constan como principales, complementarias o restringidas se entienden prohibidas. Las restringidas deben cumplir las condiciones del Anexo 7.1.</div>';
   }
   function construirBloqueUsoSueloBase(usoSuelo) {
@@ -7961,19 +8081,81 @@
   }
   // Genera el PDF de la ficha (copia del informe fuera de pantalla) y lo manda al Apps Script, que lo
   // envía por correo como adjunto (tipo 'enviar_ficha', ver apps-script/enviar_ficha.gs).
+  // PDF paginado propio: se dibuja el informe UNA vez (con un tamaño de imagen que cualquier celular
+  // aguanta) y se corta en páginas A4 por los bordes de los bloques (nunca a mitad de una línea ni
+  // dejando un título solo al final de la página). Lleva pie con clave, fecha y número de página.
+  var cargaLibsPdf = null;
+  function cargarLibsPdf() {
+    if (window.html2canvas && window.jspdf) return Promise.resolve();
+    function cargar(src) { return new Promise(function (ok, mal) { var sc = document.createElement('script'); sc.src = src; sc.onload = function () { ok(); }; sc.onerror = function () { mal(new Error(src)); }; document.head.appendChild(sc); }); }
+    if (!cargaLibsPdf) cargaLibsPdf = Promise.all([
+      window.html2canvas ? null : cargar('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+      window.jspdf ? null : cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    ]).catch(function (e) { cargaLibsPdf = null; throw e; });
+    return cargaLibsPdf;
+  }
+  function construirPdfFicha(rep, estado) {
+    var cont = document.createElement('div'); cont.className = 'pdf-captura';
+    var clon = rep.cloneNode(true); clon.style.display = 'block'; clon.removeAttribute('id'); cont.appendChild(clon); document.body.appendChild(cont);
+    var clave = estado.esUnion ? estado.claves.join('-') : (estado.clave || 'predio');
+    var imgs = Array.prototype.slice.call(clon.querySelectorAll('img'));
+    return cargarLibsPdf().then(function () {
+      return Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () { }) : null; }));
+    }).then(function () {
+      var raiz = clon.getBoundingClientRect(), anchoPx = Math.ceil(raiz.width), altoPx = Math.ceil(clon.scrollHeight);
+      // cortes posibles: bordes de bloques, filas, ítems de lista
+      var cortes = [], noDespuesDe = {};
+      function rel(el) { var r = el.getBoundingClientRect(); return { t: r.top - raiz.top, b: r.bottom - raiz.top }; }
+      var finTitulo = null;
+      Array.prototype.forEach.call(clon.children, function (el) {
+        var r = rel(el); cortes.push(r.t, r.b);
+        // nunca cortar entre un título y lo que viene después
+        if (finTitulo !== null) { for (var z = finTitulo; z <= Math.round(r.t) + 1; z++) noDespuesDe[z] = true; }
+        finTitulo = el.classList.contains('seccion-titulo') ? Math.round(r.b) - 1 : null;
+        el.querySelectorAll('tr, li, .stat-row, .uso-suelo, .aviso-legal, .maq-usos, .ficha-lista > li, .solar-txt p, h3, h4').forEach(function (x) { var q = rel(x); cortes.push(q.t, q.b); });
+      });
+      cortes = cortes.map(Math.round).filter(function (v, i, arr) { return v > 0 && arr.indexOf(v) === i; }).sort(function (x, y) { return x - y; });
+      var area = 15e6, escala = Math.max(1, Math.min(2, Math.sqrt(area / (anchoPx * altoPx)), 16000 / altoPx));
+      return window.html2canvas(clon, { scale: escala, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: anchoPx }).then(function (lienzo) {
+        var jsPDF = window.jspdf.jsPDF, pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        var M = 12, Wmm = 210 - 2 * M, Hmm = 297 - 2 * M - 8, k = Wmm / anchoPx, pagPx = Hmm / k;
+        var inicio = 0, paginas = [];
+        while (inicio < altoPx - 4) {
+          var lim = inicio + pagPx, corte = lim;
+          if (lim < altoPx) {
+            var cand = cortes.filter(function (c) { return c > inicio + pagPx * 0.4 && c <= lim && !noDespuesDe[c]; });
+            if (cand.length) corte = cand[cand.length - 1];
+          } else corte = altoPx;
+          paginas.push([inicio, corte]); inicio = corte;
+        }
+        var fecha = new Date().toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+        paginas.forEach(function (pg, i) {
+          if (i) pdf.addPage();
+          var h = Math.max(1, Math.round((pg[1] - pg[0]) * escala));
+          var c = document.createElement('canvas'); c.width = lienzo.width; c.height = h;
+          var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, h);
+          x.drawImage(lienzo, 0, Math.round(pg[0] * escala), lienzo.width, h, 0, 0, lienzo.width, h);
+          pdf.addImage(c.toDataURL('image/jpeg', 0.86), 'JPEG', M, M, Wmm, (pg[1] - pg[0]) * k);
+          pdf.setFontSize(7.5); pdf.setTextColor(120);
+          pdf.text('Cota Cero · Ficha del predio ' + clave + ' · ' + fecha + ' · referencial, no reemplaza el IPRUS', M, 297 - 8);
+          pdf.text((i + 1) + ' / ' + paginas.length, 210 - M, 297 - 8, { align: 'right' });
+        });
+        cont.remove();
+        return { pdf: pdf, nombre: 'Ficha-CotaCero-' + clave + '.pdf' };
+      });
+    }).catch(function (e) { try { cont.remove(); } catch (e2) { } throw e; });
+  }
+  // Genera el PDF de la ficha y lo manda al Apps Script, que lo envía por correo como adjunto.
   function enviarFichaPorCorreo(rep, correo, estado) {
     if (!APPS_SCRIPT_URL_DOCUMENTOS || !correo) return Promise.resolve(false);
-    var cont = document.createElement('div'); cont.className = 'pdf-captura';
-    var clon = rep.cloneNode(true); clon.style.display = 'block'; cont.appendChild(clon); document.body.appendChild(cont);
     var clave = estado.esUnion ? estado.claves.join('-') : (estado.clave || 'predio');
-    return cargarHtml2pdf().then(function () {
-      return window.html2pdf().set({ margin: 8, filename: 'Ficha-CotaCero-' + clave + '.pdf', image: { type: 'jpeg', quality: 0.82 }, html2canvas: { scale: 1.6, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } }).from(clon).outputPdf('datauristring');
-    }).then(function (uri) {
-      cont.remove();
+    return construirPdfFicha(rep, estado).then(function (r) {
+      var uri = r.pdf.output('datauristring');
+      if (window.__soloArmarPdf) { window.__ultimoPdfFicha = uri; return true; } // pruebas: no se envía
       return fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ tipo: 'enviar_ficha', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, correo: correo, predio: clave, nombre: 'Ficha-CotaCero-' + clave + '.pdf', pdf: String(uri).split(',')[1] }) })
-        .then(function (r) { return r.json(); }).then(function (j) { return !!(j && j.ok); });
-    }).catch(function (e) { console.warn('No se pudo enviar la ficha por correo', e); try { cont.remove(); } catch (e2) { } return false; });
+        body: JSON.stringify({ tipo: 'enviar_ficha', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, correo: correo, predio: clave, nombre: r.nombre, pdf: String(uri).split(',')[1] }) })
+        .then(function (res) { return res.json(); }).then(function (j) { return !!(j && j.ok); });
+    }).catch(function (e) { console.warn('No se pudo enviar la ficha por correo', e); return false; });
   }
   function generarFichaGratisCon(estado, areaM2, imgSrc) {
     var restringido = !!estado.restriccionVolumen;
@@ -8033,11 +8215,12 @@
   }
 
   function generarInformePDF(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto) {
-    var cap = '';
-    try { cap = capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló capturarImagen3D', e); }
-    aclararParaPapel(cap).then(function (clara) { generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, clara); });
+    var cap = '', solar = '';
+    try { cap = (ultimoRender3D && ultimoRender3D.capturaEspecial && ultimoRender3D.capturaEspecial('volumen', 1200, 760)) || capturarImagen3D(); } catch (e) { console.warn('generarInformePDF: falló la captura 3D', e); }
+    try { solar = (ultimoRender3D && ultimoRender3D.capturaEspecial && ultimoRender3D.capturaEspecial('solar', 900, 900)) || ''; } catch (e) { console.warn('generarInformePDF: falló la carta solar', e); }
+    Promise.all([aclararParaPapel(cap), Promise.resolve(solar)]).then(function (r) { generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, r[0], r[1]); });
   }
-  function generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, imgSrc) {
+  function generarInformePDFCon(estado, areaM2, filasTablaHtml, esCentroHistorico, notasTexto, imgSrc, imgSolar) {
     // El plano de ubicación cruza geometría real (manzana/vecinos/vías) contra un recorte de círculo —
     // más superficie para un caso raro de digitalización (un anillo degenerado, p.ej.) que tumbe todo
     // el informe por un solo predio. Igual que arriba: si falla, el informe sigue sin esa sección en vez
@@ -8072,10 +8255,22 @@
       ? '<div class="aviso-legal">💡 Este lote admite muchas distribuciones de patios y bloques — la que se muestra acá es una entre un número prácticamente ilimitado de combinaciones válidas que el tamaño del terreno permite, no un partido arquitectónico definitivo.</div>'
       : '';
 
+    var bloqueImagen = imgSrc
+      ? '<div class="render-combo">' + '<img class="render-3d-img" src="' + imgSrc + '">' + (svgUbicacion ? '<div class="ubicacion-inset">' + svgUbicacion + '</div>' : '') + '</div>' +
+        '<div class="pie-foto">' + (restringido ? 'Estado actual del predio' : 'Volumen máximo de referencia con ' + estado.pisos + (estado.pisos === 1 ? ' piso' : ' pisos') + ', sin las edificaciones vecinas') + '. Recuadro: ubicación.</div>'
+      : (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : '');
+    var bloqueSolar = imgSolar
+      ? '<div class="seccion-titulo">Asoleamiento · carta solar en planta</div>' +
+        '<div class="solar-fila"><img class="solar-img" src="' + imgSolar + '"><div class="solar-txt">' +
+          '<p>Vista desde arriba, con el norte hacia arriba. Las curvas son el recorrido del sol sobre el predio: en azul los solsticios (21 de junio y 21 de diciembre), en negro el equinoccio (21 de marzo y septiembre) con las horas, y en naranja la fecha elegida (' + fechaDeDia(diaSol) + '), con el sol a las ' + (function (h) { var e = Math.floor(h), m = Math.round((h - e) * 60); if (m === 60) { e++; m = 0; } return (e < 10 ? '0' : '') + e + ':' + (m < 10 ? '0' : '') + m; })(horaSol) + ' y su sombra.</p>' +
+          '<p>Cuenca está casi sobre la línea ecuatorial: el sol pasa muy alto todo el año, algo al norte entre abril y agosto y algo al sur entre octubre y febrero. Las fachadas este y oeste son las que más sol directo reciben.</p>' +
+        '</div></div>'
+      : '';
     document.getElementById('reporte-pdf').innerHTML =
       '<div class="membrete"><div class="brand">Cota<em>Cero</em></div><div class="mono" style="font-size:0.8rem;color:var(--ink-soft);">' + fechaHoy + '</div></div>' +
-      '<h1>' + (restringido ? 'Informe de sitio' : 'Volumetría de referencia') + '</h1>' +
+      '<h1>' + (restringido ? 'Informe de sitio' : 'Ficha del predio') + '</h1>' +
       '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span>' + (estado.pitOficial ? ' · Zona <span class="mono">' + estado.pitOficial + '</span>' : '') + '</div>' +
+      bloqueImagen +
       '<div class="stat-row">' +
         '<div class="stat"><div class="label">Área real</div><div class="value">' + areaM2.toLocaleString('es-EC') + ' m²</div></div>' +
         (restringido ? '' :
@@ -8087,33 +8282,20 @@
         '<div class="stat"><div class="label">Construcción del volumen</div><div class="value" style="font-size:0.88rem;">' + escapar(txtCons) + '</div></div>' +
         '<div class="stat"><div class="label">Densidad</div><div class="value" style="font-size:0.82rem;">' + escapar(txtDens) + '</div></div>' +
       '</div>') +
-      notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio +
+      notaRestriccion + notaPatrimonio + notaAHP + notaCentro + notaRio + notaVersatilidad +
       '<div class="seccion-titulo">Datos del predio</div>' + htmlFichaPredio(estado, ultimoResumen).replace(/<button[^>]*>[^<]*<\/button>/g, '') +
-      (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
-      construirBloqueUsoSuelo(estado.usoSuelo, estado.usos) +
       (function () {
         var R = recomendacionesGestion(estado); if (!R.length) return '';
         return '<div class="seccion-titulo">Qué te toca gestionar</div><ol class="recos-pdf">' + R.map(function (x) { return '<li>' + x.t + '</li>'; }).join('') + '</ol>';
       })() +
+      (filasTablaHtml && !restringido ? '<div class="seccion-titulo">Determinantes de aprovechamiento</div>' + filasTablaHtml : '') +
+      construirBloqueUsoSuelo(estado.usoSuelo, estado.usos) +
+      bloqueSolar +
+      (notasTexto ? '<div class="seccion-titulo">Particularidades encontradas</div><div class="notas-texto">' + escapar(notasTexto) + '</div>' : '') +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
-      (notasTexto ? '<div class="seccion-titulo">Particularidades encontradas</div><div class="notas-texto">' + escapar(notasTexto) + '</div>' : '') +
-      // Volumetría (3D) AL FINAL a propósito (pedido explícito del usuario) — es la imagen más pesada
-      // del informe, y el resto (normativa, uso de suelo, aviso legal) es lo que un cliente necesita
-      // leer primero. La ubicación ya NO es una sección aparte — pedido explícito del usuario: va como
-      // recuadro flotante en la esquina superior derecha de la MISMA imagen (ver .render-combo), un
-      // locator map inset — convención real de lámina de arquitectura, no algo inventado acá.
-      '<div class="seccion-titulo">' + (restringido ? 'Estado actual (vista 3D)' : 'Volumetría (vista 3D)') + '</div>' +
-      notaVersatilidad +
-      (imgSrc
-        ? '<div class="render-combo">' +
-            '<img class="render-3d-img" src="' + imgSrc + '">' +
-            (svgUbicacion ? '<div class="ubicacion-inset">' + svgUbicacion + '</div>' : '') +
-          '</div>'
-        : '<div class="aviso-legal">⚠️ No se pudo capturar la imagen de la volumetría 3D en este navegador. Prueba de nuevo, o genera el informe desde otro navegador (Chrome) si el problema persiste.</div>' +
-          (svgUbicacion ? '<div class="seccion-titulo">Ubicación</div>' + svgUbicacion : '')) +
       '<div class="seccion-titulo">Fuentes</div>' +
-      '<div class="aviso-legal" style="font-size:0.72rem;">Catastro, zonificación (PIT) y ejes: IDE del GAD Municipal de Cuenca, consultados en vivo el ' + fechaHoy + '. Valoración patrimonial y alturas: inventario de bloques de la Dirección de Áreas Históricas (IDE Cuenca). Curvas de nivel: modelo digital del terreno municipal (~3 m), referenciales. Ordenanza de Áreas Históricas y Patrimoniales (2024) y Normas de Arquitectura y Urbanismo (Anexo 8, 2022). Calles, edificaciones y áreas verdes complementarias: © colaboradores de OpenStreetMap (ODbL).</div>';
+      '<div class="aviso-legal" style="font-size:0.72rem;">Catastro, zonificación (PIT) y ejes: IDE del GAD Municipal de Cuenca, consultados en vivo el ' + fechaHoy + '. Normativa: PUGS 2025 (Anexos 6 y 7). Valoración patrimonial y alturas: inventario de bloques de la Dirección de Áreas Históricas (IDE Cuenca). Curvas de nivel: modelo digital del terreno municipal (~3 m), referenciales. Ordenanza de Áreas Históricas y Patrimoniales (2024) y Normas de Arquitectura y Urbanismo (Anexo 8, 2022). Calles, edificaciones y áreas verdes complementarias: © colaboradores de OpenStreetMap (ODbL).</div>';
 
     if (window.__correoFicha) {
       // Ficha gratis: no se abre la ventana de impresión; el PDF se genera y se envía al correo.
