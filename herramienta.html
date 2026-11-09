@@ -6952,7 +6952,7 @@
         var bb = new THREE.Box3().setFromObject(restr ? grupoExistente : grupoVolumen);
         var y0 = isFinite(bb.min.y) ? bb.min.y : C0.y, hV = isFinite(bb.max.y) ? Math.max(3, bb.max.y - bb.min.y) : 6;
         if (tipo === 'solar') {
-          gCarta.visible = true; actualizarSol();
+          actualizarSol(); gCarta.visible = false; // las líneas se dibujan en 2D encima
           var r = Rd * 2.95; cam.up.set(0, 0, -1); cam.position.set(C0.x, C0.y + r, C0.z + 0.001); cam.lookAt(C0);
         } else {
           gCarta.visible = false; dirLight.position.copy(luzBase.p); dirLight.intensity = luzBase.i;
@@ -6961,7 +6961,39 @@
           cam.position.set(tg.x + rr * Math.sin(ph) * Math.sin(theta), tg.y + rr * Math.cos(ph), tg.z + rr * Math.sin(ph) * Math.cos(theta)); cam.lookAt(tg);
         }
         cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-        return renderACaptura(renderer, scene, cam, ancho, alto);
+        if (tipo !== 'solar') return renderACaptura(renderer, scene, cam, ancho, alto);
+        // carta solar: las líneas de WebGL salen muy finas en una foto; se dibujan encima en 2D, gruesas
+        var cv = renderACaptura(renderer, scene, cam, ancho, alto, true); if (!cv) return '';
+        var x = cv.getContext('2d');
+        function aPx(v3) { var q = v3.clone().project(cam); return [(q.x + 1) / 2 * ancho, (1 - q.y) / 2 * alto]; }
+        function punto(alt, az) { return aPx(C0.clone().add(dirSol(alt, az).multiplyScalar(Rd))); }
+        var c0 = aPx(C0), rPx = Math.hypot(punto(0, Math.PI / 2)[0] - c0[0], punto(0, Math.PI / 2)[1] - c0[1]);
+        x.save(); x.lineCap = 'round'; x.lineJoin = 'round';
+        // horizonte y anillos de altura (30° y 60°)
+        x.strokeStyle = 'rgba(28,26,22,.55)'; x.lineWidth = 2; x.beginPath(); x.arc(c0[0], c0[1], rPx, 0, 2 * Math.PI); x.stroke();
+        x.strokeStyle = 'rgba(28,26,22,.22)'; x.lineWidth = 1.2; [30, 60].forEach(function (g) { x.beginPath(); x.arc(c0[0], c0[1], rPx * Math.cos(g * Math.PI / 180), 0, 2 * Math.PI); x.stroke(); });
+        x.beginPath(); x.moveTo(c0[0] - rPx, c0[1]); x.lineTo(c0[0] + rPx, c0[1]); x.moveTo(c0[0], c0[1] - rPx); x.lineTo(c0[0], c0[1] + rPx); x.stroke();
+        function recorrido(dia, color, ancho2, horas) {
+          var pts = []; for (var h = 5; h <= 19.01; h += 0.1) { var q = posSolar(dia, h); if (q.alt > 0) pts.push(punto(q.alt, q.az)); }
+          if (pts.length < 2) return;
+          x.strokeStyle = color; x.lineWidth = ancho2; x.beginPath(); pts.forEach(function (p2, i) { if (i) x.lineTo(p2[0], p2[1]); else x.moveTo(p2[0], p2[1]); }); x.stroke();
+          if (horas) { x.fillStyle = color; x.font = '600 15px sans-serif'; x.textAlign = 'center';
+            [7, 9, 12, 15, 17].forEach(function (hh) { var q = posSolar(dia, hh); if (q.alt <= 0) return; var pp = punto(q.alt, q.az); x.beginPath(); x.arc(pp[0], pp[1], 4, 0, 2 * Math.PI); x.fill(); x.fillText(hh + 'h', pp[0], pp[1] - 9); }); }
+        }
+        recorrido(172, 'rgba(46,92,140,.9)', 3, false);   // 21 jun
+        recorrido(355, 'rgba(46,92,140,.9)', 3, false);   // 21 dic
+        recorrido(80, 'rgba(28,26,22,.75)', 2.5, true);   // equinoccio, con horas
+        recorrido(diaSol, '#E08A1E', 4, false);           // fecha elegida
+        var s0 = posSolar(diaSol, horaSol);
+        if (s0.alt > 0) { var ps = punto(s0.alt, s0.az); x.fillStyle = '#F2A93B'; x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.arc(ps[0], ps[1], 11, 0, 2 * Math.PI); x.fill(); x.stroke(); }
+        // puntos cardinales
+        x.fillStyle = '#1C1A16'; x.font = '700 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        [['N', 0], ['E', Math.PI / 2], ['S', Math.PI], ['O', 3 * Math.PI / 2]].forEach(function (c) { var pp = punto(0, c[1]), dx = pp[0] - c0[0], dy = pp[1] - c0[1], d = Math.hypot(dx, dy) || 1; var lx = c0[0] + dx / d * (rPx - 22), ly = c0[1] + dy / d * (rPx - 22); x.fillStyle = 'rgba(255,255,255,.85)'; x.beginPath(); x.arc(lx, ly, 15, 0, 2 * Math.PI); x.fill(); x.fillStyle = '#1C1A16'; x.fillText(c[0], lx, ly + 1); });
+        // leyenda
+        x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.font = '600 15px sans-serif';
+        [['rgba(46,92,140,.9)', '21 jun · 21 dic'], ['rgba(28,26,22,.75)', '21 mar / sep (horas)'], ['#E08A1E', fechaDeDia(diaSol)]].forEach(function (l, i) { var ly = alto - 70 + i * 22; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillRect(ancho / 2 - 95, ly - 15, 190, 21); x.strokeStyle = l[0]; x.lineWidth = 4; x.beginPath(); x.moveTo(ancho / 2 - 88, ly - 5); x.lineTo(ancho / 2 - 60, ly - 5); x.stroke(); x.fillStyle = '#1C1A16'; x.fillText(l[1], ancho / 2 - 52, ly); });
+        x.restore();
+        return cv.toDataURL('image/png');
       } catch (e) { console.warn('capturaEspecial', tipo, e); return ''; }
       finally {
         grupoEdificios.visible = vis[0]; grupoExistente.visible = vis[1]; grupoVolumen.visible = vis[2]; gCarta.visible = vis[3];
@@ -6972,7 +7004,7 @@
     };
   }
   // Render a una imagen (sin crear contextos WebGL nuevos: usa un render target del renderer actual).
-  function renderACaptura(renderer, scene, cam, ancho, alto) {
+  function renderACaptura(renderer, scene, cam, ancho, alto, devolverCanvas) {
     var rt = null, previo = renderer.getRenderTarget(), url = '';
     try {
       rt = new THREE.WebGLRenderTarget(ancho, alto);
@@ -6981,7 +7013,8 @@
       var cv = document.createElement('canvas'); cv.width = ancho; cv.height = alto;
       var cx = cv.getContext('2d'), im = cx.createImageData(ancho, alto);
       for (var y = 0; y < alto; y++) { var o = (alto - 1 - y) * ancho * 4; im.data.set(buf.subarray(o, o + ancho * 4), y * ancho * 4); }
-      cx.putImageData(im, 0, 0); url = cv.toDataURL('image/png'); if (url.length < 200) url = '';
+      cx.putImageData(im, 0, 0);
+      if (devolverCanvas) { url = cv; } else { url = cv.toDataURL('image/png'); if (url.length < 200) url = ''; }
     } catch (e) { console.warn('renderACaptura', e); url = ''; }
     finally { renderer.setRenderTarget(previo); if (rt) rt.dispose(); }
     return url;
@@ -8228,7 +8261,7 @@
     var bloqueSolar = imgSolar
       ? '<div class="seccion-titulo">Asoleamiento · carta solar en planta</div>' +
         '<div class="solar-fila"><img class="solar-img" src="' + imgSolar + '"><div class="solar-txt">' +
-          '<p>Vista desde arriba con el norte hacia arriba. Las curvas muestran el recorrido del sol sobre el predio en los solsticios (21 de junio y 21 de diciembre) y el equinoccio (21 de marzo / septiembre); la curva naranja es la fecha elegida (' + fechaDeDia(diaSol) + '), con el sol a las ' + (function (h) { var e = Math.floor(h), m = Math.round((h - e) * 60); if (m === 60) { e++; m = 0; } return (e < 10 ? '0' : '') + e + ':' + (m < 10 ? '0' : '') + m; })(horaSol) + ' y su sombra.</p>' +
+          '<p>Vista desde arriba, con el norte hacia arriba. Las curvas son el recorrido del sol sobre el predio: en azul los solsticios (21 de junio y 21 de diciembre), en negro el equinoccio (21 de marzo y septiembre) con las horas, y en naranja la fecha elegida (' + fechaDeDia(diaSol) + '), con el sol a las ' + (function (h) { var e = Math.floor(h), m = Math.round((h - e) * 60); if (m === 60) { e++; m = 0; } return (e < 10 ? '0' : '') + e + ':' + (m < 10 ? '0' : '') + m; })(horaSol) + ' y su sombra.</p>' +
           '<p>Cuenca está casi sobre la línea ecuatorial: el sol pasa muy alto todo el año, algo al norte entre abril y agosto y algo al sur entre octubre y febrero. Las fachadas este y oeste son las que más sol directo reciben.</p>' +
         '</div></div>'
       : '';
