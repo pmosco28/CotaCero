@@ -313,7 +313,9 @@
   details.detalle-tecnico table.determ tr.tier-chosen td { color: #1C1A16; font-weight: 700; }
   .dt-nota { font-size: 0.72rem; font-weight: 300; color: #5E5B55; margin-top: 10px; line-height: 1.45; }
   .maq-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
-  .maq-panel .maq-acc, .maq-panel .maq-acc span, .maq-panel .maq-acc small { text-transform: none; letter-spacing: 0; }
+  .maq-escena > .maq-acciones { width: min(760px, calc(100% - 28px)); margin: 0 auto; padding: 10px 0; background: var(--paper); font-size: 0.82rem; }
+  @media (max-width: 640px) { .maq-escena > .maq-acciones { width: auto; margin: 0 12px; padding: 8px 0; } }
+  .maq-acc, .maq-acc span, .maq-acc small { text-transform: none !important; letter-spacing: 0 !important; }
   .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 0 6px; height: 38px; align-content: center; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-acc span { font-weight: 600; font-size: 0.86rem; } .maq-acc small { font-weight: 300; font-size: 0.68rem; opacity: .75; }
   .maq-acc.activo { background: #1C1A16; color: #f3f1ec; }
@@ -773,6 +775,10 @@
     body.con-carrito .btn-ficha { right: auto; width: 56px; padding: 14px 0; } body.con-carrito .btn-ficha span { display: none; }
     body.con-carrito .btn-carrito { left: 80px; }
   }
+  /* Ficha gratis: solo el ícono (la ventanita explica que es gratis y que llega por correo) */
+  .btn-flot.btn-ficha { width: 52px; height: 52px; padding: 0 !important; justify-content: center; left: auto !important; }
+  .btn-flot.btn-ficha span { display: none; }
+  @media (max-width: 640px) { .btn-flot.btn-ficha { right: 76px !important; } body.con-carrito .btn-carrito { left: auto; right: 138px; } }
   @media print { .btn-flot, .checkout { display: none !important; } }
   .checkout { position: fixed; inset: 0; z-index: 2000; background: rgba(28,26,22,.45); display: grid; place-items: center; padding: 16px; }
   .checkout-caja { position: relative; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: #f6f5f2; border-radius: 14px; padding: 18px; display: grid; gap: 10px; font-size: 0.86rem; color: #1C1A16; }
@@ -3980,6 +3986,7 @@
   // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
   // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
   var introHechaPara = null;
+  var camaraMemoria = null; // vista de la maqueta para el mismo predio: no salta al rearmar (pisos, sol, unión)
   // Acabados de maqueta: paletas completas (más claro que elegir color por color)
   var ACABADOS = {
     blanco: { nombre: 'Blanco', c: { cTer: '#f3f1ec', cSide: '#d9d2c4', cBld: '#faf9f6', cRes: '#4f95c4', cSand: '#a9b78c', cCan: '#c9d0bd' } },
@@ -6040,7 +6047,30 @@
         e.mesh.rotation.y = dot >= 0 ? e.angulo : e.angulo + Math.PI;
       });
     }
+    var claveCam = estado.esUnion ? (estado.claves || []).join('+') : (estado.clave || ''), camaraLista = false;
+    function guardarCamara() {
+      if (!camaraLista) return;
+      camaraMemoria = { k: claveCam, th: theta, ph: phi, r: radius, t: target.clone(), pisos: estado.pisos, planta: camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria.planta : false };
+    }
+    // Transición suave de cámara (nunca saltos): interpola ángulos, distancia y punto de mira.
+    var animCam = null;
+    function animarCamaraHacia(aplicarDestino, D) {
+      var a = { th: theta, ph: phi, r: radius, t: target.clone() };
+      aplicarDestino(); var b = { th: theta, ph: phi, r: radius, t: target.clone() };
+      theta = a.th; phi = a.ph; radius = a.r; target.copy(a.t);
+      var dth = b.th - a.th; dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+      var t0 = performance.now(), mio = {}; animCam = mio; D = D || 650;
+      canvas.addEventListener('pointerdown', function () { if (animCam === mio) animCam = null; }, { once: true });
+      (function paso() {
+        if (animCam !== mio || miEscena !== generacionEscena) return;
+        var u = Math.min(1, (performance.now() - t0) / D), e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        theta = a.th + dth * e; phi = a.ph + (b.ph - a.ph) * e; radius = a.r + (b.r - a.r) * e; target.lerpVectors(a.t, b.t, e);
+        actualizarCamara(); solicitarRender();
+        if (u < 1) requestAnimationFrame(paso); else animCam = null;
+      })();
+    }
     function actualizarCamara() {
+      guardarCamara();
       camera.position.set(
         target.x + radius * Math.sin(phi) * Math.sin(theta),
         target.y + radius * Math.cos(phi),
@@ -6147,14 +6177,15 @@
       overlayEscala.querySelector('span').textContent = m + ' m';
     }
     // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
-    function animarCrecimiento() {
+    function animarCrecimiento(desde) {
       var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
       if (!objs.length) objs = [grupoVolumen];
-      var t0 = performance.now(), D = 950;
+      desde = desde || 0;
+      var t0 = performance.now(), D = desde ? 700 : 950;
       (function paso() {
         if (miEscena !== generacionEscena) return;
         var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
-        objs.forEach(function (o) { o.scale.y = Math.max(0.001, e); });
+        objs.forEach(function (o) { o.scale.y = Math.max(0.001, desde + (1 - desde) * e); });
         renderer.render(scene, camera); actualizarOverlay();
         if (t < 1) requestAnimationFrame(paso);
       })();
@@ -6217,6 +6248,14 @@
     // de la maqueta y el radio llega hasta ver el conjunto completo (reemplaza los botones
     // "Conjunto" / "Lote").
     var zoomLote = null;
+    function ajustarZoomSinRender(nuevoRadio) {
+      var rMin = maxDim * 0.6, rMax = Math.max(R * 2.8, maxDim * 4.5);
+      radius = Math.max(rMin, Math.min(rMax, nuevoRadio));
+      if (zoomLote) {
+        var rL = Math.max(maxDim * 2.6, 95), t = Math.max(0, Math.min(1, (radius - rL) / Math.max(1, rMax - rL)));
+        target.set(zoomLote.x * (1 - t), zoomLote.y * (1 - t), zoomLote.z * (1 - t));
+      }
+    }
     function ajustarZoom(nuevoRadio) {
       var rMin = maxDim * 0.6, rMax = Math.max(R * 2.8, maxDim * 4.5);
       radius = Math.max(rMin, Math.min(rMax, nuevoRadio));
@@ -6353,9 +6392,8 @@
       dirLight.castShadow = true;
       if (cartaSolarVisible) {
         // encuadre: que se vea la cúpula completa
-        if (radius < Rd * 3.2) ajustarZoom(Rd * 3.2);
-        if (phi > 1.05) phi = 1.0;
-        actualizarCamara(); actualizarSol();
+        actualizarSol();
+        if (radius < Rd * 3.2 || phi > 1.05) animarCamaraHacia(function () { if (radius < Rd * 3.2) ajustarZoomSinRender(Rd * 3.2); if (phi > 1.05) phi = 1.0; }, 800);
       } else { etiquetaSol.hidden = true; solicitarRender(); }
     }
     function ponerSol(dia, hora) { diaSol = dia; horaSol = hora; actualizarSol(); }
@@ -6481,7 +6519,7 @@
         if (Math.abs(window.scrollY - y) > 6) window.scrollTo({ top: y, behavior: 'smooth' });
       }
       function pintarAcciones() {
-        p.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
+        wrap.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
         p.querySelectorAll('.maq-sec').forEach(function (sx) { sx.hidden = !secAbierta[sx.getAttribute('data-sec')]; });
       }
       p.querySelectorAll('.maq-acc').forEach(function (b) {
@@ -6505,6 +6543,9 @@
         });
       });
       if (!estado.restriccionVolumen && mostrarVolumenNormativa && !secAbierta.lotes && !secAbierta.pedir) secAbierta.norma = true;
+      // los tres botones van anclados bajo la maqueta (dentro de la escena fija)
+      var accViejas = escena.querySelector('.maq-acciones'); if (accViejas) accViejas.remove();
+      var accN = p.querySelector('.maq-acciones'); if (accN) escena.appendChild(accN);
       pintarAcciones();
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
@@ -6697,10 +6738,16 @@
       // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
       var enPlanta = false;
       barraV.querySelectorAll('button[data-vista]').forEach(function (b) {
-        b.addEventListener('click', function () { enPlanta = !enPlanta; (enPlanta ? VISTAS.planta : VISTAS.lote)(); actualizarCamara(); solicitarRender(); marcarVista(enPlanta ? 'planta' : ''); etiquetaToque(enPlanta ? 'Planta' : 'Vista 3D'); });
+        b.addEventListener('click', function () { enPlanta = !enPlanta; if (camaraMemoria) camaraMemoria.planta = enPlanta; animarCamaraHacia(enPlanta ? VISTAS.planta : VISTAS.lote, 700); marcarVista(enPlanta ? 'planta' : ''); etiquetaToque(enPlanta ? 'Planta' : 'Vista 3D'); });
       });
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
-      VISTAS.lote(); actualizarCamara(); solicitarRender();
+      // mismo predio (cambio de pisos, sol, unión…): se conserva la vista exacta y el volumen crece
+      // desde la altura anterior; predio nuevo: vista del lote.
+      var memo = camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria : null, pisosAntes = memo ? memo.pisos : null;
+      VISTAS.lote();
+      if (memo) { theta = memo.th; phi = memo.ph; radius = memo.r; target.copy(memo.t); enPlanta = !!memo.planta; marcarVista(enPlanta ? 'planta' : ''); }
+      camaraLista = true; actualizarCamara(); solicitarRender();
+      if (memo && pisosAntes && pisosAntes !== estado.pisos && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
       // norte y escala (abajo a la izquierda)
       var ovViejo = escena.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
       var ov = document.createElement('div'); ov.className = 'maq-overlay';
@@ -7608,7 +7655,7 @@
       (function () {
         ids.forEach(function (id) { var v = variantesDe(id); estado.tramitesSel[id] = v ? (v.filter(function (x) { return aNum(x.precio) > 0; })[0] || v[1] || v[0]).id : true; var c = p.querySelector('.tp-card[data-prod="' + id + '"]'); if (c) { pintarTarjeta(c); var r = c.querySelector('.tp-var input[value="' + estado.tramitesSel[id] + '"]'); if (r) r.checked = true; } });
         var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(ids[0]) >= 0; })[0];
-        var bA = p.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
+        var bA = document.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
         if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
         actualizarCarrito(estado, p);
         var c0 = p.querySelector('.tp-card[data-prod="' + ids[0] + '"]'); if (c0) setTimeout(function () { c0.scrollIntoView({ behavior: 'smooth', block: 'center' }); c0.classList.add('destello'); setTimeout(function () { c0.classList.remove('destello'); }, 1400); }, 120);
@@ -7702,7 +7749,7 @@
   }
   function irAFichaEnPanel() {
     var p = document.querySelector('.maq-panel'); if (!p) return;
-    var b = p.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
+    var b = document.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
     var f = p.querySelector('.maq-ficha'); if (!f) return;
     setTimeout(function () { f.scrollIntoView({ behavior: 'smooth', block: 'center' }); f.classList.add('destello'); setTimeout(function () { f.classList.remove('destello'); }, 1400); var i = f.querySelector('input'); if (i && !i.value) try { i.focus({ preventScroll: true }); } catch (e) { } }, 120);
   }
@@ -7721,6 +7768,7 @@
     }
     var bF = botonFlotante('btn-ficha', 'btn-flot btn-ficha', abrirFichaGratis);
     bF.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 10v7M9 14l3 3 3-3"/></svg><span>Ficha gratis</span>';
+    bF.setAttribute('aria-label', 'Ficha gratis de tu predio'); bF.title = 'Ficha gratis de tu predio';
     bF.hidden = !estado;
     var b = botonFlotante('btn-carrito', 'btn-flot btn-carrito', function () { abrirCheckout(estadoSeleccionado); });
     b.hidden = !it.length;
