@@ -8047,7 +8047,9 @@
     indirectos: 0.10, utilidad: 0.25, iva: 0.15, redondeo: 5,
     topografoDia: 120, ayudanteDia: 40, dibujoHora: 12, arqHora: 20,
     transporte: { urbano: 15, periurbano: 30, rural: 60 },
-    equipoTopoDia: 50, dronFotoDia: 60, lidarDia: 180, gnssDia: 50, softwareFoto: 15, softwareLidar: 30,
+    // equipo: el dron propio (fotos/video) se amortiza por día; estación total, GNSS RTK y LiDAR se
+    // alquilan por día completo (aunque el trabajo de campo sea de medio día)
+    alquilerTopoDia: 120, dronPropioDia: 15, alquilerGnssDia: 100, alquilerLidarDia: 450, softwareFoto: 15, softwareLidar: 30,
     rendTopoM2Dia: { urbano: 2500, periurbano: 2500, rural: 2500 }, // el terreno más difícil se refleja en factorZona
     factorZona: { urbano: 1, periurbano: 1.15, rural: 1.3 },
     rendDronHaDia: 15, rendLidarHaDia: 10
@@ -8069,15 +8071,15 @@
     var c = PRECIOS_CFG, f = c.factorZona[zona], tr = c.transporte[zona], ha = Math.max(areaM2, 1) / 10000;
     if (metodo === 'topo') {
       var dias = medioDia(areaM2 / c.rendTopoM2Dia[zona] * f);
-      return dias * (c.topografoDia + c.ayudanteDia + c.equipoTopoDia) + tr + (4 + dias * 4) * c.dibujoHora + c.arqHora;
+      return dias * (c.topografoDia + c.ayudanteDia) + Math.ceil(dias) * c.alquilerTopoDia + tr + (4 + dias * 4) * c.dibujoHora + c.arqHora;
     }
     var haVuelo = Math.max(1, ha * 1.5); // el vuelo cubre el lote y su entorno inmediato (mín. 1 ha)
     if (metodo === 'dron') {
       var d2 = medioDia(haVuelo / c.rendDronHaDia * f);
-      return d2 * (c.topografoDia + c.ayudanteDia + c.dronFotoDia + c.gnssDia) + tr + (6 + haVuelo * 1.5) * c.dibujoHora + c.softwareFoto + c.arqHora;
+      return d2 * (c.topografoDia + c.ayudanteDia) + Math.ceil(d2) * (c.dronPropioDia + c.alquilerGnssDia) + tr + (6 + haVuelo * 1.5) * c.dibujoHora + c.softwareFoto + c.arqHora;
     }
     var d3 = medioDia(haVuelo / c.rendLidarHaDia * f);
-    return d3 * (c.topografoDia + c.ayudanteDia + c.lidarDia + c.gnssDia) + tr + (8 + haVuelo * 2.5) * c.dibujoHora + c.softwareLidar + c.arqHora;
+    return d3 * (c.topografoDia + c.ayudanteDia) + Math.ceil(d3) * (c.alquilerLidarDia + c.alquilerGnssDia) + tr + (8 + haVuelo * 2.5) * c.dibujoHora + c.softwareLidar + c.arqHora;
   }
   function areaLote(estado) { try { return estado && estado.pts ? Math.round(areaPoligonoM(estado.pts)) : 0; } catch (e) { return 0; } }
   function op(id, nombre, desc, costo, nota) { var p = costo == null ? null : precioDesdeCosto(costo); return { id: id, nombre: nombre, desc: desc || '', precio: p ? p.total : null, desglose: p, nota: nota || '' }; }
@@ -8092,7 +8094,7 @@
           { id: 'publico', nombre: 'Información pública', desc: 'Modelo del terreno municipal (~3 m) y curvas cada 1 m referenciales: para decidir o un anteproyecto. Va en la ficha PDF.', precio: 0 },
           op('topo', 'Topografía con GNSS y estación total', 'Linderos, construcciones, curvas cada 25–50 cm. Lo que pide el municipio para planos y trámites.', conA ? costoLevantamiento('topo', A, z) : null),
           op('dron', 'Dron con fotogrametría', 'Lote y entorno: ortofoto actual, nube de puntos y curvas cada 25 cm, con puntos de control GNSS. Ideal en terrenos abiertos o con pendiente.', conA ? costoLevantamiento('dron', A, z) : null),
-          op('lidar', 'Dron con LiDAR', 'Escáner láser: mide bajo árboles y capta fachadas con precisión centimétrica. Para terrenos con vegetación o edificaciones.', conA ? costoLevantamiento('lidar', A, z) : null)
+          op('lidar', 'Dron con LiDAR', 'Escáner láser: mide bajo árboles y capta fachadas con precisión centimétrica. Para terrenos con vegetación o edificaciones. Sujeto a disponibilidad del equipo.', conA ? costoLevantamiento('lidar', A, z) : null)
         ];
         def = A > 5000 ? 'dron' : 'topo'; break;
       case 'planimetrico': L = [op('u', 'Plano planimétrico', '', receta(1.5, 1))]; break;
@@ -8140,7 +8142,10 @@
       case 'anteproyecto-historico': L = [op('u', 'Según el proyecto', 'Desde $600 aprox.', null)]; break;
       case 'permiso-menor-historico': L = [op('u', 'Gestión del permiso', '', receta(2, 4, 1, z))]; break;
       case 'informe-compra': L = [op('u', 'Informe con visita', 'Normativa, afectaciones, permisos, linderos del catastro frente a la escritura y riesgos, en lenguaje claro.', receta(1, 6, 1, z))]; break;
-      case 'venta-predio': L = [op('90', 'Publicación 90 días', 'Tu predio en la vitrina de Cota Cero: maqueta 3D, normativa y contacto directo.', receta(0, 1, 0, z, 10))]; break;
+      case 'venta-predio': L = [
+        op('90', 'Publicación 90 días', 'Tu predio en la vitrina de Cota Cero: maqueta 3D, normativa y contacto directo con los interesados.', receta(0, 1, 0, z, 10)),
+        op('dron', 'Publicación + fotos y video con dron', 'Además: vuelo del terreno, fotos aéreas y un video corto editado para redes y portales.', 0.5 * PRECIOS_CFG.topografoDia + PRECIOS_CFG.dronPropioDia + receta(3, 1, 1, z, 10)),
+        op('acomp', 'Venta acompañada', 'Te acompañamos hasta la venta junto con un corredor de bienes raíces con licencia. Comisión sobre el precio de venta, a convenir.', null)]; break;
       default: var pp = productoPorId(id), n = pp ? aNum(pp.precioBase) : NaN; L = [{ id: 'u', nombre: pp ? pp.nombre : id, desc: '', precio: n > 0 ? n : null }];
     }
     L.def = def || (L.filter(function (o) { return o.precio; })[0] || L[0]).id;
