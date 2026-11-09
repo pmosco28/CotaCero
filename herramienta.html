@@ -2293,6 +2293,7 @@
 
       '<h3>¿Qué datos recopilamos?</h3>' +
       '<ul>' +
+        '<li><b>Estadísticas de uso, anónimas:</b> qué páginas, secciones y predios se consultan, desde qué tipo de dispositivo y de qué enlace llegaste, con un identificador aleatorio que dura solo mientras tienes la pestaña abierta. No guardamos tu IP, nombre ni correo, y no usamos cookies de publicidad. Sirve para mejorar la herramienta.</li>' +
         '<li><b>Al consultar un predio:</b> nada personal. La herramienta usa datos públicos del GAD Municipal de Cuenca (catastro, normativa, permisos) y nunca muestra nombres de propietarios ni de solicitantes.</li>' +
         '<li><b>Al descargar la ficha gratis:</b> tu correo electrónico (obligatorio, para enviarte el PDF), tu número de WhatsApp si decides darlo (opcional), la clave catastral consultada y la fecha en que aceptaste estos términos.</li>' +
         '<li><b>Al pedir un servicio:</b> tu nombre, correo, teléfono, el predio y el detalle que escribas, para coordinar el pedido.</li>' +
@@ -4610,6 +4611,7 @@
     // archivo) son el predio "actual" para cualquier producto que lo necesite — hoy solo croquis, que
     // genera su vista previa directo desde aplicarProductoActivo() sin pasar por un botón de formulario.
     estadoSeleccionado = estado; areaM2Seleccionado = areaM2;
+    if (typeof registrarVisita === 'function') registrarVisita('predio', '', estado.esUnion ? estado.claves.join('+') : estado.clave);
     actualizarWhatsApp(estado.clave);
 
     // El panel recién se reconstruyó completo (#vista-volumetria) — aplicar de nuevo cuál es el
@@ -6933,6 +6935,7 @@
           // pasar a otra sección; solo al cerrar Normativa)
           Object.keys(secAbierta).forEach(function (x) { secAbierta[x] = false; });
           secAbierta[k] = abrir;
+          if (abrir && typeof registrarVisita === 'function') registrarVisita('seccion', k, estado.clave);
           if (k === 'norma' && !estado.restriccionVolumen) {
             mostrarVolumenNormativa = secAbierta.norma;
             grupoVolumen.visible = mostrarVolumenNormativa;
@@ -8440,6 +8443,7 @@
   function textoBotonAdd(sel, o) { return sel ? '✓ En tu pedido' : o.precio === 0 ? 'Recibir gratis' : o.precio == null ? 'Cotizar' : 'Agregar'; }
   function cerrarTienda() { var t = document.getElementById('tienda'); if (t) t.remove(); document.documentElement.classList.remove('tienda-abierta'); }
   function abrirTienda(estadoArg, vista, ids) {
+    if (typeof registrarVisita === 'function') registrarVisita('tienda', (ids || []).join(','), estadoArg && estadoArg.clave);
     var estado = estadoDeTienda(estadoArg || estadoSeleccionado);
     var conPredio = estado !== estadoSinPredio;
     var t = document.getElementById('tienda'); if (t) t.remove();
@@ -8622,7 +8626,7 @@
         if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
         fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
           .then(function (r) { return r.json(); })
-          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); vistaListo(j.idPedido || ''); })
+          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); registrarVisita('pedido', it.map(function (x) { return x.id; }).join(','), conPredio ? claveTxt : ''); vistaListo(j.idPedido || ''); })
           .catch(function (e) { console.warn('pedido', e); boton.disabled = false; boton.textContent = fijos.length ? 'Enviar pedido' : 'Pedir cotización'; error('No pudimos enviar el pedido. Inténtalo de nuevo o escríbenos a cotacero.pm@gmail.com.'); });
         function vistaListo(idPed) {
           Object.keys(estado.tramitesSel).forEach(function (k) { estado.tramitesSel[k] = false; });
@@ -8668,8 +8672,25 @@
     (function () { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) { MODOS_NAV.terreno.h1 = h.innerHTML; MODOS_NAV.terreno.lede = l ? l.textContent : ''; MODOS_NAV.terreno.nota = n ? n.textContent : ''; } })();
     if (M.h1 && modoNav !== 'terreno') { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) h.innerHTML = M.h1; if (l) l.textContent = M.lede; if (n) n.textContent = M.nota; }
   })();
+  // Registro anónimo de uso (sin IP, nombres ni correos): una fila por evento en la hoja "Visitas"
+  // del Apps Script, que TramaUrbana lee. Falla en silencio: nunca afecta a la página.
+  var sesionVisita = (function () { try { var x = sessionStorage.getItem('cotacero-ses'); if (!x) { x = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('cotacero-ses', x); } return x; } catch (e) { return 'sin'; } })();
+  var eventosEnviados = {};
+  function registrarVisita(evento, detalle, predio) {
+    try {
+      if (/localhost|127\.0\.0\.1|^file:/.test(location.href) || window.__pedidoDePrueba) return;
+      var k = evento + '|' + (detalle || '') + '|' + (predio || ''); if (eventosEnviados[k]) return; eventosEnviados[k] = 1;
+      var ref = ''; try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { }
+      var cuerpo = JSON.stringify({ tipo: 'visita', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, evento: evento, detalle: detalle || '', predio: predio || '', sesion: sesionVisita,
+        pagina: location.pathname.split('/').pop() || 'inicio', modo: modoNav, origen: Object.keys(origenVisita).map(function (q) { return q.replace('utm_', '') + '=' + origenVisita[q]; }).join('&'),
+        dispositivo: window.matchMedia('(max-width: 640px)').matches ? 'celular' : 'computadora', referencia: ref });
+      if (navigator.sendBeacon) navigator.sendBeacon(APPS_SCRIPT_URL_DOCUMENTOS, new Blob([cuerpo], { type: 'text/plain;charset=utf-8' }));
+      else fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', mode: 'no-cors', body: cuerpo, keepalive: true });
+    } catch (e) { }
+  }
+  window.addEventListener('load', function () { setTimeout(function () { registrarVisita('entrada'); }, 800); });
   function cambiarModoNav(m) {
-    if (!MODOS_NAV[m]) return; modoNav = m; perfilTienda = MODOS_NAV[m].tienda;
+    if (!MODOS_NAV[m]) return; modoNav = m; perfilTienda = MODOS_NAV[m].tienda; registrarVisita('modo', m);
     try { sessionStorage.setItem('cotacero-modo', m); } catch (e) { }
     var M = MODOS_NAV[m], D = MODOS_NAV.terreno, h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota');
     if (!D.h1 && h) { D.h1 = h.innerHTML; D.lede = l ? l.textContent : ''; D.nota = n ? n.textContent : ''; }
