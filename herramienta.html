@@ -646,6 +646,8 @@
   .reporte-pdf .pie-foto { font-size: 0.68rem; color: var(--ink-soft); text-align: center; margin: 0 0 16px; }
   .reporte-pdf .solar-fila { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: center; }
   .reporte-pdf .solar-img { width: 300px; height: 300px; object-fit: cover; border-radius: 50%; display: block; border: 1px solid var(--line-soft); }
+  .reporte-pdf .qr-fila { display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center; border: 1px solid var(--line-soft); border-radius: 10px; padding: 12px 14px; }
+  .reporte-pdf .qr-img svg { width: 120px; height: 120px; display: block; } .reporte-pdf .qr-txt { font-size: 0.8rem; line-height: 1.45; } .reporte-pdf .qr-url { font-size: 0.68rem; color: var(--ink-soft); word-break: break-all; margin: 4px 0 6px; } .reporte-pdf .qr-sug { font-size: 0.76rem; margin-top: 3px; }
   .reporte-pdf .recos-pdf { font-size: 0.82rem; line-height: 1.45; margin: 0 0 6px; padding-left: 20px; } .reporte-pdf .recos-pdf li { margin-bottom: 4px; }
   .reporte-pdf .solar-txt { font-size: 0.78rem; line-height: 1.45; } .reporte-pdf .solar-txt p { margin: 0 0 8px; }
   .reporte-pdf .render-3d-img { width: 100%; display: block; border-radius: 12px; }
@@ -8292,6 +8294,18 @@
       construirBloqueUsoSuelo(estado.usoSuelo, estado.usos) +
       bloqueSolar +
       (notasTexto ? '<div class="seccion-titulo">Particularidades encontradas</div><div class="notas-texto">' + escapar(notasTexto) + '</div>' : '') +
+      (function () {
+        // QR para volver a la maqueta de este predio (siempre apunta a la página publicada)
+        var base = /github\.io$/.test(location.hostname) ? location.origin + location.pathname : 'https://pmosco28.github.io/CotaCero/herramienta.html';
+        var url = base + (estado.esUnion ? '?claves=' + encodeURIComponent((estado.claves || []).join(',')) : '?clave=' + encodeURIComponent(estado.clave || ''));
+        var qr = ''; try { qr = construirQrSvg(url); } catch (e) { }
+        var sug = null; try { sug = productoSugerido(estado); } catch (e) { }
+        return '<div class="seccion-titulo">Tu predio en 3D</div><div class="qr-fila">' + (qr ? '<div class="qr-img">' + qr + '</div>' : '') +
+          '<div class="qr-txt"><b>Escanea el código para abrir la maqueta de este predio</b> y seguir explorando: cambia los pisos, mueve el sol o une lotes vecinos.' +
+          '<div class="qr-url">' + url.replace(/^https?:\/\//, '') + '</div>' +
+          (sug ? '<div class="qr-sug"><b>Siguiente paso sugerido:</b> ' + sug.titulo + ' — ' + sug.sub + '.</div>' : '') +
+          '<div class="qr-sug">Escríbenos: cotacero.pm@gmail.com</div></div></div>';
+      })() +
       '<div class="seccion-titulo">Aviso</div>' +
       '<div class="aviso-legal">⚠️ Este informe es un primer acercamiento de referencia al sitio, generado a partir de datos públicos del catastro municipal de Cuenca y de OpenStreetMap. No tiene validez legal ni reemplaza ningún trámite oficial — la única forma de obtener información confiable y vinculante sobre lo que se puede construir en este predio es tramitar el IPRUS ante el GAD Municipal de Cuenca.</div>' +
       '<div class="seccion-titulo">Fuentes</div>' +
