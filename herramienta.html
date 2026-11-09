@@ -342,7 +342,8 @@
   .res-tit { font-size: 0.7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   .res-acc { list-style: none; margin: -4px 0 0; padding: 0; display: grid; gap: 6px; }
   .res-acc button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; font: 400 0.82rem/1.4 'Inter Tight', sans-serif; color: #1C1A16; background: #fff; border: 1px solid rgba(28,26,22,.15); border-radius: 10px; padding: 9px 12px; cursor: pointer; }
-  .res-acc button span { margin-left: auto; font-size: 1.2rem; color: #8F3F23; }
+  .res-acc button .res-txt { flex: 1; min-width: 0; } .res-acc button .res-fl { flex: none; font-size: 1.2rem; color: #8F3F23; }
+  .res-predio button, .res-predio b, .res-predio small { text-transform: none !important; letter-spacing: normal !important; }
   .res-acc button:hover { border-color: #1C1A16; }
   .maq-avisos { display: grid; gap: 8px; } .maq-avisos:empty { display: none; }
   .maq-avisos > div[style*="margin"] { margin: 0 !important; }
@@ -1438,7 +1439,7 @@
     return '<section class="res-predio"><div class="res-cab"><b>Tu predio</b><div class="res-modos" role="tablist" aria-label="Ver como">' +
       modos.map(function (m) { return '<button type="button" data-modo="' + m[0] + '"' + (m[0] === modo ? ' class="activo"' : '') + '>' + m[1] + '</button>'; }).join('') + '</div></div>' +
       stats + htmlPatrimonioDestacado(estado) +
-      '<div class="res-tit">Qué puedes hacer</div><ul class="res-acc">' + acc.slice(0, 3).map(function (x) { return '<li><button type="button" data-accion="' + x.a + '">' + x.t + '<span aria-hidden="true">›</span></button></li>'; }).join('') + '</ul></section>';
+      '<div class="res-tit">Qué puedes hacer</div><ul class="res-acc">' + acc.slice(0, 3).map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span><span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul></section>';
   }
   function recomendacionesGestion(estado) {
     var R = [], a = estado.antecedentes, r = estado.restriccionVolumen || '';
