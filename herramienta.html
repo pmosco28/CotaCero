@@ -6235,7 +6235,7 @@
       // frena — más margen para apuntar fino cuando se está mirando el detalle de cerca.
       var sensibilidad = 0.008 * (radius / (maxDim * 1.7));
       theta -= dx * sensibilidad;
-      phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * sensibilidad));
+      if (!soloHorizontal) phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * sensibilidad));
       actualizarCamara();
       solicitarRender();
       e.preventDefault();
@@ -6275,7 +6275,7 @@
     var toques = {}, distPellizco = 0, radioPellizco = 0;
     function distToques() { var k = Object.keys(toques); if (k.length < 2) return 0; var a = toques[k[0]], b = toques[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
     function pinDown(e) {
-      if (e.pointerType !== 'touch') return;
+      if (e.pointerType !== 'touch' || soloHorizontal) return;
       toques[e.pointerId] = { x: e.clientX, y: e.clientY };
       if (Object.keys(toques).length === 2) { distPellizco = distToques(); radioPellizco = radius; arrastrando = false; }
     }
@@ -6292,17 +6292,22 @@
     canvas.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     // Celular: la maqueta queda fija arriba. Mientras todavía está entrando o saliendo de la pantalla
     // (no está "anclada"), deslizar el dedo sobre ella hace scroll de la página; ya anclada arriba,
     // el dedo la gira. Así no se queda uno atrapado en el 3D al bajar por la página.
+    // "Al inicio" = la página está justo en la maqueta (ni más arriba ni leyendo más abajo). Solo ahí
+    // el dedo la gira en todas direcciones; fuera de eso, deslizar en vertical sobre el 3D mueve la
+    // página (subir o bajar sin girar la maqueta) y deslizar en horizontal la sigue girando.
     function maquetaAnclada() {
       if (!window.matchMedia('(max-width: 640px)').matches) return true;
-      var t = (canvas.parentElement || canvas).getBoundingClientRect().top;
-      return Math.abs(t) <= 8;
+      var cont = canvas.closest('.vol3d-wrap') || canvas.parentElement || canvas;
+      return Math.abs(cont.getBoundingClientRect().top) <= 8;
     }
+    var soloHorizontal = false;
     function actualizarGestoTactil() { var a = maquetaAnclada(); canvas.style.touchAction = a ? 'none' : 'pan-y'; canvas.classList.toggle('desanclada', !a); }
-    function filtroToque(e) { if (e.pointerType === 'touch' && !maquetaAnclada()) e.stopImmediatePropagation(); }
+    function filtroToque(e) { if (e.pointerType === 'touch') soloHorizontal = !maquetaAnclada(); else soloHorizontal = false; }
     canvas.addEventListener('pointerdown', filtroToque, true);
     window.addEventListener('scroll', actualizarGestoTactil, { passive: true });
     window.addEventListener('resize', actualizarGestoTactil);
@@ -6323,6 +6328,7 @@
     // ---------- Carta solar: cúpula sobre el lote con las trayectorias del sol (solsticios y
     // equinoccio), líneas de hora y el sol, que se arrastra por la cúpula: al moverlo cambian la fecha
     // y la hora, la luz y las sombras. ----------
+    var luzBase = { p: dirLight.position.clone(), i: dirLight.intensity };
     var gCarta = new THREE.Group(); gCarta.visible = cartaSolarVisible; scene.add(gCarta);
     var cLote = estado.centroideLote || [0, 0];
     var boxV = new THREE.Box3().setFromObject(grupoVolumen);
@@ -6394,7 +6400,7 @@
         // encuadre: que se vea la cúpula completa
         actualizarSol();
         if (radius < Rd * 3.2 || phi > 1.05) animarCamaraHacia(function () { if (radius < Rd * 3.2) ajustarZoomSinRender(Rd * 3.2); if (phi > 1.05) phi = 1.0; }, 800);
-      } else { etiquetaSol.hidden = true; solicitarRender(); }
+      } else { etiquetaSol.hidden = true; dirLight.position.copy(luzBase.p); dirLight.intensity = luzBase.i; solicitarRender(); }
     }
     function ponerSol(dia, hora) { diaSol = dia; horaSol = hora; actualizarSol(); }
     // arrastre del sol por la cúpula (mouse y dedo); si el toque cae cerca del sol no se gira la cámara
@@ -6539,6 +6545,7 @@
             solicitarRender();
           }
           pintarAcciones();
+          if (!secAbierta.lotes && cartaSolarVisible) { mostrarCartaSolar(false); var chS = p.querySelector('.maq-sol-chk'); if (chS) chS.checked = false; }
           enfocarMaqueta();
         });
       });
@@ -6567,6 +6574,8 @@
       if (solHora) solHora.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(diaSol, parseFloat(solHora.value)); });
       if (solDia) solDia.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(parseInt(solDia.value, 10), horaSol); });
       p.querySelectorAll('.maq-sol-rapido button').forEach(function (bq) { bq.addEventListener('click', function () { encenderSiHaceFalta(); ponerSol(parseInt(bq.getAttribute('data-dia'), 10), horaSol); }); });
+      // el asoleamiento solo vive dentro de Análisis
+      if (cartaSolarVisible && !secAbierta.lotes) { cartaSolarVisible = false; gCarta.visible = false; if (solChk) solChk.checked = false; }
       if (cartaSolarVisible) actualizarSol();
       var b3d = p.querySelector('.maq-3d-btn');
       if (b3d) b3d.addEventListener('click', function () {
@@ -6747,6 +6756,8 @@
       VISTAS.lote();
       if (memo) { theta = memo.th; phi = memo.ph; radius = memo.r; target.copy(memo.t); enPlanta = !!memo.planta; marcarVista(enPlanta ? 'planta' : ''); }
       camaraLista = true; actualizarCamara(); solicitarRender();
+      // predio nuevo: la página se acomoda directo en la maqueta, lista para girar
+      if (!memo) setTimeout(enfocarMaqueta, 250);
       if (memo && pisosAntes && pisosAntes !== estado.pisos && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
       // norte y escala (abajo a la izquierda)
       var ovViejo = escena.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
