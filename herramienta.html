@@ -1,7 +1,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>¿Qué puedo construir?</title>
+<title>Cota Cero · Todo sobre tu terreno en Cuenca</title>
 <!-- Expresión gráfica CotaCero: una sola familia, Inter Tight (linaje Helvetica), con su juego de
      grosores 100/300/400/700 para la jerarquía; Archivo Narrow solo para los nombres de calle de la
      lámina. Paleta: tinta y grises; un único color (terracota) para el predio, la acción y las alertas.
@@ -780,6 +780,13 @@
   .maq-recos ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.78rem; font-weight: 300; line-height: 1.4; }
   .maq-recos a { color: #1C1A16; font-weight: 600; white-space: nowrap; }
   .maq-ficha-fila { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .ficha-campos { display: grid; gap: 7px; }
+  .ficha-campos input[type=email], .ficha-campos input[type=tel] { font: inherit; font-size: 0.9rem; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(28,26,22,.25); background: #fff; color: #1C1A16; }
+  .ficha-campos input.falta, .ficha-chk:has(input.falta) { outline: 2px solid #B2502E; outline-offset: 1px; }
+  .ficha-chk { display: flex !important; align-items: flex-start !important; gap: 8px; font-size: 0.74rem; font-weight: 300; line-height: 1.35; cursor: pointer; text-align: left; }
+  .ficha-chk input { margin-top: 2px; accent-color: #B2502E; flex: none; }
+  .ficha-chk a { color: inherit; text-decoration: underline; }
+  .maq-norma .maq-ficha .maq-ficha-btn { width: 100%; height: 42px; margin-top: 4px; font-weight: 700; border-radius: 8px; border: 0; cursor: pointer; }
   .maq-norma .maq-ficha { background: #1C1A16; color: #f3f1ec; border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
   .maq-norma .maq-ficha .maq-estudio-tit { color: #f3f1ec; font-size: 0.74rem; }
   .maq-norma .maq-ficha .maq-ficha-nota, .maq-norma .maq-ficha .maq-ficha-nota a { color: #c9c4ba; }
@@ -897,7 +904,7 @@
 
 <div class="hero">
   <div class="eyebrow">● En vivo — datos oficiales del Municipio de Cuenca</div>
-  <h1>Toca tu predio.<br>Mira qué <em>puedes construir</em>.</h1>
+  <h1>Toca tu terreno.<br><em>Conoce todo</em> lo que puedes hacer con él.</h1>
   <p class="lede">Elige cualquier lote de Cuenca y en segundos ves cuántos pisos y metros puedes construir, qué actividades se permiten, si tiene afectaciones y qué trámites te tocan, con el PUGS 2025 y el catastro municipal.</p>
   <p class="small-note">Para dueños de terrenos, compradores, constructores, arquitectos y estudiantes. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS del municipio.</p>
 </div>
@@ -985,7 +992,7 @@
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
     <div class="modal-header">
       <h2 id="privacidad-titulo">Política de Privacidad</h2>
-      <p class="modal-sub">Última actualización: octubre 2026 — conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP).</p>
+      <p class="modal-sub">Última actualización: noviembre 2026 — conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP).</p>
       <button type="button" class="modal-cerrar-x js-cerrar-modal" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
@@ -999,7 +1006,7 @@
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="terminos-titulo">
     <div class="modal-header">
       <h2 id="terminos-titulo">Términos y Condiciones</h2>
-      <p class="modal-sub">Última actualización: octubre 2026.</p>
+      <p class="modal-sub">Última actualización: noviembre 2026.</p>
       <button type="button" class="modal-cerrar-x js-cerrar-modal" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
@@ -1993,56 +2000,66 @@
 
       '<h3>¿Qué datos recopilamos?</h3>' +
       '<ul>' +
-        '<li>Al pedir un producto "por encargo": tu nombre, correo electrónico, teléfono, el predio de referencia (clave catastral o dirección) y el detalle que escribas — necesarios para poder contactarte y coordinar el pedido.</li>' +
-        '<li>Para "Planimétrico + gestión IPRUS", además: una copia de tu cédula y la escritura del predio — estrictamente porque el trámite municipal las exige.</li>' +
+        '<li><b>Al consultar un predio:</b> nada personal. La herramienta usa datos públicos del GAD Municipal de Cuenca (catastro, normativa, permisos) y nunca muestra nombres de propietarios ni de solicitantes.</li>' +
+        '<li><b>Al descargar la ficha gratis:</b> tu correo electrónico (obligatorio, para enviarte el PDF), tu número de WhatsApp si decides darlo (opcional), la clave catastral consultada y la fecha en que aceptaste estos términos.</li>' +
+        '<li><b>Al pedir un servicio:</b> tu nombre, correo, teléfono, el predio y el detalle que escribas, para coordinar el pedido.</li>' +
+        '<li><b>Para "Planimétrico + gestión IPRUS":</b> además, una copia de tu cédula y de la escritura del predio, porque el trámite municipal las exige.</li>' +
       '</ul>' +
-      '<p>Lo que escribís en el Croquis de sitio (propietario, cédula, dirección) queda solo en el documento que generás vos mismo en tu navegador — no se nos envía automáticamente.</p>' +
+      '<p>Lo que escribas en el Croquis de sitio (propietario, cédula, dirección) queda solo en el documento que generas en tu navegador: no se nos envía.</p>' +
 
       '<h3>¿Para qué los usamos?</h3>' +
-      '<p>Únicamente para gestionar el pedido o trámite que solicitaste: contactarte, preparar el documento, o iniciar el trámite ante el GAD Municipal de Cuenca cuando corresponda. No vendemos ni compartimos tus datos con terceros, salvo lo estrictamente necesario para ese trámite.</p>' +
+      '<ul>' +
+        '<li>Enviarte la ficha que pediste y responder tus consultas sobre ese predio.</li>' +
+        '<li>Gestionar el servicio o trámite que solicites.</li>' +
+        '<li><b>Solo si lo autorizas</b> (casilla aparte, opcional): enviarte novedades y ofertas de Cota Cero por correo o WhatsApp. Puedes retirar ese permiso cuando quieras respondiendo "no más" o escribiéndonos.</li>' +
+      '</ul>' +
+      '<p>No vendemos ni cedemos tus datos a terceros.</p>' +
 
       '<h3>¿Dónde quedan guardados?</h3>' +
-      '<p>El pedido se envía directo a nuestro correo o WhatsApp desde tu propio dispositivo. La escritura y la cédula (solo para IPRUS) se guardan en un Google Drive privado de CotaCero, mediante un sistema que únicamente puede escribir ahí — no está indexado ni es accesible por link público. Google actúa como encargado del almacenamiento, conforme a sus propias políticas.</p>' +
+      '<p>En una hoja de cálculo y un Google Drive privados de CotaCero, y en nuestro correo. Google actúa como encargado del tratamiento, conforme a sus propias políticas. La cédula y la escritura (solo IPRUS) se guardan en una carpeta privada, sin enlace público.</p>' +
 
       '<h3>¿Cuánto tiempo los conservamos?</h3>' +
-      '<p>Mientras dure el trámite o pedido, y hasta 1 año después de finalizado (para atender reclamos o revisiones). Pasado ese plazo, se eliminan.</p>' +
+      '<p>Los datos de la ficha gratis, hasta 2 años o hasta que nos pidas borrarlos. Los de un pedido, mientras dure el trámite y hasta 1 año después (para atender reclamos o revisiones).</p>' +
 
       '<h3>Tus derechos</h3>' +
-      '<p>Podés pedirnos en cualquier momento acceder, corregir, eliminar, u oponerte al uso de tus datos, o pedir que te los entreguemos en un formato portable — antes incluso del plazo de arriba. Escribinos a ' +
-      '<a href="mailto:cotacero.pm@gmail.com">cotacero.pm@gmail.com</a>.</p>' +
+      '<p>Puedes pedirnos en cualquier momento acceder a tus datos, corregirlos, eliminarlos, oponerte a su uso o recibirlos en un formato portable. Escríbenos a ' +
+      '<a href="mailto:cotacero.pm@gmail.com">cotacero.pm@gmail.com</a> y te respondemos en un máximo de 15 días.</p>' +
 
       '<h3>Seguridad</h3>' +
-      '<p>El formulario viaja cifrado (HTTPS). Los archivos se guardan en un Drive privado con acceso restringido a escritura.</p>' +
+      '<p>Todo viaja cifrado (HTTPS). El acceso a la hoja y al Drive está restringido a CotaCero.</p>' +
 
       '<h3>Marco legal</h3>' +
-      '<p>Este tratamiento se rige por la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP) y su Reglamento General.</p>'
+      '<p>Este tratamiento se rige por la Ley Orgánica de Protección de Datos Personales del Ecuador (LOPDP) y su Reglamento. La base del tratamiento es tu consentimiento y, cuando pides un servicio, la ejecución de ese pedido.</p>'
     );
   }
   function textoTerminosHTML() {
     return (
       '<h3>¿Qué es CotaCero?</h3>' +
-      '<p>Una herramienta de ' + RESPONSABLE_TRATAMIENTO + ' (CotaCero, Cuenca, Ecuador) que automatiza consultas al catastro urbano de Cuenca y genera documentos de referencia y gestiona trámites para arquitectos e ingenieros.</p>' +
-
-      '<h3>Productos instantáneos vs. por encargo</h3>' +
-      '<p>Croquis de sitio y Volumetría de referencia se generan al instante en tu navegador. El resto (plano planimétrico, levantamiento topográfico, planimétrico + gestión IPRUS, análisis de sitio) son "por encargo": llevan horas o días de trabajo real — el plazo concreto se te confirma al coordinar el pedido, no es instantáneo ni fijo.</p>' +
+      '<p>Una herramienta de ' + RESPONSABLE_TRATAMIENTO + ' (CotaCero, Cuenca, Ecuador) que reúne en un solo lugar la información pública de un predio de Cuenca (catastro, normativa del PUGS 2025, usos de suelo, afectaciones y permisos) y ofrece servicios de documentación, trámites y análisis.</p>' +
 
       '<h3>Naturaleza de la información</h3>' +
-      '<p>La volumetría, el croquis y los datos de normativa que muestra la herramienta son de referencia, calculados a partir del catastro público del GAD Municipal de Cuenca. No sustituyen un levantamiento planimétrico oficial cuando el trámite lo exige, y no garantizan la aprobación de ningún trámite ante el Municipio — esa decisión depende exclusivamente de la autoridad competente. CotaCero se compromete a gestionar y presentar la información correctamente, no a un resultado de aprobación.</p>' +
+      '<p>La maqueta, las cifras (pisos, metros, viviendas), los usos y la ficha son <b>referenciales</b>, calculados a partir de datos públicos del GAD Municipal de Cuenca y de OpenStreetMap, que pueden tener errores o no estar actualizados. No reemplazan el IPRUS ni ningún documento oficial, no garantizan la aprobación de trámites y no deben usarse como única base para comprar, vender o construir.</p>' +
+
+      '<h3>Servicios gratuitos y pagados</h3>' +
+      '<p>La consulta, la maqueta, el asoleamiento y la ficha PDF son gratuitos. Los servicios de la sección Solicitar tienen precio fijo o se cotizan; el plazo y el alcance se confirman al coordinar el pedido.</p>' +
 
       '<h3>Pago</h3>' +
-      '<p>Los productos por encargo se pagan 100% por adelantado, salvo que se acuerde expresamente otra modalidad al coordinar el pedido.</p>' +
+      '<p>Los servicios se pagan 100% por adelantado, salvo que se acuerde otra modalidad al coordinar el pedido.</p>' +
 
       '<h3>Cancelaciones y reembolsos</h3>' +
-      '<p>Si pedís cancelar antes de que el trabajo haya arrancado (trámite iniciado, visita a terreno realizada, etc.), se reembolsa el 100%. Si ya arrancó, se evalúa un reembolso parcial según el trabajo ya realizado.</p>' +
+      '<p>Si cancelas antes de que el trabajo haya empezado (visita a terreno, trámite iniciado, etc.), se reembolsa el 100%. Si ya empezó, se evalúa un reembolso parcial según el trabajo realizado.</p>' +
 
       '<h3>Propiedad de lo entregado</h3>' +
-      '<p>Una vez pagado el servicio, el documento entregado (plano, croquis, informe) es tuyo, para el uso y trámite para el que lo pediste.</p>' +
+      '<p>Una vez pagado, el documento entregado (plano, informe, modelo) es tuyo para el uso y trámite para el que lo pediste. La herramienta, su diseño y su código son de CotaCero.</p>' +
+
+      '<h3>Uso correcto</h3>' +
+      '<p>No está permitido usar la herramienta para extraer datos de forma masiva o automatizada, ni para fines ilegales.</p>' +
 
       '<h3>Tus datos</h3>' +
-      '<p>El tratamiento de los datos que nos compartís se rige por la <a href="#" id="link-privacidad-desde-terminos">Política de Privacidad</a>.</p>' +
+      '<p>El tratamiento de tus datos se rige por la <a href="#" id="link-privacidad-desde-terminos">Política de privacidad</a>.</p>' +
 
-      '<h3>Cambios a estos términos</h3>' +
-      '<p>Podemos actualizar este documento — la versión vigente es siempre la publicada en esta misma herramienta al momento de tu pedido.</p>' +
+      '<h3>Cambios</h3>' +
+      '<p>Podemos actualizar estos términos; la versión vigente es la publicada aquí al momento de tu consulta o pedido.</p>' +
 
       '<h3>Ley aplicable</h3>' +
       '<p>Estos términos se rigen por las leyes de la República del Ecuador.</p>'
@@ -6335,8 +6352,7 @@
             (estado.restriccionVolumen ? '' : '<div class="maq-aprox" title="' + escaparSvg(estado.fuenteAltura || '') + '">' + resumenAlturaCliente(estado, particionFrentes) + '</div>') +
             htmlUsosCliente(estado.usos) +
             htmlRecomendaciones(estado) +
-            '<div class="maq-ficha"><div class="maq-estudio-tit">Descarga gratis la ficha de tu predio (PDF)</div><div class="maq-ficha-fila"><input type="email" class="maq-ficha-correo" placeholder="Tu correo" autocomplete="email"><button type="button" class="maq-ficha-btn">Descargar</button></div><div class="maq-ficha-msg" hidden></div>' +
-              '<div class="maq-ficha-nota">Todo lo de arriba, con el detalle técnico. Al descargarla aceptas que Cota Cero te escriba sobre este predio. <a href="#" class="maq-ficha-priv">Privacidad</a></div></div>' +
+            '<div class="maq-ficha"><div class="maq-estudio-tit">Descarga gratis la ficha de tu predio (PDF)</div>' + htmlCamposFicha('') + '<button type="button" class="maq-ficha-btn">Descargar y recibir por correo</button><div class="maq-ficha-msg" hidden></div></div>' +
           '</div>' +
         '</div>' +
         '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' +
@@ -6444,17 +6460,15 @@
         descargarModelo3D(estado).then(function (n) { if (msgF) msgF.textContent = 'Listo: ' + n + ' (metros, eje Y hacia arriba). Se abre en Blender, Rhino, SketchUp (con importador glTF) y visores web.'; })
           .catch(function (e) { console.warn(e); if (msgF) { msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'No se pudo generar el modelo. Intenta de nuevo.'; } });
       });
-      var inCorreo = p.querySelector('.maq-ficha-correo'), btnFicha = p.querySelector('.maq-ficha-btn');
-      try { inCorreo.value = localStorage.getItem('cotacero-correo') || ''; } catch (e) { }
-      btnFicha.addEventListener('click', function () {
-        var correo = (inCorreo.value || '').trim();
-        var msgF = p.querySelector('.maq-ficha-msg');
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { inCorreo.focus(); inCorreo.classList.add('falta'); if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = 'Escribe tu correo para descargar la ficha.'; } return; }
-        inCorreo.classList.remove('falta');
-        if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Listo. En la ventana que se abre elige «Guardar como PDF». Además te la estamos enviando a ' + correo + '…'; }
-        try { localStorage.setItem('cotacero-correo', correo); } catch (e) { }
-        registrarInteresado(estado, correo);
-        generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)), correo);
+      var cajaFicha = p.querySelector('.maq-ficha'), btnFicha = p.querySelector('.maq-ficha-btn');
+      if (cajaFicha) conectarEnlacesLegales(cajaFicha);
+      if (btnFicha) btnFicha.addEventListener('click', function () {
+        var msgF = p.querySelector('.maq-ficha-msg'), d = leerCamposFicha(cajaFicha);
+        cajaFicha.querySelectorAll('.falta').forEach(function (x) { x.classList.remove('falta'); });
+        if (d.error) { if (d.campo) { d.campo.classList.add('falta'); try { d.campo.focus(); } catch (e) { } } if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg alerta'; msgF.textContent = d.error; } return; }
+        if (msgF) { msgF.hidden = false; msgF.className = 'maq-ficha-msg'; msgF.textContent = 'Listo. En la ventana que se abre elige «Guardar como PDF». Además te la estamos enviando a ' + d.correo + '…'; }
+        registrarInteresado(estado, d.correo, d.telefono, d.novedades);
+        generarFichaGratis(estado, (typeof areaM2Seleccionado === "number" && areaM2Seleccionado) ? areaM2Seleccionado : Math.round(areaAnillo(estado.pts)), d.correo);
       });
       var lnkPriv = p.querySelector('.maq-ficha-priv');
       if (lnkPriv) lnkPriv.addEventListener('click', function (ev) { ev.preventDefault(); var l = document.getElementById('link-privacidad'); if (l) l.click(); });
@@ -7500,6 +7514,32 @@
     }
   }
   // Botones flotantes junto a WhatsApp: "Ficha gratis" (siempre que haya un predio) y "Tu pedido"
+  // Campos de la ficha gratis (bloque de Normativa y ventanita flotante): correo obligatorio (ahí se
+  // envía el PDF), WhatsApp opcional, aceptación OBLIGATORIA de términos y privacidad, y permiso
+  // OPCIONAL y separado para recibir novedades (LOPDP: consentimiento libre, específico e informado;
+  // no se condiciona el servicio gratis a aceptar publicidad).
+  function htmlCamposFicha(pref) {
+    var c = '', t = ''; try { c = localStorage.getItem('cotacero-correo') || ''; t = localStorage.getItem('cotacero-telefono') || ''; } catch (e) { }
+    return '<div class="ficha-campos">' +
+      '<input type="email" class="maq-ficha-correo" placeholder="Tu correo (ahí te llega el PDF)" autocomplete="email" value="' + escaparSvg(c) + '">' +
+      '<input type="tel" class="maq-ficha-tel" placeholder="WhatsApp (opcional)" autocomplete="tel" inputmode="tel" value="' + escaparSvg(t) + '">' +
+      '<label class="ficha-chk"><input type="checkbox" class="maq-ficha-acepto"><span>Acepto los <a href="#" class="ficha-ter">Términos</a> y la <a href="#" class="ficha-priv">Política de privacidad</a>.</span></label>' +
+      '<label class="ficha-chk"><input type="checkbox" class="maq-ficha-novedades"><span>Quiero recibir novedades y ofertas de Cota Cero (opcional).</span></label>' +
+      '</div>';
+  }
+  function leerCamposFicha(cont) {
+    var q = function (s2) { return cont.querySelector(s2); };
+    var correo = (q('.maq-ficha-correo').value || '').trim(), tel = (q('.maq-ficha-tel').value || '').replace(/[^\d+]/g, '');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return { error: 'Escribe tu correo: ahí te enviamos la ficha.', campo: q('.maq-ficha-correo') };
+    if (tel && !/^\+?\d{7,15}$/.test(tel)) return { error: 'Revisa el número de WhatsApp (solo números, por ejemplo 0991234567).', campo: q('.maq-ficha-tel') };
+    if (!q('.maq-ficha-acepto').checked) return { error: 'Para descargarla tienes que aceptar los Términos y la Política de privacidad.', campo: q('.maq-ficha-acepto') };
+    try { localStorage.setItem('cotacero-correo', correo); if (tel) localStorage.setItem('cotacero-telefono', tel); } catch (e) { }
+    return { correo: correo, telefono: tel, novedades: !!q('.maq-ficha-novedades').checked };
+  }
+  function conectarEnlacesLegales(cont) {
+    cont.querySelectorAll('.ficha-ter').forEach(function (a) { a.addEventListener('click', function (ev) { ev.preventDefault(); if (window.__abrirModalTerminos) window.__abrirModalTerminos(); }); });
+    cont.querySelectorAll('.ficha-priv').forEach(function (a) { a.addEventListener('click', function (ev) { ev.preventDefault(); if (window.__abrirModalPrivacidad) window.__abrirModalPrivacidad(); }); });
+  }
   // Ficha gratis desde el botón flotante: pide el correo (obligatorio) en una ventanita y descarga
   // con el mismo flujo del bloque de Normativa (registro del interesado + PDF).
   function abrirFichaGratis() {
@@ -7510,20 +7550,25 @@
     m.innerHTML = '<form class="checkout-caja" novalidate><button type="button" class="checkout-x" aria-label="Cerrar">×</button>' +
       '<div class="maq-estudio-tit">Ficha gratis del predio ' + (estadoSeleccionado.esUnion ? estadoSeleccionado.claves.join(' + ') : (estadoSeleccionado.clave || '')) + '</div>' +
       '<div class="maq-nota">Normativa, qué puedes construir, usos de suelo, afectaciones y qué te toca gestionar. Te la enviamos a tu correo y la descargas ahora.</div>' +
-      '<input type="email" class="modal-correo" placeholder="Tu correo" autocomplete="email" required value="' + escaparSvg(guardado) + '">' +
+      htmlCamposFicha('') +
       '<div class="modal-msg maq-nota" hidden></div>' +
-      '<button type="submit" class="modal-ok">Descargar ficha</button>' +
-      '<div class="maq-ficha-nota">Al descargarla aceptas que Cota Cero te escriba sobre este predio.</div></form>';
+      '<button type="submit" class="modal-ok">Descargar y recibir por correo</button></form>';
     document.body.appendChild(m);
-    var inp = m.querySelector('.modal-correo'), msg = m.querySelector('.modal-msg');
-    setTimeout(function () { try { inp.focus(); } catch (e) { } }, 50);
+    var inp = m.querySelector('.maq-ficha-correo'), msg = m.querySelector('.modal-msg');
+    conectarEnlacesLegales(m);
+    setTimeout(function () { try { if (!inp.value) inp.focus(); } catch (e) { } }, 50);
     m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
     m.querySelector('form').addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var c = (inp.value || '').trim();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)) { msg.hidden = false; msg.textContent = 'Escribe un correo válido: ahí te enviamos la ficha.'; inp.focus(); return; }
-      var pIn = p.querySelector('.maq-ficha-correo'), pBtn = p.querySelector('.maq-ficha-btn');
-      if (pIn && pBtn) { pIn.value = c; pBtn.click(); }
+      var d = leerCamposFicha(m);
+      if (d.error) { msg.hidden = false; msg.textContent = d.error; try { d.campo.focus(); } catch (e) { } return; }
+      // se copia al bloque de Normativa y se usa su mismo botón (un solo flujo de descarga + correo)
+      var pc = p.querySelector('.maq-ficha'), pBtn = p.querySelector('.maq-ficha-btn');
+      if (pc && pBtn) {
+        pc.querySelector('.maq-ficha-correo').value = d.correo; pc.querySelector('.maq-ficha-tel').value = d.telefono;
+        pc.querySelector('.maq-ficha-acepto').checked = true; pc.querySelector('.maq-ficha-novedades').checked = d.novedades;
+        pBtn.click();
+      }
       m.remove();
     });
   }
@@ -7721,13 +7766,14 @@
   }
   // Registro del interesado (correo) en la misma hoja de pedidos, como "ficha gratis". No bloquea la
   // descarga: se envía en segundo plano.
-  function registrarInteresado(estado, correo) {
+  function registrarInteresado(estado, correo, telefono, novedades) {
     try {
       if (!APPS_SCRIPT_URL_DOCUMENTOS) return;
       fetch(APPS_SCRIPT_URL_DOCUMENTOS, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'ficha-gratis', productoNombre: 'Ficha rápida gratis (interesado)',
-          predio: estado.clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: 'Descargó la ficha gratis' + (estado.restriccionVolumen ? ' — ' + estado.restriccionVolumen.slice(0, 60) : ''),
+          predio: estado.esUnion ? estado.claves.join(' + ') : estado.clave, nombreSolicitante: '', correo: correo, telefono: telefono || '',
+          detalle: 'Descargó la ficha gratis · aceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + ' · novedades: ' + (novedades ? 'SÍ' : 'no') + (telefono ? ' · WhatsApp: sí' : ''),
           documentos: [], origen: 'ficha-gratis', sitio_web: '', t: 99999 })
       }).catch(function () { });
     } catch (e) { }
