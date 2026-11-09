@@ -7863,7 +7863,17 @@
   var grupoPedidoAbierto = 'construir';
   // Productos apagados desde la hoja Catalogo (columna activo = FALSE); la fila 'tienda' pausa todo.
   var PRODUCTOS_DESACTIVADOS = {};
-  function productoPorId(id) { if (PRODUCTOS_DESACTIVADOS[id]) return null; return (CATALOGO_PRODUCTOS || []).concat(CATALOGO_PRODUCTOS_FALLBACK).filter(function (x) { return x.id === id; })[0] || null; }
+  // La hoja manda en nombre (y en si está activo); lo que la hoja deja vacío (descripción, nota,
+  // "solo recomendado") se completa con el catálogo local.
+  function productoPorId(id) {
+    if (PRODUCTOS_DESACTIVADOS[id]) return null;
+    var f = CATALOGO_PRODUCTOS_FALLBACK.filter(function (x) { return x.id === id; })[0] || null;
+    var h = (CATALOGO_PRODUCTOS || []).filter(function (x) { return x.id === id; })[0] || null;
+    if (!h || h === f) return f;
+    var r = Object.assign({}, f || {});
+    Object.keys(h).forEach(function (k) { if (h[k] !== '' && h[k] != null) r[k] = h[k]; });
+    return r;
+  }
   function aNum(v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : NaN; }
   function precioNumero(id) { var n = aNum((productoPorId(id) || {}).precioBase); return n > 0 ? n : 0; }
   function variantesDe(id) { return (TIENDA_INFO[id] && TIENDA_INFO[id].variantes) || null; }
