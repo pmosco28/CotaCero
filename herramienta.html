@@ -64,6 +64,7 @@
     background: color-mix(in srgb, var(--surveyor) 12%, transparent); padding: 5px 12px; border-radius: 999px;
     margin-bottom: 18px;
   }
+  .eyebrow-top { margin: 0; font-size: 0.66rem; padding: 4px 10px; }
   .hero h1 { font-size: clamp(2.1rem, 4.2vw, 3.4rem); font-weight: 600; margin: 0 0 14px; max-width: 16ch; }
   .hero h1 em { font-style: normal; font-weight: 200; color: inherit; }
   .hero p.lede { font-size: 1.1rem; color: var(--ink-soft); max-width: 56ch; margin: 0 0 8px; }
@@ -321,6 +322,13 @@
   .maq-acc.activo { background: #1C1A16; color: #f3f1ec; }
   .maq-acc-pedir { border-color: #B2502E; color: #B2502E; } .maq-acc-pedir.activo { background: #B2502E; color: #fff; border-color: #B2502E; }
   .maq-sec[hidden] { display: none !important; }
+  .maq-tira { position: absolute; top: 12px; left: 50%; transform: translate(-50%, -6px); z-index: 9; background: #1C1A16; color: #f3f1ec; font-size: 0.72rem; padding: 6px 12px; border-radius: 999px; opacity: 0; transition: opacity .15s, transform .15s; pointer-events: none; white-space: nowrap; }
+  .maq-tira.visible { opacity: 1; transform: translate(-50%, 0); }
+  .maq-buscar { position: absolute; top: 12px; right: 12px; z-index: 8; display: flex; align-items: center; height: 40px; border-radius: 999px; background: rgba(246,245,242,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); overflow: hidden; }
+  .maq-buscar input { width: 0; padding: 0; border: 0; background: transparent; font: inherit; font-size: 0.86rem; color: #1C1A16; outline: none; transition: width .2s, padding .2s; }
+  .maq-buscar.abierto input { width: min(250px, calc(100vw - 150px)); padding: 0 4px 0 14px; }
+  .maq-buscar button { flex: none; width: 40px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; color: #1C1A16; cursor: pointer; padding: 0; }
+  .maq-buscar button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
   .maq-avisos { display: grid; gap: 8px; } .maq-avisos:empty { display: none; }
   .maq-avisos > div[style*="margin"] { margin: 0 !important; }
   .maq-sec { border: 1px solid #1C1A16; border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
@@ -437,7 +445,8 @@
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
   .terreno-manual { margin: -4px 0 14px; font-size: 0.82rem; }
-  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; flex-direction: row-reverse; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 400; color: var(--ink-soft); padding: 2px 0; }
+  .terreno-manual > summary:hover { color: var(--ink); }
   .terreno-manual > summary span { font-weight: 300; color: var(--ink-soft); }
   .terreno-manual > summary::after { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
   .terreno-manual[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
@@ -930,13 +939,10 @@
 
 <div class="topbar">
   <div class="brand"><span>Cota<span class="ligero">Cero</span></span></div>
-  <nav>
-    <a href="#herramienta">La herramienta</a>
-  </nav>
+  <div class="eyebrow eyebrow-top">● Datos en vivo</div>
 </div>
 
 <div class="hero">
-  <div class="eyebrow">● Datos en vivo</div>
   <h1>Toca tu terreno.<br><em>Conoce todo</em> lo que puedes hacer con él.</h1>
   <p class="lede">Elige cualquier lote de Cuenca y en segundos ves cuántos pisos y metros puedes construir, qué actividades se permiten, si tiene afectaciones y qué trámites te tocan, con el PUGS 2025 y el catastro municipal.</p>
   <p class="small-note">Para dueños de terrenos, compradores, constructores, arquitectos y estudiantes. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS del municipio.</p>
@@ -953,7 +959,7 @@
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
   <details class="terreno-manual" id="terrenoManual">
-    <summary>Búsqueda avanzada <span>— dibujar el terreno, coordenadas o archivo</span></summary>
+    <summary>Búsqueda avanzada</summary>
     <div class="tm-cuerpo">
       <div class="tm-tabs">
         <button type="button" data-tm="dibujar" class="activa">Dibujar sobre foto aérea</button>
@@ -6309,11 +6315,59 @@
     function actualizarGestoTactil() { var a = maquetaAnclada(); canvas.style.touchAction = a ? 'none' : 'pan-y'; canvas.classList.toggle('desanclada', !a); }
     function filtroToque(e) { if (e.pointerType === 'touch') soloHorizontal = !maquetaAnclada(); else soloHorizontal = false; }
     canvas.addEventListener('pointerdown', filtroToque, true);
+    // Freno al volver a la maqueta: al subir desde la información, la página se detiene justo en la
+    // maqueta; para salir hacia arriba hay que "estirar" (jalar hacia abajo fuera del 3D) y soltar.
+    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0;
+    function contMaq() { return canvas.closest('.vol3d-wrap'); }
+    function esMovilMaq() { return window.matchMedia('(max-width: 640px)').matches; }
+    function frenoScroll() {
+      var c = contMaq(); if (!esMovilMaq() || !c || !c.offsetParent) { cruceTop = null; return; }
+      var t = c.getBoundingClientRect().top;
+      if (t > 60) salidaLibre = false;
+      if (cruceTop !== null && cruceTop < -4 && t > 1 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
+      cruceTop = t;
+    }
+    function avisoTira() {
+      var esc = canvas.parentElement, a = esc.querySelector('.maq-tira');
+      if (!a) { a = document.createElement('div'); a.className = 'maq-tira'; esc.appendChild(a); }
+      return a;
+    }
+    function pintarTira(dy) {
+      var c = contMaq(); if (!c) return;
+      var r = dy > 0 ? 70 * (1 - Math.exp(-dy / 130)) : 0;
+      c.style.transition = dy ? 'none' : 'transform .25s ease'; c.style.transform = r ? 'translateY(' + r.toFixed(1) + 'px)' : '';
+      var a = avisoTira(); a.classList.toggle('visible', dy > 20); a.textContent = dy > 110 ? 'Suelta para salir de la maqueta' : 'Sigue jalando para salir';
+    }
+    function tStart(e) {
+      tiraY0 = null; tirando = 0;
+      if (!esMovilMaq() || e.touches.length !== 1 || canvas.contains(e.target)) return;
+      var c = contMaq(); if (!c || !c.offsetParent || Math.abs(c.getBoundingClientRect().top) > 8) return;
+      if (e.target.closest && e.target.closest('input, textarea, select, .checkout')) return;
+      tiraY0 = e.touches[0].clientY;
+    }
+    function tMove(e) {
+      if (tiraY0 === null) return;
+      var dy = e.touches[0].clientY - tiraY0;
+      if (dy <= 0 && !tirando) { tiraY0 = null; return; } // baja hacia la información: scroll normal
+      if (e.cancelable) e.preventDefault();
+      tirando = Math.max(0, dy); pintarTira(tirando);
+    }
+    function tEnd() {
+      if (tiraY0 === null) return;
+      var salir = tirando > 110; tiraY0 = null; tirando = 0; pintarTira(0);
+      if (salir) { salidaLibre = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    }
+    window.addEventListener('scroll', frenoScroll, { passive: true });
+    document.addEventListener('touchstart', tStart, { passive: true });
+    document.addEventListener('touchmove', tMove, { passive: false });
+    document.addEventListener('touchend', tEnd); document.addEventListener('touchcancel', tEnd);
     window.addEventListener('scroll', actualizarGestoTactil, { passive: true });
     window.addEventListener('resize', actualizarGestoTactil);
     actualizarGestoTactil();
     volControlsCleanup = function () {
       canvas.removeEventListener('pointerdown', filtroToque, true);
+      window.removeEventListener('scroll', frenoScroll); document.removeEventListener('touchstart', tStart); document.removeEventListener('touchmove', tMove);
+      document.removeEventListener('touchend', tEnd); document.removeEventListener('touchcancel', tEnd);
       window.removeEventListener('scroll', actualizarGestoTactil); window.removeEventListener('resize', actualizarGestoTactil);
       canvas.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
@@ -6507,6 +6561,29 @@
       if (editorPisos) { editorPisos.open = true; var slotP = p.querySelector('.maq-pisos-slot'); if (slotP) slotP.appendChild(editorPisos); }
       // el mapita de ubicación (tocar para volver al mapa) viaja con la maqueta fija
       var pFlot = document.querySelector('.panel-flotante'); if (pFlot && pFlot.parentElement !== escena) escena.appendChild(pFlot);
+      // buscar otro predio sin salir de la maqueta: lupa arriba a la derecha que se abre en una barra
+      var bqViejo = escena.querySelector('.maq-buscar'); if (bqViejo) bqViejo.remove();
+      var bq = document.createElement('form'); bq.className = 'maq-buscar'; bq.setAttribute('novalidate', '');
+      bq.innerHTML = '<input type="text" placeholder="Clave catastral o link de Maps" aria-label="Buscar otro predio"><button type="submit" aria-label="Buscar otro predio"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>';
+      escena.appendChild(bq);
+      var bqIn = bq.querySelector('input');
+      bq.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        if (!bq.classList.contains('abierto')) { bq.classList.add('abierto'); setTimeout(function () { try { bqIn.focus(); } catch (e) { } }, 60); return; }
+        var v = bqIn.value.trim(); if (!v) { bq.classList.remove('abierto'); return; }
+        var mi = document.getElementById('buscar-maps-input'), mb = document.getElementById('buscar-maps-btn');
+        if (mi && mb) {
+          mi.value = v; bqIn.blur(); bq.classList.remove('abierto'); bqIn.value = '';
+          // si la búsqueda falla, el mensaje (que vive arriba, junto al buscador grande) se repite sobre la maqueta
+          var msgB = document.getElementById('buscar-maps-msg');
+          if (msgB && window.MutationObserver) {
+            var obs = new MutationObserver(function () { if (msgB.style.display !== 'none' && msgB.textContent.trim()) avisoBreve(msgB.textContent.trim()); });
+            obs.observe(msgB, { attributes: true, childList: true, characterData: true, subtree: true }); setTimeout(function () { obs.disconnect(); }, 12000);
+          }
+          mb.click();
+        }
+      });
+      bqIn.addEventListener('blur', function () { setTimeout(function () { if (!bqIn.value.trim() && document.activeElement !== bqIn) bq.classList.remove('abierto'); }, 150); });
       // los avisos del predio y de la maqueta van debajo de los tres botones (y de la sección abierta)
       var avisosAbajo = document.createElement('div'); avisosAbajo.className = 'maq-avisos';
       p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
