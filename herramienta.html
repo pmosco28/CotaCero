@@ -1170,7 +1170,7 @@
     var base = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application/json&srsName=EPSG:4326';
     function wkt(f) {
       // anillos largos se simplifican para que la consulta (GET) no pase el largo máximo de URL
-      try { var nV = (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]).length; if (nV > 60) f = turf.simplify(f, { tolerance: 0.000008, highQuality: true }); } catch (e) { }
+      try { var nV = (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]).length; if (nV > 30) f = turf.simplify(f, { tolerance: 0.00001, highQuality: true }); } catch (e) { }
       var r = f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; return 'POLYGON((' + r.map(function (c) { return c[0] + ' ' + c[1]; }).join(',') + '))'; }
     var lote = feature, areaLote = turf.area(lote), w = wkt(lote), wBuf = null;
     try { wBuf = wkt(turf.buffer(lote, 30, { units: 'meters', steps: 4 })); } catch (e) { wBuf = w; }
@@ -7818,7 +7818,7 @@
 
     if (window.__correoFicha) {
       var correoF = window.__correoFicha; window.__correoFicha = null;
-      enviarFichaPorCorreo(rep, correoF, estado).then(function (ok) {
+      enviarFichaPorCorreo(document.getElementById('reporte-pdf'), correoF, estado).then(function (ok) {
         document.querySelectorAll('.maq-ficha-msg').forEach(function (m) { m.hidden = false; m.textContent = ok ? '✓ También te la enviamos a ' + correoF + '.' : 'La ficha se descargó. No pudimos enviarla a tu correo ahora; inténtalo más tarde.'; });
       });
     }
