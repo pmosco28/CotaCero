@@ -6966,8 +6966,9 @@
         var cv = renderACaptura(renderer, scene, cam, ancho, alto, true); if (!cv) return '';
         var x = cv.getContext('2d');
         function aPx(v3) { var q = v3.clone().project(cam); return [(q.x + 1) / 2 * ancho, (1 - q.y) / 2 * alto]; }
-        function punto(alt, az) { return aPx(C0.clone().add(dirSol(alt, az).multiplyScalar(Rd))); }
-        var c0 = aPx(C0), rPx = Math.hypot(punto(0, Math.PI / 2)[0] - c0[0], punto(0, Math.PI / 2)[1] - c0[1]);
+        // proyección ortográfica de la bóveda (carta solar clásica): radio = cos(altura)
+        var c0 = aPx(C0), bordeE = aPx(C0.clone().add(new THREE.Vector3(Rd, 0, 0))), rPx = Math.hypot(bordeE[0] - c0[0], bordeE[1] - c0[1]);
+        function punto(alt, az) { var k2 = Math.cos(alt) * rPx; return [c0[0] + Math.sin(az) * k2, c0[1] - Math.cos(az) * k2]; }
         x.save(); x.lineCap = 'round'; x.lineJoin = 'round';
         // horizonte y anillos de altura (30° y 60°)
         x.strokeStyle = 'rgba(28,26,22,.55)'; x.lineWidth = 2; x.beginPath(); x.arc(c0[0], c0[1], rPx, 0, 2 * Math.PI); x.stroke();
