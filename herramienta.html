@@ -4282,6 +4282,7 @@
     // alcanza con que la clase ya esté puesta ANTES de esa lectura.
     activarModo3D(estado, areaM2);
     mostrarVolumenNormativa = false; // predio nuevo: se abre sin volumen
+    secAbierta.norma = secAbierta.lotes = secAbierta.pedir = false; cartaSolarVisible = false; // y con los tres botones apagados
     recomputarYRenderizar(estado);
     if (estado.editarPerimetro) construirEditorPerimetro(estado); else capaVertices.clearLayers();
 
@@ -4301,6 +4302,7 @@
       onSliderPisosEtiqueta = function () {
         var v = Math.min(estado.maxPisosLote, parseInt(sliderPisos.value, 10) || 1);
         if (labelPisos) labelPisos.textContent = v + ' / ' + estado.maxPisosLote;
+        if (window.__previsualizarPisos) window.__previsualizarPisos(v); // el volumen sube/baja mientras se arrastra
       };
       sliderPisos.addEventListener('input', onSliderPisosEtiqueta);
       onSliderPisosInput = function () {
@@ -4316,7 +4318,10 @@
           });
         }
         mostrarVolumenNormativa = !estado.restriccionVolumen;
-        recomputarYRenderizar(estado);
+        if (window.__previsualizarPisos) window.__previsualizarPisos(estado.pisos);
+        // se deja terminar la animación antes de rearmar la maqueta (el rearmado congela un instante)
+        clearTimeout(onSliderPisosInput._t);
+        onSliderPisosInput._t = setTimeout(function () { recomputarYRenderizar(estado); }, 320);
       };
       sliderPisos.addEventListener('change', onSliderPisosInput);
     }
@@ -6184,6 +6189,24 @@
       overlayEscala.querySelector('span').textContent = m + ' m';
     }
     // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
+    // Vista previa al arrastrar la barra de pisos: el volumen actual se estira o encoge suavemente
+    // hacia la nueva altura; al soltar se rearma con la geometría exacta (retiros del nuevo tramo).
+    var escalaPrevia = 1, objetivoPrevia = 1, animPrevia = null;
+    window.__previsualizarPisos = function (v) {
+      if (miEscena !== generacionEscena || !grupoVolumen.visible || !pisosEscena) return;
+      window.__pisosPrevia = v;
+      objetivoPrevia = Math.max(0.05, v / pisosEscena);
+      if (animPrevia) return;
+      var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; }); if (!objs.length) objs = [grupoVolumen];
+      (function paso() {
+        if (miEscena !== generacionEscena) { animPrevia = null; return; }
+        escalaPrevia += (objetivoPrevia - escalaPrevia) * 0.22;
+        if (Math.abs(objetivoPrevia - escalaPrevia) < 0.003) escalaPrevia = objetivoPrevia;
+        objs.forEach(function (o) { o.scale.y = escalaPrevia; });
+        renderer.render(scene, camera); actualizarOverlay();
+        animPrevia = escalaPrevia !== objetivoPrevia ? requestAnimationFrame(paso) : null;
+      })();
+    };
     function animarCrecimiento(desde) {
       var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
       if (!objs.length) objs = [grupoVolumen];
@@ -6318,14 +6341,23 @@
     canvas.addEventListener('pointerdown', filtroToque, true);
     // Freno al volver a la maqueta: al subir desde la información, la página se detiene justo en la
     // maqueta; para salir hacia arriba hay que "estirar" (jalar hacia abajo fuera del 3D) y soltar.
-    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0;
+    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0, frenando = false;
     function contMaq() { return canvas.closest('.vol3d-wrap'); }
     function esMovilMaq() { return window.matchMedia('(max-width: 640px)').matches; }
     function frenoScroll() {
       var c = contMaq(); if (!esMovilMaq() || !c || !c.offsetParent) { cruceTop = null; return; }
       var t = c.getBoundingClientRect().top;
       if (t > 60) salidaLibre = false;
-      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
+      if (frenando) { cruceTop = t; return; }
+      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) {
+        // se corta la inercia del dedo (si no, el navegador sigue empujando y la página "tiembla")
+        frenando = true;
+        var de = document.documentElement, y = window.scrollY + t;
+        de.style.overflow = 'hidden';
+        try { window.scrollTo({ top: y, behavior: 'instant' }); } catch (e) { window.scrollTo(0, y); }
+        setTimeout(function () { de.style.overflow = ''; if (!salidaLibre) { try { window.scrollTo({ top: y, behavior: 'instant' }); } catch (e) { window.scrollTo(0, y); } } setTimeout(function () { frenando = false; cruceTop = 0; }, 120); }, 160);
+        t = 0;
+      }
       cruceTop = t;
     }
     function avisoTira() {
@@ -6356,7 +6388,7 @@
     function tEnd() {
       if (tiraY0 === null) return;
       var salir = tirando > 110; tiraY0 = null; tirando = 0; pintarTira(0);
-      if (salir) { salidaLibre = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      if (salir) { salidaLibre = true; document.documentElement.style.overflow = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
     window.addEventListener('scroll', frenoScroll, { passive: true });
     document.addEventListener('touchstart', tStart, { passive: true });
@@ -6824,7 +6856,8 @@
       camaraLista = true; actualizarCamara(); solicitarRender();
       // predio nuevo: la página se acomoda directo en la maqueta, lista para girar
       if (!memo) setTimeout(enfocarMaqueta, 250);
-      if (memo && pisosAntes && pisosAntes !== estado.pisos && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
+      var yaPrevisto = window.__pisosPrevia === estado.pisos; window.__pisosPrevia = null;
+      if (memo && pisosAntes && pisosAntes !== estado.pisos && !yaPrevisto && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
       // norte y escala (abajo a la izquierda)
       var ovViejo = escena.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
       var ov = document.createElement('div'); ov.className = 'maq-overlay';
