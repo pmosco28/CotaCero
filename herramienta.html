@@ -6681,11 +6681,12 @@
         '</div>' +
         '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
         '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
-        '<a class="maq-avisar-txt" href="mailto:cotacero.pm@gmail.com?subject=' + encodeURIComponent('Maqueta del predio ' + (estado.clave || '')) + '&body=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a>' +
+        '<a class="maq-avisar-txt" href="#" data-avisar="1">¿Falta una construcción? Avísanos</a>' +
         '<div class="maq-vistas"><button type="button" data-vista="planta" data-tip="Planta / 3D">' + ICONOS_MAQ.planta + '</button></div>' +
         '';
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
+      var avisar = p.querySelector('[data-avisar]'); if (avisar) avisar.addEventListener('click', function (ev) { ev.preventDefault(); abrirMensaje('error'); var ta = document.querySelector('#modal-mensaje textarea'); if (ta) ta.value = 'En la maqueta falta o sobra una construcción: '; });
       if (editorPisos) { editorPisos.open = true; var slotP = p.querySelector('.maq-pisos-slot'); if (slotP) slotP.appendChild(editorPisos); }
       // el mapita de ubicación (tocar para volver al mapa) viaja con la maqueta fija
       var pFlot = document.querySelector('.panel-flotante'); if (pFlot && pFlot.parentElement !== escena) escena.appendChild(pFlot);
