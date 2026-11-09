@@ -332,7 +332,19 @@
 
   /* cuadro de inicio del predio */
   .maq-resumen[hidden], .restr-patri[hidden] { display: none !important; }
-  .maq-volver { justify-self: start; font: 600 0.8rem 'Inter Tight', sans-serif; color: #1C1A16; background: none; border: 0; padding: 4px 0; cursor: pointer; text-transform: none !important; letter-spacing: normal !important; }
+  .maq-sec { position: relative; } .maq-estudio > .maq-sol { border-top: 0; padding-top: 0; }
+  .maq-panel .maq-volver { position: absolute; top: -13px; left: -9px; z-index: 3; width: 30px !important; height: 30px !important; min-height: 0 !important; padding: 0 !important; border-radius: 50% !important; border: 1px solid #1C1A16 !important; background: #fff !important; color: #1C1A16; display: grid !important; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+  .maq-volver svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .maq-norma-detalle details.detalle-tecnico { width: 100%; margin: 6px 0 0; filter: none; }
+  .maq-lectura li, .maq-recs .res-acc { text-align: left; }
+  .maq-lectura { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
+  .maq-lectura ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .maq-lectura li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; font-size: 0.84rem; } .maq-lectura li span { color: #5E5B55; } .maq-lectura li b { text-align: right; }
+  .maq-lectura li small { grid-column: 1 / -1; color: #5E5B55; font-size: 0.76rem; line-height: 1.4; }
+  .maq-recs { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; } .maq-recs:empty { display: none; }
+  .maq-recs .res-acc { margin: 0; } .maq-recs button, .maq-recs b, .maq-recs span, .maq-lectura b { text-transform: none !important; letter-spacing: normal !important; }
+  .maq-unir-despl { border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; } .maq-unir-despl[open] > * + * { margin-top: 8px; }
+  .res-predio .res-mas { justify-self: start; background: none !important; border: 0 !important; padding: 2px 0 !important; height: auto !important; min-height: 0 !important; font: 600 0.8rem 'Inter Tight', sans-serif !important; color: #1C1A16 !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; box-shadow: none !important; }
   .res-predio { border: 1px solid #1C1A16; border-radius: 14px; padding: 12px 14px; background: #fff; text-align: left; display: grid; gap: 10px; }
   .res-cab { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; } .res-cab > b { font-size: 1rem; white-space: nowrap; }
   .res-modos { display: flex; gap: 2px; background: #F3F1EC; border-radius: 999px; padding: 3px; flex: none; }
@@ -1428,6 +1440,43 @@
   function precioDe(id, estado, opc) {
     try { var L = opcionesProducto(id, estado), o = opc ? L.filter(function (x) { return x.id === opc; })[0] : opcionElegida(id, estado); return o && o.precio ? '$' + o.precio.toLocaleString('es-EC') : ''; } catch (e) { return ''; }
   }
+  // Lectura del sitio (gratis): hacia dónde mira la fachada principal y qué sol recibe, y la pendiente
+  function orientacionFrente(estado) {
+    try {
+      var i = estado.tipoLado.indexOf('frente'); if (i === -1) return null;
+      var L = estado.ladosInfo[i], c = estado.centroideLote || estado.pts[0];
+      var mx = (L.p1[0] + L.p2[0]) / 2, my = (L.p1[1] + L.p2[1]) / 2, ex = L.p2[0] - L.p1[0], ey = L.p2[1] - L.p1[1];
+      var nx = ey, ny = -ex; if (nx * (mx - c[0]) + ny * (my - c[1]) < 0) { nx = -nx; ny = -ny; }
+      var az = (Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360;
+      return ['norte', 'noreste', 'este', 'sureste', 'sur', 'suroeste', 'oeste', 'noroeste'][Math.round(az / 45) % 8];
+    } catch (e) { return null; }
+  }
+  var SOL_FACHADA = {
+    norte: 'sol alto de abril a agosto; el resto del año casi no le da directo',
+    sur: 'sol alto de octubre a febrero; el resto del año casi no le da directo',
+    este: 'sol de mañana todo el año: luz suave, buena para dormitorios y cocina',
+    oeste: 'sol de tarde todo el año: el más caliente, conviene protegerla con aleros o celosías',
+    noreste: 'sol de mañana, más fuerte entre abril y agosto', sureste: 'sol de mañana, más fuerte entre octubre y febrero',
+    noroeste: 'sol de tarde, más fuerte entre abril y agosto; conviene protegerla', suroeste: 'sol de tarde, más fuerte entre octubre y febrero; conviene protegerla'
+  };
+  function htmlLecturaSitio(estado) {
+    var o = orientacionFrente(estado), en = estado.entorno, li = [];
+    if (o) li.push('<li><span>Fachada principal</span><b>mira al ' + o + '</b><small>' + SOL_FACHADA[o] + '.</small></li>');
+    if (en && en.pendiente) li.push('<li><span>Pendiente</span><b>' + escaparSvg(String(en.pendiente)) + '</b><small>Dato municipal referencial. Para diseñar, un levantamiento.</small></li>');
+    if (!li.length) return '';
+    return '<div class="maq-lectura"><div class="maq-estudio-tit">Lectura del sitio</div><ul>' + li.join('') + '</ul></div>';
+  }
+  function htmlRecsAnalisis(estado, modo) {
+    var L = modo === 'edu' ? [['analisis-sitio', 'Análisis de sitio', 'macro'], ['modelo-3d', 'Modelo virtual del entorno', 'edu'], ['contexto-cad', 'Contexto editable DWG / SKP', 'r150']]
+      : modo === 'pro' ? [['levantamiento', 'Levantamiento topográfico', 'topo'], ['analisis-sitio', 'Análisis de sitio'], ['contexto-cad', 'Contexto DWG / SKP', 'r150']]
+      : [['analisis-sitio', 'Análisis de sitio'], ['cabida', 'Estudio de cabida: qué conviene construir'], ['levantamiento', 'Levantamiento topográfico', 'topo']];
+    L = L.filter(function (x) { return !(typeof PRODUCTOS_DESACTIVADOS !== 'undefined' && PRODUCTOS_DESACTIVADOS[x[0]]); });
+    if (!L.length) return '';
+    return '<div class="maq-estudio-tit">Estudios recomendados</div><ul class="res-acc">' + L.map(function (x) {
+      var pr = precioDe(x[0], estado, x[2]);
+      return '<li><button type="button" data-accion="pedir:' + x[0] + '"><span class="res-txt">' + x[1] + '</span>' + (pr ? '<b class="res-precio">' + pr + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>';
+    }).join('') + '</ul>';
+  }
   function htmlResumenPredio(estado, modo) {
     var A = 0; try { A = Math.round(areaPoligonoM(estado.pts)); } catch (e) { }
     var pl = (estado.patrimonioLote || [])[0], cat = pl && pl.categoria != null ? CAT_PATRIMONIO[pl.categoria] : null, conserva = pl && pl.categoria >= 1;
@@ -1489,7 +1538,8 @@
       '<p class="res-texto">' + txt + '</p>' +
  (boton && modo !== 'edu' ? '<button type="button" class="res-boton" data-accion="' + boton.a + '">' + boton.t + ' ›</button>' : '') +
       '<ul class="res-acc">' + acc.map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span>' + (x.p ? '<b class="res-precio">' + x.p + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul>' +
-      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details></section>';
+      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details>' +
+      '<button type="button" class="res-mas" data-accion="norma">Ver normativa completa y detalle técnico ›</button></section>';
   }
   function recomendacionesGestion(estado) {
     var R = [], a = estado.antecedentes, r = estado.restriccionVolumen || '';
@@ -6739,7 +6789,11 @@
       var viejo = wrap.querySelector('.maq-panel');
       // rescatar los nodos fijos que viven dentro del panel (pisos, avisos, leyenda) antes de borrarlo
       var rescate = {};
+      // el detalle técnico vive al final de Normativa: se toma el más nuevo (el de esta selección)
+      var dts = document.querySelectorAll('#vista-volumetria'), detalleTec = dts.length ? dts[dts.length - 1] : null;
+      for (var di = 0; di < dts.length; di++) if (!viejo || !viejo.contains(dts[di])) detalleTec = dts[di];
       if (viejo) { ['#aviso-versatilidad', '#aviso-volumen-vacio', '.vol-caption'].forEach(function (q) { var x = viejo.querySelector(q); if (x) { rescate[q] = x; wrap.appendChild(x); } }); viejo.remove(); }
+      document.querySelectorAll('#vista-volumetria').forEach(function (x) { if (x !== detalleTec) x.remove(); });
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
       p.innerHTML =
@@ -6752,7 +6806,7 @@
           '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis</span></button>' +
           '<button type="button" class="maq-acc" data-acc="pedir"><span>Solicitar</span></button>' +
         '</div>' +
-        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver>← Volver al resumen</button>' +
+        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver aria-label="Volver al resumen" title="Volver al resumen"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>' +
           '<div class="maq-norma-detalle">' +
             (estado.restriccionVolumen ? '' : '<div class="maq-pisos-slot"></div>') +
             htmlFichaPredio(estado, resumenNormativa) +
@@ -6762,8 +6816,17 @@
             '<div class="maq-ficha"><div class="maq-estudio-tit">Recibe gratis la ficha de tu predio (PDF)</div>' + htmlCamposFicha('') + htmlBotonesEnvio() + '<div class="maq-ficha-msg" hidden></div></div>' +
           '</div>' +
         '</div>' +
-        '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver>← Volver al resumen</button>' +
-          '<div class="maq-estudio-tit">Unir o dividir lotes</div>' +
+        '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver aria-label="Volver al resumen" title="Volver al resumen"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>' +
+          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento · carta solar</div>' +
+            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (cartaSolarVisible ? ' checked' : '') + '> Mostrar la cúpula solar</label>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Fecha</span><input type="range" class="maq-sol-dia" min="1" max="365" step="1" value="' + diaSol + '"><span class="maq-sol-fecha">' + fechaDeDia(diaSol) + '</span></div>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Hora</span><input type="range" class="maq-sol-hora" min="5.5" max="18.5" step="0.0833" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
+            '<div class="maq-sol-rapido"><button type="button" data-dia="172">21 jun</button><button type="button" data-dia="80">21 mar</button><button type="button" data-dia="355">21 dic</button></div>' +
+            '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
+          '</div>' +
+          htmlLecturaSitio(estado) +
+          '<div class="maq-recs"></div>' +
+          '<details class="despl maq-unir-despl"' + (estado.esUnion || estado.division ? ' open' : '') + '><summary>Unir o dividir lotes</summary>' +
           (!estado.esUnion && !estado.division ? '<div class="maq-nota">Junta tu lote con los vecinos para ver cuánto más podrías construir, o mira en cuántos lotes mínimos se puede dividir.</div>' : '') +
           (estado.esUnion
             ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
@@ -6780,13 +6843,7 @@
             (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
               : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
           '</div>' +
-          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento · carta solar</div>' +
-            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (cartaSolarVisible ? ' checked' : '') + '> Mostrar la cúpula solar</label>' +
-            '<div class="maq-sol-fila"><span class="maq-sol-lab">Fecha</span><input type="range" class="maq-sol-dia" min="1" max="365" step="1" value="' + diaSol + '"><span class="maq-sol-fecha">' + fechaDeDia(diaSol) + '</span></div>' +
-            '<div class="maq-sol-fila"><span class="maq-sol-lab">Hora</span><input type="range" class="maq-sol-hora" min="5.5" max="18.5" step="0.0833" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
-            '<div class="maq-sol-rapido"><button type="button" data-dia="172">21 jun</button><button type="button" data-dia="80">21 mar</button><button type="button" data-dia="355">21 dic</button></div>' +
-            '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
-          '</div>' +
+          '</details>' +
         '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
@@ -6823,7 +6880,7 @@
       function pintarResumen(animar) {
         resumen.classList.toggle('res-cambio', !!animar);
         resumen.innerHTML = htmlResumenPredio(estado, typeof modoNav === 'string' ? modoNav : 'terreno');
-        resumen.querySelectorAll('[data-modo]').forEach(function (b) { b.addEventListener('click', function () { if (typeof cambiarModoNav === 'function') cambiarModoNav(b.getAttribute('data-modo')); pintarResumen(true); }); });
+        resumen.querySelectorAll('[data-modo]').forEach(function (b) { b.addEventListener('click', function () { if (typeof cambiarModoNav === 'function') cambiarModoNav(b.getAttribute('data-modo')); pintarResumen(true); if (typeof pintarRecs === 'function') pintarRecs(); }); });
         resumen.querySelectorAll('[data-accion]').forEach(function (b) { b.addEventListener('click', function () {
           var a = b.getAttribute('data-accion');
           if (a === 'ficha') { abrirFichaGratis(); return; }
@@ -6839,6 +6896,15 @@
       p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
       ['aviso-versatilidad', 'aviso-volumen-vacio'].forEach(function (id) { var x = document.getElementById(id); if (x) avisosAbajo.appendChild(x); });
       var cap = wrap.querySelector('.vol-caption'); if (cap) cap.remove(); // texto de ayuda innecesario
+      var ndet = p.querySelector('.maq-norma-detalle'); if (detalleTec && ndet) ndet.appendChild(detalleTec); else if (detalleTec) detalleTec.hidden = true;
+      // productos de análisis de sitio recomendados (cambian con el modo)
+      var recs = p.querySelector('.maq-recs');
+      function pintarRecs() {
+        if (!recs) return;
+        recs.innerHTML = htmlRecsAnalisis(estado, typeof modoNav === 'string' ? modoNav : 'terreno');
+        recs.querySelectorAll('[data-accion]').forEach(function (b) { b.addEventListener('click', function () { abrirTienda(estado, null, b.getAttribute('data-accion').slice(6).split(',')); }); });
+      }
+      pintarRecs();
       var ultSec = p.querySelectorAll('.maq-sec'); ultSec = ultSec[ultSec.length - 1];
       if (ultSec) ultSec.insertAdjacentElement('afterend', avisosAbajo); else p.appendChild(avisosAbajo);
       // Tres acciones bajo la maqueta; cada una despliega su sección (pueden quedar varias abiertas).
