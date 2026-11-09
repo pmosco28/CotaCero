@@ -302,10 +302,13 @@
   .maq-usos li b { font-weight: 600; white-space: nowrap; } .maq-usos li.u0 { color: #9a968e; } .maq-usos li.u1 b { color: #8F3F23; }
   @media (max-width: 640px) { .maq-usos ul { grid-template-columns: 1fr; } }
   details.detalle-tecnico { width: min(760px, calc(100% - 28px)); margin: 18px auto 0; border-top: 1px solid #1C1A16; padding-top: 10px; color: #1C1A16; filter: grayscale(1); }
-  details.detalle-tecnico > summary { cursor: pointer; list-style: none; font-size: 0.72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-  details.detalle-tecnico > summary::-webkit-details-marker { display: none; }
-  details.detalle-tecnico > summary::before { content: '+'; font-weight: 300; font-size: 1rem; width: 12px; }
-  details.detalle-tecnico[open] > summary::before { content: '−'; }
+  /* todos los desplegables con el mismo estilo: + / − y título en versalitas */
+  details.detalle-tecnico > summary, details.despl > summary, details.terreno-manual > summary, details.notas-pit > summary { cursor: pointer; list-style: none; font-size: 0.72rem !important; font-weight: 600 !important; letter-spacing: .12em !important; text-transform: uppercase !important; color: #1C1A16 !important; display: flex !important; flex-direction: row !important; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 2px 0; }
+  details.detalle-tecnico > summary::-webkit-details-marker, details.despl > summary::-webkit-details-marker, details.terreno-manual > summary::-webkit-details-marker, details.notas-pit > summary::-webkit-details-marker { display: none; }
+  details.detalle-tecnico > summary::before, details.despl > summary::before, details.terreno-manual > summary::before, details.notas-pit > summary::before { content: '+'; font-weight: 300; font-size: 1rem; width: 12px; letter-spacing: 0; }
+  details.detalle-tecnico[open] > summary::before, details.despl[open] > summary::before, details.terreno-manual[open] > summary::before, details.notas-pit[open] > summary::before { content: '−'; }
+  details.terreno-manual > summary::after { display: none !important; }
+  details.despl[open] > summary { margin-bottom: 4px; }
   details.detalle-tecnico > summary span { font-weight: 300; letter-spacing: 0; text-transform: none; color: #5E5B55; font-size: 0.74rem; }
   details.detalle-tecnico[open] { padding-bottom: 14px; }
   details.detalle-tecnico[open] > * + * { margin-top: 14px; }
@@ -326,6 +329,43 @@
   .maq-tira.visible { opacity: 1; transform: translate(-50%, 0); }
   .maq-buscar { position: absolute; top: 12px; right: 12px; z-index: 8; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; cursor: pointer; color: #1C1A16; border-radius: 999px; background: rgba(246,245,242,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); overflow: hidden; }
   .maq-buscar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+  /* cuadro de inicio del predio */
+  .maq-resumen[hidden], .restr-patri[hidden] { display: none !important; }
+  .maq-sec { position: relative; } .maq-estudio > .maq-sol { border-top: 0; padding-top: 0; }
+  .maq-panel .maq-volver { position: absolute; top: -13px; left: -9px; z-index: 3; width: 30px !important; height: 30px !important; min-height: 0 !important; padding: 0 !important; border-radius: 50% !important; border: 1px solid #1C1A16 !important; background: #fff !important; color: #1C1A16; display: grid !important; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+  .maq-volver svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .maq-norma-detalle details.detalle-tecnico { width: 100%; margin: 6px 0 0; filter: none; }
+  .maq-lectura li, .maq-recs .res-acc { text-align: left; }
+  .maq-lectura { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; }
+  .maq-lectura ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .maq-lectura li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; font-size: 0.84rem; } .maq-lectura li span { color: #5E5B55; } .maq-lectura li b { text-align: right; }
+  .maq-lectura li small { grid-column: 1 / -1; color: #5E5B55; font-size: 0.76rem; line-height: 1.4; }
+  .maq-recs { display: grid; gap: 6px; border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; } .maq-recs:empty { display: none; }
+  .maq-recs .res-acc { margin: 0; } .maq-recs button, .maq-recs b, .maq-recs span, .maq-lectura b { text-transform: none !important; letter-spacing: normal !important; }
+  .maq-unir-despl { border-top: 1px solid rgba(28,26,22,.12); padding-top: 10px; } .maq-unir-despl[open] > * + * { margin-top: 8px; }
+  .res-predio .res-mas { justify-self: start; background: none !important; border: 0 !important; padding: 2px 0 !important; height: auto !important; min-height: 0 !important; font: 600 0.8rem 'Inter Tight', sans-serif !important; color: #1C1A16 !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; box-shadow: none !important; }
+  .res-predio { border: 1px solid #1C1A16; border-radius: 14px; padding: 12px 14px; background: #fff; text-align: left; display: grid; gap: 10px; }
+  .res-cab { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; } .res-cab > b { font-size: 1rem; white-space: nowrap; }
+  .res-modos { display: flex; gap: 2px; background: #F3F1EC; border-radius: 999px; padding: 3px; flex: none; }
+  .res-modos button { border: 0; background: none; font: 600 0.7rem 'Inter Tight', sans-serif; padding: 5px 8px; border-radius: 999px; color: #5E5B55; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+  @media (max-width: 360px) { .res-modos button { padding: 5px 6px; font-size: 0.66rem; } }
+  .res-cambio .res-texto, .res-cambio .res-acc li { animation: resEntra .35s ease both; }
+  .res-cambio .res-acc li:nth-child(2) { animation-delay: .05s; } .res-cambio .res-acc li:nth-child(3) { animation-delay: .1s; } .res-cambio .res-acc li:nth-child(4) { animation-delay: .15s; }
+  @keyframes resEntra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .res-modos button.activo { background: #1C1A16; color: #f3f1ec; }
+  .res-nota { margin: 0; font-size: 0.74rem; color: #5E5B55; line-height: 1.45; }
+  .res-predio .res-link { font: inherit !important; font-weight: 700 !important; color: #1C1A16 !important; background: none !important; border: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; text-decoration: underline; cursor: pointer; display: inline !important; box-shadow: none !important; }
+  .res-lista { list-style: none; margin: 0; padding: 0; display: grid; } .res-lista li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(28,26,22,.08); font-size: 0.84rem; } .res-lista li span { color: #5E5B55; } .res-lista li b { text-align: right; font-weight: 700; }
+  .res-may { text-transform: uppercase !important; letter-spacing: .03em !important; font-weight: 800; }
+  .res-texto { margin: 0; font-size: 0.9rem; line-height: 1.55; } .res-texto b { font-weight: 700; }
+  .res-predio .res-boton { justify-self: start; height: 40px !important; padding: 0 16px !important; border-radius: 999px !important; border: 0 !important; background: #1C1A16 !important; color: #f3f1ec !important; font: 600 0.86rem 'Inter Tight', sans-serif !important; cursor: pointer; }
+  .res-precio { flex: none; font-size: 0.82rem; }
+  .res-acc { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+  .res-acc button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; font: 400 0.82rem/1.4 'Inter Tight', sans-serif; color: #1C1A16; background: #fff; border: 1px solid rgba(28,26,22,.15); border-radius: 10px; padding: 9px 12px; cursor: pointer; }
+  .res-acc button .res-txt { flex: 1; min-width: 0; } .res-acc button .res-fl { flex: none; font-size: 1.2rem; color: #8F3F23; }
+  .res-predio button, .res-predio b, .res-predio small { text-transform: none !important; letter-spacing: normal !important; }
+  .res-acc button:hover { border-color: #1C1A16; }
   .maq-avisos { display: grid; gap: 8px; } .maq-avisos:empty { display: none; }
   .maq-avisos > div[style*="margin"] { margin: 0 !important; }
   .maq-sec { border: 1px solid #1C1A16; border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
@@ -349,6 +389,7 @@
   .maq-panel .maq-aprox { font-size: 0.7rem; color: #6d6a63; }
   .maq-panel .maq-pedir { font: inherit; font-size: 0.8rem; padding: 0; border: 0; background: none; color: #b0532f; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; justify-self: start; text-transform: none; letter-spacing: 0; }
   .maq-nota { font-size: 0.72rem; color: #6d6a63; }
+  .mapa-stage.modo-3d + .map-caption { display: none; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
   /* Catálogo de productos: barra horizontal scrolleable DEBAJO del área de mapa/3D (ya no flotando
@@ -1377,6 +1418,129 @@
     return '<ul class="ficha-lista">' + f.join('') + '</ul>';
   }
   // Qué gestionar, según lo que se sabe del predio. Cada punto puede llevar a los productos.
+  // Categorías del inventario patrimonial de Cuenca, explicadas para cualquier persona.
+  var CAT_PATRIMONIO = {
+    4: { letra: 'E', nombre: 'Valor emergente', txt: 'Es de las edificaciones más importantes de la ciudad. Se conserva íntegra: se admiten restauración y mantenimiento, siempre con aprobación de Áreas Históricas.' },
+    3: { letra: 'A', nombre: 'Valor arquitectónico A', txt: 'Tiene alto valor arquitectónico e histórico. Se conserva: se admiten restauración y rehabilitación que respeten su estructura, fachada y espacios originales.' },
+    2: { letra: 'B', nombre: 'Valor arquitectónico B', txt: 'Tiene un valor arquitectónico importante. Se conservan su fachada, su volumen y sus elementos característicos; el interior se puede rehabilitar para nuevos usos.' },
+    1: { letra: 'Amb', nombre: 'Valor ambiental', txt: 'Su valor está en cómo acompaña a la calle y al conjunto. Se mantienen la fachada, la altura y el volumen hacia la calle; el interior y la parte posterior admiten más cambios.' },
+    0: { letra: 'SV', nombre: 'Sin valor especial', txt: 'Puede reemplazarse por una edificación nueva que se integre al entorno histórico: altura, materiales y ritmo de las fachadas vecinas.' },
+    '-1': { letra: 'N', nombre: 'Impacto negativo', txt: 'Altera el entorno histórico: lo recomendable es sustituirla o adecuarla para que se integre.' }
+  };
+  function htmlPatrimonioDestacado(estado) {
+    var pl = (estado.patrimonioLote || [])[0]; if (!pl || pl.categoria == null) return '';
+    var c = CAT_PATRIMONIO[pl.categoria]; if (!c) return '';
+    return '<div class="res-patri cat' + pl.categoria + '"><div class="res-patri-letra">' + c.letra + '</div><div><b>' + c.nombre + '</b>' +
+      '<small>Inventario patrimonial municipal · ' + escaparSvg(String(pl.valor || '')) + '</small><p>' + c.txt + '</p>' +
+      '<small>Lo que se puede hacer en concreto lo aprueba la Dirección General de Áreas Históricas.</small></div></div>';
+  }
+  // Cuadro de inicio (sin ninguna sección abierta): nota sobre el IPRUS, los datos esenciales en
+  // lista, un resumen en párrafo con lo importante en negrita y un botón, y accesos según el modo
+  // (mi terreno, profesional o estudiante), que se puede cambiar ahí mismo.
+  function precioDe(id, estado, opc) {
+    try { var L = opcionesProducto(id, estado), o = opc ? L.filter(function (x) { return x.id === opc; })[0] : opcionElegida(id, estado); return o && o.precio ? '$' + o.precio.toLocaleString('es-EC') : ''; } catch (e) { return ''; }
+  }
+  // Lectura del sitio (gratis): hacia dónde mira la fachada principal y qué sol recibe, y la pendiente
+  function orientacionFrente(estado) {
+    try {
+      var i = estado.tipoLado.indexOf('frente'); if (i === -1) return null;
+      var L = estado.ladosInfo[i], c = estado.centroideLote || estado.pts[0];
+      var mx = (L.p1[0] + L.p2[0]) / 2, my = (L.p1[1] + L.p2[1]) / 2, ex = L.p2[0] - L.p1[0], ey = L.p2[1] - L.p1[1];
+      var nx = ey, ny = -ex; if (nx * (mx - c[0]) + ny * (my - c[1]) < 0) { nx = -nx; ny = -ny; }
+      var az = (Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360;
+      return ['norte', 'noreste', 'este', 'sureste', 'sur', 'suroeste', 'oeste', 'noroeste'][Math.round(az / 45) % 8];
+    } catch (e) { return null; }
+  }
+  var SOL_FACHADA = {
+    norte: 'sol alto de abril a agosto; el resto del año casi no le da directo',
+    sur: 'sol alto de octubre a febrero; el resto del año casi no le da directo',
+    este: 'sol de mañana todo el año: luz suave, buena para dormitorios y cocina',
+    oeste: 'sol de tarde todo el año: el más caliente, conviene protegerla con aleros o celosías',
+    noreste: 'sol de mañana, más fuerte entre abril y agosto', sureste: 'sol de mañana, más fuerte entre octubre y febrero',
+    noroeste: 'sol de tarde, más fuerte entre abril y agosto; conviene protegerla', suroeste: 'sol de tarde, más fuerte entre octubre y febrero; conviene protegerla'
+  };
+  function htmlLecturaSitio(estado) {
+    var o = orientacionFrente(estado), en = estado.entorno, li = [];
+    if (o) li.push('<li><span>Fachada principal</span><b>mira al ' + o + '</b><small>' + SOL_FACHADA[o] + '.</small></li>');
+    if (en && en.pendiente) li.push('<li><span>Pendiente</span><b>' + escaparSvg(String(en.pendiente)) + '</b><small>Dato municipal referencial. Para diseñar, un levantamiento.</small></li>');
+    if (!li.length) return '';
+    return '<div class="maq-lectura"><div class="maq-estudio-tit">Lectura del sitio</div><ul>' + li.join('') + '</ul></div>';
+  }
+  function htmlRecsAnalisis(estado, modo) {
+    var L = modo === 'edu' ? [['analisis-sitio', 'Análisis de sitio', 'macro'], ['foto-aerea', 'Foto aérea (ortofoto)', 'lote'], ['modelo-3d', 'Modelo virtual del entorno', 'edu'], ['contexto-cad', 'Contexto editable DWG / SKP', 'r150']]
+      : modo === 'pro' ? [['levantamiento', 'Levantamiento topográfico', 'topo'], ['foto-aerea', 'Foto aérea (ortofoto)', 'lote'], ['analisis-sitio', 'Análisis de sitio'], ['valor-suelo', 'Valor del suelo', 'ref']]
+      : [['valor-suelo', '¿Cuánto vale tu terreno?', 'ref'], ['analisis-sitio', 'Análisis de sitio'], ['cabida', 'Estudio de cabida: qué conviene construir'], ['levantamiento', 'Levantamiento topográfico', 'topo']];
+    L = L.filter(function (x) { return !(typeof PRODUCTOS_DESACTIVADOS !== 'undefined' && PRODUCTOS_DESACTIVADOS[x[0]]); });
+    if (!L.length) return '';
+    return '<div class="maq-estudio-tit">Estudios recomendados</div><ul class="res-acc">' + L.map(function (x) {
+      var pr = precioDe(x[0], estado, x[2]);
+      return '<li><button type="button" data-accion="pedir:' + x[0] + '"><span class="res-txt">' + x[1] + '</span>' + (pr ? '<b class="res-precio">' + pr + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>';
+    }).join('') + '</ul>';
+  }
+  function htmlResumenPredio(estado, modo) {
+    var A = 0; try { A = Math.round(areaPoligonoM(estado.pts)); } catch (e) { }
+    var pl = (estado.patrimonioLote || [])[0], cat = pl && pl.categoria != null ? CAT_PATRIMONIO[pl.categoria] : null, conserva = pl && pl.categoria >= 1;
+    var R = ultimoResumen, en = estado.entorno, li = [];
+    var fila = function (k, v) { li.push('<li><span>' + k + '</span><b>' + v + '</b></li>'); };
+    fila('Pisos', estado.restriccionVolumen ? (conserva ? 'se conserva lo existente' : 'no aplica') : 'hasta ' + estado.maxPisosLote);
+    fila('Terreno', A ? A.toLocaleString('es-EC') + ' m²' : '—');
+    if (!estado.restriccionVolumen && R && R.m2) fila('Construible aprox.', R.m2.toLocaleString('es-EC') + ' m² en ' + estado.pisos + (estado.pisos === 1 ? ' piso' : ' pisos'));
+    if (modo !== 'terreno' && !estado.restriccionVolumen && estado.retiros) fila('Retiros', 'F ' + estado.retiros.frente + ' · L ' + estado.retiros.lateral + ' · P ' + estado.retiros.posterior + ' m');
+    fila('Zona', escaparSvg(estado.pitOficial || '—'));
+    if (cat) fila('Valor patrimonial', '<span class="res-may">' + cat.nombre + '</span>');
+    var restr = [];
+    if (en && en.afect && en.afect.length) restr.push(en.afect.length === 1 ? en.afect[0].nom : en.afect.length + ' afectaciones');
+    if (estado.frenteARio) restr.push('margen del río');
+    if (estado.sinVia) restr.push('sin vía registrada');
+    if (estado.solapes && estado.solapes.area >= 2) restr.push('linderos cruzados');
+    if (!cat || !conserva) fila('Restricciones', restr.length ? restr.join(', ') : 'ninguna registrada');
+    else if (restr.length) fila('Otras restricciones', restr.join(', '));
+    // resumen en párrafo
+    var txt, boton = null, recs = []; try { recs = recomendacionesGestion(estado); } catch (e) { }
+    if (conserva) {
+      txt = 'Es una <b>edificación patrimonial</b> de <b>' + cat.nombre.charAt(0).toLowerCase() + cat.nombre.slice(1) + '</b>: ' + cat.txt.charAt(0).toLowerCase() + cat.txt.slice(1) + ' Cualquier obra la aprueba la <b>Dirección de Áreas Históricas</b>; te recomendamos empezar por la <b>certificación patrimonial</b>.';
+      boton = { a: 'pedir:certificacion-patrimonial', t: 'Certificación patrimonial' };
+    } else if (estado.sinVia) {
+      txt = 'En el catastro este predio <b>no da a ninguna calle</b>. Sin un acceso oficial no se puede obtener el IPRUS ni un permiso: primero hay que <b>regularizar el predio</b> y su acceso.';
+      boton = { a: 'pedir:regularizacion', t: 'Regularizar el predio' };
+    } else if (estado.restriccionVolumen) {
+      txt = 'Este predio tiene una <b>restricción</b> que impide mostrar un volumen edificable. Abre <b>Normativa</b> para ver el detalle.';
+      boton = { a: 'norma', t: 'Ver la normativa' };
+    } else {
+      txt = 'Aquí se pueden construir hasta <b>' + estado.maxPisosLote + (estado.maxPisosLote === 1 ? ' piso' : ' pisos') + '</b>' + (R && R.m2 ? ', unos <b>' + R.m2.toLocaleString('es-EC') + ' m²</b>' : '') + '.';
+      if (estado.frenteARio) txt += ' Da al <b>río</b>: confirma con un <b>levantamiento</b> dónde termina la franja de protección antes de proyectar.';
+      else if (restr.length) txt += ' Tiene <b>' + restr.join(', ') + '</b>, que pueden reducir lo que se construye.';
+      var a0 = estado.antecedentes;
+      if (a0 && a0.mayor && a0.mayor.length && vigente(a0.mayor[0].fecha_caducidad)) { txt += ' Tiene un <b>permiso de construcción vigente</b>: para vender por departamentos hace falta la <b>propiedad horizontal</b>.'; boton = { a: 'pedir:propiedad-horizontal', t: 'Propiedad horizontal' }; }
+      else if (estado.frenteARio) boton = { a: 'pedir:levantamiento', t: 'Levantamiento' };
+      else if (modo !== 'edu') { txt += ' El primer paso para construir es el <b>IPRUS</b>.'; boton = { a: 'pedir:planimetrico-iprus', t: 'Sacar el IPRUS' }; }
+    }
+    // accesos por modo: título corto + precio
+    var acc;
+    if (modo === 'pro') acc = [
+      { a: 'norma', t: 'Normativa y tabla del PIT' },
+      { a: 'lotes', t: 'Asoleamiento y carta solar' },
+      { a: 'pedir:levantamiento', t: 'Levantamiento topográfico', p: precioDe('levantamiento', estado, 'topo') },
+      { a: 'pedir:contexto-cad', t: 'Contexto DWG / SKP', p: precioDe('contexto-cad', estado, 'r150') }];
+    else if (modo === 'edu') acc = [
+      { a: 'lotes', t: 'Carta solar y asoleamiento' },
+      { a: 'norma', t: 'Normativa del lote' },
+      { a: 'pedir:modelo-3d', t: 'Descargar modelo virtual', p: precioDe('modelo-3d', estado, 'edu') },
+      { a: 'pedir:contexto-cad', t: 'Contexto editable', p: precioDe('contexto-cad', estado, 'r150') }];
+    else acc = [
+      { a: 'norma', t: conserva ? 'Ver la normativa' : 'Ver qué puedes construir' },
+      { a: 'ficha', t: 'Ficha del predio en PDF', p: 'Gratis' },
+      { a: 'tienda', t: 'Servicios para tu terreno' }];
+    var modos = [['terreno', 'Terreno'], ['pro', 'Profesional'], ['edu', 'Estudiante']];
+    return '<section class="res-predio"><div class="res-cab"><b>Tu predio</b><div class="res-modos" role="tablist" aria-label="Ver como">' +
+      modos.map(function (m) { return '<button type="button" data-modo="' + m[0] + '"' + (m[0] === modo ? ' class="activo"' : '') + '>' + m[1] + '</button>'; }).join('') + '</div></div>' +
+      '<p class="res-nota">Información de referencia. El dato oficial es el <button type="button" class="res-link" data-accion="pedir:planimetrico-iprus">IPRUS</button> que emite el municipio.</p>' +
+      '<p class="res-texto">' + txt + '</p>' +
+ (boton && modo !== 'edu' ? '<button type="button" class="res-boton" data-accion="' + boton.a + '">' + boton.t + ' ›</button>' : '') +
+      '<ul class="res-acc">' + acc.map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span>' + (x.p ? '<b class="res-precio">' + x.p + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul>' +
+      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details>' +
+      '<button type="button" class="res-mas" data-accion="norma">Ver normativa completa y detalle técnico ›</button></section>';
+  }
   function recomendacionesGestion(estado) {
     var R = [], a = estado.antecedentes, r = estado.restriccionVolumen || '';
     var mayor = a && a.mayor[0];
@@ -4342,7 +4506,7 @@
     // producto activo es 'croquis', usando estadoSeleccionado/areaM2Seleccionado (guardados abajo).
     estado._filasTablaPDF = filasTablaHtml; estado._esCH = !!esCentroHistorico;
     panel.innerHTML =
-      '<details class="detalle-tecnico" id="vista-volumetria"><summary>Detalle técnico <span>para arquitectos: tabla oficial del PIT, clasificación de lados y cálculo del volumen</span></summary>' +
+      '<details class="detalle-tecnico" id="vista-volumetria"><summary>Detalle técnico</summary>' +
         '<div class="result-head">' +
           '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
           '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
@@ -6020,7 +6184,9 @@
 
     // Lo construido hoy en el lote (catastro/OSM): se ve mientras el volumen normativo está apagado.
     var grupoExistente = new THREE.Group(); scene.add(grupoExistente);
-    (estado.edificacionesLote || []).forEach(function (ed) {
+    (estado.edificacionesLote || []).forEach(function (ed0) {
+      // el mismo tope de altura que el contexto: datos con pisos de más no dibujan una torre
+      var ed = ed0.altura > alturaTope ? Object.assign({}, ed0, { altura: alturaTope }) : ed0;
       try {
         var geo = new THREE.ExtrudeGeometry(new THREE.Shape(metrosArrAVec2(ed.pts)), { depth: ed.altura || 6, bevelEnabled: false });
         geo.rotateX(-Math.PI / 2); geo.computeVertexNormals();
@@ -6623,12 +6789,16 @@
       var viejo = wrap.querySelector('.maq-panel');
       // rescatar los nodos fijos que viven dentro del panel (pisos, avisos, leyenda) antes de borrarlo
       var rescate = {};
+      // el detalle técnico vive al final de Normativa: se toma el más nuevo (el de esta selección)
+      var dts = document.querySelectorAll('#vista-volumetria'), detalleTec = dts.length ? dts[dts.length - 1] : null;
+      for (var di = 0; di < dts.length; di++) if (!viejo || !viejo.contains(dts[di])) detalleTec = dts[di];
       if (viejo) { ['#aviso-versatilidad', '#aviso-volumen-vacio', '.vol-caption'].forEach(function (q) { var x = viejo.querySelector(q); if (x) { rescate[q] = x; wrap.appendChild(x); } }); viejo.remove(); }
+      document.querySelectorAll('#vista-volumetria').forEach(function (x) { if (x !== detalleTec) x.remove(); });
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
       p.innerHTML =
 
-        (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
+        (estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion' + (/^Edificación patrimonial/.test(estado.restriccionVolumen) ? ' restr-patri' : '') + '">' + htmlRestriccion(estado.restriccionVolumen) + '</div>' : '') +
         (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         '<div class="maq-acciones">' +
@@ -6636,7 +6806,7 @@
           '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis</span></button>' +
           '<button type="button" class="maq-acc" data-acc="pedir"><span>Solicitar</span></button>' +
         '</div>' +
-        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' +
+        '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver aria-label="Volver al resumen" title="Volver al resumen"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>' +
           '<div class="maq-norma-detalle">' +
             (estado.restriccionVolumen ? '' : '<div class="maq-pisos-slot"></div>') +
             htmlFichaPredio(estado, resumenNormativa) +
@@ -6646,8 +6816,17 @@
             '<div class="maq-ficha"><div class="maq-estudio-tit">Recibe gratis la ficha de tu predio (PDF)</div>' + htmlCamposFicha('') + htmlBotonesEnvio() + '<div class="maq-ficha-msg" hidden></div></div>' +
           '</div>' +
         '</div>' +
-        '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' +
-          '<div class="maq-estudio-tit">Unir o dividir lotes</div>' +
+        '<div class="maq-sec maq-estudio" data-sec="lotes"' + (secAbierta.lotes ? '' : ' hidden') + '>' + '<button type="button" class="maq-volver" data-volver aria-label="Volver al resumen" title="Volver al resumen"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>' +
+          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento · carta solar</div>' +
+            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (cartaSolarVisible ? ' checked' : '') + '> Mostrar la cúpula solar</label>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Fecha</span><input type="range" class="maq-sol-dia" min="1" max="365" step="1" value="' + diaSol + '"><span class="maq-sol-fecha">' + fechaDeDia(diaSol) + '</span></div>' +
+            '<div class="maq-sol-fila"><span class="maq-sol-lab">Hora</span><input type="range" class="maq-sol-hora" min="5.5" max="18.5" step="0.0833" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
+            '<div class="maq-sol-rapido"><button type="button" data-dia="172">21 jun</button><button type="button" data-dia="80">21 mar</button><button type="button" data-dia="355">21 dic</button></div>' +
+            '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
+          '</div>' +
+          htmlLecturaSitio(estado) +
+          '<div class="maq-recs"></div>' +
+          '<details class="despl maq-unir-despl"' + (estado.esUnion || estado.division ? ' open' : '') + '><summary>Unir o dividir lotes</summary>' +
           (!estado.esUnion && !estado.division ? '<div class="maq-nota">Junta tu lote con los vecinos para ver cuánto más podrías construir, o mira en cuántos lotes mínimos se puede dividir.</div>' : '') +
           (estado.esUnion
             ? '<div class="maq-union"><b>Lote unido:</b> ' + estado.claves.length + ' predios · ' + Math.round(areaAnillo(estado.pts)).toLocaleString('es-EC') + ' m²' +
@@ -6664,13 +6843,7 @@
             (estado.esUnion ? '<button type="button" class="maq-unir">Unir otro</button><button type="button" class="maq-deshacer">Volver a mi lote</button>'
               : '<button type="button" class="maq-unir">Unir lotes</button>' + (estado.division ? '<button type="button" class="maq-dividir activa">Quitar división</button>' : '<button type="button" class="maq-dividir">Dividir lote</button>')) +
           '</div>' +
-          '<div class="maq-sol"><div class="maq-estudio-tit">Asoleamiento · carta solar</div>' +
-            '<label class="maq-sol-fila"><input type="checkbox" class="maq-sol-chk"' + (cartaSolarVisible ? ' checked' : '') + '> Mostrar la cúpula solar</label>' +
-            '<div class="maq-sol-fila"><span class="maq-sol-lab">Fecha</span><input type="range" class="maq-sol-dia" min="1" max="365" step="1" value="' + diaSol + '"><span class="maq-sol-fecha">' + fechaDeDia(diaSol) + '</span></div>' +
-            '<div class="maq-sol-fila"><span class="maq-sol-lab">Hora</span><input type="range" class="maq-sol-hora" min="5.5" max="18.5" step="0.0833" value="' + horaSol + '"><span class="maq-sol-txt">' + formatoHora(horaSol) + '</span></div>' +
-            '<div class="maq-sol-rapido"><button type="button" data-dia="172">21 jun</button><button type="button" data-dia="80">21 mar</button><button type="button" data-dia="355">21 dic</button></div>' +
-            '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
-          '</div>' +
+          '</details>' +
         '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
@@ -6681,7 +6854,7 @@
         '</div>' +
         '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
         '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
-        '<a class="maq-avisar-txt" href="#" data-avisar="1">¿Falta una construcción? Avísanos</a>' +
+
         '<div class="maq-vistas"><button type="button" data-vista="planta" data-tip="Planta / 3D">' + ICONOS_MAQ.planta + '</button></div>' +
         '';
       wrap.appendChild(p);
@@ -6703,9 +6876,35 @@
       });
       // los avisos del predio y de la maqueta van debajo de los tres botones (y de la sección abierta)
       var avisosAbajo = document.createElement('div'); avisosAbajo.className = 'maq-avisos';
+      var resumen = document.createElement('div'); resumen.className = 'maq-resumen'; avisosAbajo.appendChild(resumen);
+      function pintarResumen(animar) {
+        resumen.classList.toggle('res-cambio', !!animar);
+        resumen.innerHTML = htmlResumenPredio(estado, typeof modoNav === 'string' ? modoNav : 'terreno');
+        resumen.querySelectorAll('[data-modo]').forEach(function (b) { b.addEventListener('click', function () { if (typeof cambiarModoNav === 'function') cambiarModoNav(b.getAttribute('data-modo')); pintarResumen(true); if (typeof pintarRecs === 'function') pintarRecs(); }); });
+        resumen.querySelectorAll('[data-accion]').forEach(function (b) { b.addEventListener('click', function () {
+          var a = b.getAttribute('data-accion');
+          if (a === 'ficha') { abrirFichaGratis(); return; }
+          if (a === 'tienda') { abrirTienda(estado); return; }
+          if (a.indexOf('pedir:') === 0) { abrirTienda(estado, null, a.slice(6).split(',')); return; }
+          var bb = wrap.querySelector('.maq-acc[data-acc="' + a + '"]'); if (bb && !secAbierta[a]) bb.click();
+        }); });
+      }
+      pintarResumen();
+      p.querySelectorAll('[data-volver]').forEach(function (bv) { bv.addEventListener('click', function () {
+        ['norma', 'lotes'].forEach(function (k) { if (secAbierta[k]) { var bb = wrap.querySelector('.maq-acc[data-acc="' + k + '"]'); if (bb) bb.click(); } });
+      }); });
       p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
       ['aviso-versatilidad', 'aviso-volumen-vacio'].forEach(function (id) { var x = document.getElementById(id); if (x) avisosAbajo.appendChild(x); });
-      var cap = wrap.querySelector('.vol-caption'); if (cap) avisosAbajo.appendChild(cap);
+      var cap = wrap.querySelector('.vol-caption'); if (cap) cap.remove(); // texto de ayuda innecesario
+      var ndet = p.querySelector('.maq-norma-detalle'); if (detalleTec && ndet) ndet.appendChild(detalleTec); else if (detalleTec) detalleTec.hidden = true;
+      // productos de análisis de sitio recomendados (cambian con el modo)
+      var recs = p.querySelector('.maq-recs');
+      function pintarRecs() {
+        if (!recs) return;
+        recs.innerHTML = htmlRecsAnalisis(estado, typeof modoNav === 'string' ? modoNav : 'terreno');
+        recs.querySelectorAll('[data-accion]').forEach(function (b) { b.addEventListener('click', function () { abrirTienda(estado, null, b.getAttribute('data-accion').slice(6).split(',')); }); });
+      }
+      pintarRecs();
       var ultSec = p.querySelectorAll('.maq-sec'); ultSec = ultSec[ultSec.length - 1];
       if (ultSec) ultSec.insertAdjacentElement('afterend', avisosAbajo); else p.appendChild(avisosAbajo);
       // Tres acciones bajo la maqueta; cada una despliega su sección (pueden quedar varias abiertas).
@@ -6721,6 +6920,9 @@
       function pintarAcciones() {
         wrap.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
         p.querySelectorAll('.maq-sec').forEach(function (sx) { sx.hidden = !secAbierta[sx.getAttribute('data-sec')]; });
+        var rs = p.querySelector('.maq-resumen'); if (rs) rs.hidden = !!(secAbierta.norma || secAbierta.lotes);
+        var rd = p.querySelector('.res-datos'); if (rd) rd.open = false; // al volver, la lista llega plegada
+        p.querySelectorAll('.restr-patri').forEach(function (x) { x.hidden = !!(rs && !rs.hidden); }); // el cuadro de inicio ya lo explica
       }
       p.querySelectorAll('.maq-acc').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -7850,12 +8052,14 @@
     'cabida': { ico: 'grafico', corta: 'Qué y cuánto conviene construir' },
     'diseno-lotizacion': { ico: 'lotes', corta: 'Lotes, vía interna y áreas verdes' },
     'informe-compra': { ico: 'lupa', corta: 'Lo que debes saber antes de comprar' },
+    'foto-aerea': { ico: 'camara', corta: 'Foto vertical con dron, más nítida y actual que la satelital' },
+    'valor-suelo': { ico: 'grafico', corta: 'Cuánto vale el m² de suelo de tu terreno' },
     'venta-predio': { ico: 'pin', corta: 'Tu terreno con su maqueta 3D, a la vista de compradores' }
   };
   var GRUPOS_PEDIDO = [
     { id: 'construir', tit: 'Construir', ico: 'sello', sub: 'Documentación legal y municipal para construir o saber qué construir', ids: ['planimetrico-iprus', 'levantamiento', 'planimetrico', 'croquis', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
-    { id: 'archivos', tit: 'Archivos', ico: 'cubo', sub: 'Maquetas y archivos para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
-    { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['analisis-sitio', 'cabida', 'diseno-lotizacion'] }
+    { id: 'archivos', tit: 'Archivos', ico: 'cubo', sub: 'Maquetas y archivos para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'foto-aerea', 'entorno-mejorado'] },
+    { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['valor-suelo', 'analisis-sitio', 'cabida', 'diseno-lotizacion'] }
   ];
   // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
   // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
@@ -8164,6 +8368,15 @@
       case 'levantamiento-arquitectonico': L = [op('u', 'Por m² construido', '≈ $2,50 por m² de construcción (mínimo $250): se confirma al ver la edificación.', null)]; break;
       case 'anteproyecto-historico': L = [op('u', 'Según el proyecto', 'Desde $600 aprox.', null)]; break;
       case 'permiso-menor-historico': L = [op('u', 'Gestión del permiso', '', receta(2, 4, 1, z))]; break;
+      case 'foto-aerea':
+        var vueloFoto = function (dib, arq) { return 0.5 * PRECIOS_CFG.topografoDia + PRECIOS_CFG.dronPropioDia + PRECIOS_CFG.softwareFoto + receta(dib, arq, 1, z); };
+        L = [
+          op('lote', 'Tu lote y sus alrededores', 'Una foto vertical nítida y de hoy, de unos 100 m alrededor del predio, en alta resolución (JPG y GeoTIFF para AutoCAD, QGIS o Rhino).', vueloFoto(2, 0.5)),
+          op('manzana', 'Manzana o barrio inmediato', 'Hasta unos 250 m alrededor: para análisis de sitio, láminas y presentaciones.', vueloFoto(4, 1)),
+          op('modelo', 'Foto aérea + maqueta 3D con textura real', 'Además: la foto aplicada sobre el terreno de tu maqueta (.glb), en lugar de la imagen satelital.', vueloFoto(5, 1))]; break;
+      case 'valor-suelo': L = [
+        op('ref', 'Estimación referencial', 'Precio por m² del suelo según terrenos comparables en venta y vendidos en la zona, el avalúo municipal y lo que la normativa permite construir. Sin visita.', receta(1, 5)),
+        op('visita', 'Estimación con visita', 'Además: visita al predio y su entorno (accesos, pendiente, servicios, vecinos) y ajuste del valor por esas condiciones.', receta(2, 8, 1, z))]; break;
       case 'informe-compra': L = [op('u', 'Informe con visita', 'Normativa, afectaciones, permisos, linderos del catastro frente a la escritura y riesgos, en lenguaje claro.', receta(1, 6, 1, z))]; break;
       case 'venta-predio': L = [
         op('90', 'Publicación 90 días', 'Tu predio en la vitrina de Cota Cero: maqueta 3D, normativa y contacto directo con los interesados.', receta(0, 1, 0, z, 10)),
@@ -8190,11 +8403,11 @@
   // lo suele necesitar. Un producto puede estar en varios con la opción que le corresponde.
   var PUBLICOS_TIENDA = [
     { id: 'personas', tit: 'Para tu terreno', ico: 'pin', sub: 'Dueños, compradores y vendedores',
-      ids: ['planimetrico-iprus', 'levantamiento', 'informe-compra', 'venta-predio', 'croquis', 'propiedad-horizontal', 'permiso-construccion', 'regularizacion', 'unificacion', 'lotizacion', 'cabida', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
+      ids: ['planimetrico-iprus', 'levantamiento', 'valor-suelo', 'informe-compra', 'venta-predio', 'foto-aerea', 'croquis', 'propiedad-horizontal', 'permiso-construccion', 'regularizacion', 'unificacion', 'lotizacion', 'cabida', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
     { id: 'pro', tit: 'Profesionales', ico: 'columnas', sub: 'Arquitectos, ingenieros y constructoras',
-      ids: ['levantamiento', 'contexto-cad', 'modelo-3d', 'entorno-mejorado', 'planimetrico', 'analisis-sitio', 'cabida', 'levantamiento-arquitectonico', 'diseno-lotizacion', 'permiso-construccion', 'planimetrico-iprus'], opc: { 'modelo-3d': 'pro' } },
+      ids: ['levantamiento', 'contexto-cad', 'modelo-3d', 'foto-aerea', 'entorno-mejorado', 'planimetrico', 'analisis-sitio', 'valor-suelo', 'cabida', 'levantamiento-arquitectonico', 'diseno-lotizacion', 'permiso-construccion', 'planimetrico-iprus'], opc: { 'modelo-3d': 'pro' } },
     { id: 'edu', tit: 'Estudiantes', ico: 'cubo', sub: 'Maquetas y archivos para la universidad',
-      ids: ['modelo-3d', 'contexto-cad', 'analisis-sitio', 'entorno-mejorado', 'levantamiento'], opc: { 'modelo-3d': 'edu', 'levantamiento': 'publico', 'analisis-sitio': 'macro', 'contexto-cad': 'r150' } }
+      ids: ['modelo-3d', 'contexto-cad', 'foto-aerea', 'analisis-sitio', 'entorno-mejorado', 'levantamiento'], opc: { 'modelo-3d': 'edu', 'levantamiento': 'publico', 'analisis-sitio': 'macro', 'contexto-cad': 'r150' } }
   ];
   var PERFILES_TIENDA = PUBLICOS_TIENDA; // compatibilidad (paraQuien)
   var CATEGORIAS_TIENDA = [];
@@ -8451,8 +8664,16 @@
     try { if (Object.keys(origenVisita).length) sessionStorage.setItem('cotacero-utm', JSON.stringify(origenVisita)); else origenVisita = JSON.parse(sessionStorage.getItem('cotacero-utm') || '{}'); } catch (e) { }
     var M = MODOS_NAV[modoNav];
     perfilTienda = M.tienda;
-    if (M.h1) { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) h.innerHTML = M.h1; if (l) l.textContent = M.lede; if (n) n.textContent = M.nota; }
+    (function () { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) { MODOS_NAV.terreno.h1 = h.innerHTML; MODOS_NAV.terreno.lede = l ? l.textContent : ''; MODOS_NAV.terreno.nota = n ? n.textContent : ''; } })();
+    if (M.h1 && modoNav !== 'terreno') { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) h.innerHTML = M.h1; if (l) l.textContent = M.lede; if (n) n.textContent = M.nota; }
   })();
+  function cambiarModoNav(m) {
+    if (!MODOS_NAV[m]) return; modoNav = m; perfilTienda = MODOS_NAV[m].tienda;
+    try { sessionStorage.setItem('cotacero-modo', m); } catch (e) { }
+    var M = MODOS_NAV[m], D = MODOS_NAV.terreno, h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota');
+    if (!D.h1 && h) { D.h1 = h.innerHTML; D.lede = l ? l.textContent : ''; D.nota = n ? n.textContent : ''; }
+    var X = M.h1 ? M : D; if (h && X.h1) h.innerHTML = X.h1; if (l && X.lede) l.textContent = X.lede; if (n && X.nota) n.textContent = X.nota;
+  }
   function textoOrigen() {
     var r = 'Modo: ' + modoNav; Object.keys(origenVisita).forEach(function (k) { r += ' · ' + k.replace('utm_', '') + ': ' + origenVisita[k]; });
     return r;
@@ -9334,6 +9555,10 @@
       descripcion: 'Antes de comprar: revisamos la normativa, las afectaciones, los permisos, si los linderos del catastro coinciden con la escritura y los riesgos del terreno, con una visita. Te lo explicamos en lenguaje claro.' },
     { id: 'venta-predio', nombre: 'Publica tu predio en venta', precioBase: '', nota: '90 días',
       descripcion: 'Tu terreno en la vitrina de Cota Cero con su maqueta 3D, lo que se puede construir y tu contacto, para que los compradores lo entiendan de un vistazo.' },
+    { id: 'foto-aerea', nombre: 'Foto aérea actualizada (ortofoto)', precioBase: '', nota: 'según el área',
+      descripcion: 'Una foto vertical tomada con dron y corregida para que se pueda medir sobre ella como sobre un plano: eso es una ortofoto. Más nítida y actual que la imagen satelital, para láminas, análisis de sitio o para darle textura real a la maqueta 3D. Es referencial: para planos oficiales se necesita un levantamiento con puntos de control.' },
+    { id: 'valor-suelo', nombre: '¿Cuánto vale tu terreno? (valor del suelo)', precioBase: '', nota: 'por predio',
+      descripcion: 'Estimamos el precio por m² del suelo de tu terreno con terrenos comparables de la zona, el avalúo municipal y lo que la normativa permite construir. Sirve para vender, comprar o negociar con criterio. No reemplaza un avalúo de perito calificado (el que pide un banco o un juicio).' },
     { id: 'volumetria', nombre: 'Volumetría de referencia', precioGratis: true,
       descripcion: 'El visor 3D de esta misma página — qué se puede construir en tu predio, al instante, gratis mientras dure el lanzamiento.' }
   ];
