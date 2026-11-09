@@ -1033,9 +1033,9 @@
 </div>
 
 <div class="hero">
-  <h1>Toca tu terreno.<br><em>Conoce todo</em> lo que puedes hacer con él.</h1>
-  <p class="lede">Elige cualquier lote de Cuenca y en segundos ves cuántos pisos y metros puedes construir, qué actividades se permiten, si tiene afectaciones y qué trámites te tocan, con el PUGS 2025 y el catastro municipal.</p>
-  <p class="small-note">Para dueños de terrenos, compradores, constructores, arquitectos y estudiantes. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS del municipio.</p>
+  <h1 id="hero-h1">Toca tu terreno.<br><em>Conoce todo</em> lo que puedes hacer con él.</h1>
+  <p class="lede" id="hero-lede">Elige cualquier lote de Cuenca y en segundos ves cuántos pisos y metros puedes construir, qué actividades se permiten, si tiene afectaciones y qué trámites te tocan, con el PUGS 2025 y el catastro municipal.</p>
+  <p class="small-note" id="hero-nota">Para dueños de terrenos, compradores, constructores, arquitectos y estudiantes. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS del municipio.</p>
 </div>
 
 <div class="mapa-hero" id="herramienta">
@@ -8398,7 +8398,7 @@
         if (!q('acepto').checked) return error('Para enviar el pedido tienes que aceptar los Términos y la Política de privacidad.');
         try { localStorage.setItem('cotacero-correo', correo); localStorage.setItem('cotacero-nombre', nombre); if (telefono) localStorage.setItem('cotacero-telefono', telefono); } catch (e) { }
         var boton = f.querySelector('.tn-enviar'); boton.disabled = true; boton.textContent = 'Enviando…';
-        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16);
+        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + '\n' + textoOrigen();
         var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: it.map(function (x) { return x.id; }).join(','), productoNombre: it.map(function (x) { return x.nombre; }).join(' + '),
           predio: conPredio ? claveTxt : '', nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle, documentos: [], origen: 'tienda', sitio_web: q('sitio_web').value, t: Date.now() - t0 };
         if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
@@ -8427,6 +8427,32 @@
     } else vistaCatalogo();
   }
   function abrirCheckout(estado) { abrirTienda(estado, 'pedido'); }
+  // ---------- Modos de navegación por enlace (?modo=terreno | pro | edu) ----------
+  // Sirven para publicidad dirigida: el enlace del anuncio abre la página ya pensada para ese
+  // público (texto de portada y pestaña de la tienda). El modo y las etiquetas utm_* del anuncio
+  // se guardan en la visita y viajan con cada pedido o mensaje, para saber qué anuncio funcionó.
+  var MODOS_NAV = {
+    terreno: { tienda: 'personas' },
+    pro: { tienda: 'pro', h1: 'La normativa de cualquier lote de Cuenca,<br><em>en 3D</em> y al instante.', lede: 'Pisos, retiros, COS, usos de suelo, afectaciones y asoleamiento de cualquier predio, con el PUGS 2025 y el catastro municipal. Cuando lo necesites: levantamientos, contexto DWG/SKP y modelo 3D.', nota: 'Para arquitectos, ingenieros y constructoras. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS.' },
+    edu: { tienda: 'edu', h1: 'Tu sitio de proyecto,<br><em>en 3D</em> y gratis.', lede: 'Elige el lote de tu taller y explora su maqueta, la normativa, el asoleamiento y el barrio. Si necesitas archivos, el modelo 3D y el contexto editable tienen precio de estudiante.', nota: 'Para estudiantes de arquitectura y urbanismo. Gratis y sin registrarte.' }
+  };
+  var modoNav = 'terreno', origenVisita = {};
+  (function () {
+    var q = new URLSearchParams(location.search), m = (q.get('modo') || q.get('para') || '').toLowerCase();
+    if (m === 'estudiante' || m === 'estudiantes') m = 'edu';
+    if (m === 'profesional' || m === 'profesionales' || m === 'arquitecto') m = 'pro';
+    try { if (!MODOS_NAV[m]) m = sessionStorage.getItem('cotacero-modo') || ''; } catch (e) { }
+    if (MODOS_NAV[m]) { modoNav = m; try { sessionStorage.setItem('cotacero-modo', m); } catch (e) { } }
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(function (k) { var v = q.get(k); if (v) origenVisita[k] = v.slice(0, 60); });
+    try { if (Object.keys(origenVisita).length) sessionStorage.setItem('cotacero-utm', JSON.stringify(origenVisita)); else origenVisita = JSON.parse(sessionStorage.getItem('cotacero-utm') || '{}'); } catch (e) { }
+    var M = MODOS_NAV[modoNav];
+    perfilTienda = M.tienda;
+    if (M.h1) { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) h.innerHTML = M.h1; if (l) l.textContent = M.lede; if (n) n.textContent = M.nota; }
+  })();
+  function textoOrigen() {
+    var r = 'Modo: ' + modoNav; Object.keys(origenVisita).forEach(function (k) { r += ' · ' + k.replace('utm_', '') + ': ' + origenVisita[k]; });
+    return r;
+  }
   (function () { var b = document.getElementById('btn-tienda'); if (b) b.addEventListener('click', function () { abrirTienda(estadoSeleccionado); }); })();
   // ---------- Escríbenos: reportar un error, pedir un producto o pedir una ciudad ----------
   var TIPOS_MENSAJE = [
@@ -8465,7 +8491,7 @@
       if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { msg.hidden = false; msg.textContent = 'Revisa tu correo.'; return; }
       var e = estadoSeleccionado, clave = e ? (e.esUnion ? e.claves.join(' + ') : (e.clave || '')) : '';
       var nombreTipo = TIPOS_MENSAJE.filter(function (y) { return y.id === tipo; })[0].tit;
-      var detalle = (tipo === 'ciudad' ? 'Ciudad: ' + ciudad + '\n' : '') + texto + '\n\nPágina: ' + location.href + '\nPantalla: ' + window.innerWidth + '×' + window.innerHeight + ' · ' + navigator.userAgent;
+      var detalle = (tipo === 'ciudad' ? 'Ciudad: ' + ciudad + '\n' : '') + texto + '\n\n' + textoOrigen() + '\nPágina: ' + location.href + '\nPantalla: ' + window.innerWidth + '×' + window.innerHeight + ' · ' + navigator.userAgent;
       var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'mensaje-' + tipo, productoNombre: nombreTipo + (tipo === 'ciudad' ? ': ' + ciudad : ''), predio: clave, nombreSolicitante: '', correo: correo, telefono: '', detalle: detalle, documentos: [], origen: 'mensaje', sitio_web: f.querySelector('[name=sitio_web]').value, t: Date.now() - t0 };
       var bt = f.querySelector('.modal-ok'); bt.disabled = true; bt.textContent = 'Enviando…';
       function listo() { f.innerHTML = '<button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">¡Gracias!</div><p class="maq-nota">' + (tipo === 'ciudad' ? 'Anotamos ' + esc(ciudad) + '. Abrimos nuevas ciudades según cuántas personas las piden.' : 'Lo revisamos pronto.' + (correo ? ' Si hace falta, te escribimos a ' + esc(correo) + '.' : '')) + '</p>'; }
@@ -8695,7 +8721,7 @@
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: 'ficha-gratis', productoNombre: 'Ficha rápida gratis (interesado)',
           predio: estado.esUnion ? estado.claves.join(' + ') : estado.clave, nombreSolicitante: '', correo: correo || '', telefono: telefono || '',
-          detalle: 'Ficha gratis por ' + (via === 'wa' ? 'WHATSAPP (llegará un mensaje)' : 'correo') + ' · aceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + ' · novedades: ' + (novedades ? 'SÍ' : 'no'),
+          detalle: 'Ficha gratis por ' + (via === 'wa' ? 'WHATSAPP (llegará un mensaje)' : 'correo') + ' · aceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + ' · novedades: ' + (novedades ? 'SÍ' : 'no') + (typeof textoOrigen === 'function' ? ' · ' + textoOrigen() : ''),
           documentos: [], origen: 'ficha-gratis', sitio_web: '', t: 99999 })
       }).catch(function () { });
     } catch (e) { }
