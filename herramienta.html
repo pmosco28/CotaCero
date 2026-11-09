@@ -1435,7 +1435,7 @@
       if (!estado.restriccionVolumen) acc.unshift({ a: 'norma', t: '<b>Qué puedes construir:</b> pisos, metros y retiros, con la maqueta.' });
       acc.push({ a: 'ficha', t: '<b>Recibe gratis la ficha del predio</b> en PDF, en tu correo.' });
     }
-    var modos = [['terreno', 'Dueño o comprador'], ['pro', 'Profesional'], ['edu', 'Estudiante']];
+    var modos = [['terreno', 'Mi terreno'], ['pro', 'Profesional'], ['edu', 'Estudiante']];
     return '<section class="res-predio"><div class="res-cab"><b>Tu predio</b><div class="res-modos" role="tablist" aria-label="Ver como">' +
       modos.map(function (m) { return '<button type="button" data-modo="' + m[0] + '"' + (m[0] === modo ? ' class="activo"' : '') + '>' + m[1] + '</button>'; }).join('') + '</div></div>' +
       stats + htmlPatrimonioDestacado(estado) +
