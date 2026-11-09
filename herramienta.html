@@ -64,6 +64,7 @@
     background: color-mix(in srgb, var(--surveyor) 12%, transparent); padding: 5px 12px; border-radius: 999px;
     margin-bottom: 18px;
   }
+  .eyebrow-top { margin: 0; font-size: 0.66rem; padding: 4px 10px; }
   .hero h1 { font-size: clamp(2.1rem, 4.2vw, 3.4rem); font-weight: 600; margin: 0 0 14px; max-width: 16ch; }
   .hero h1 em { font-style: normal; font-weight: 200; color: inherit; }
   .hero p.lede { font-size: 1.1rem; color: var(--ink-soft); max-width: 56ch; margin: 0 0 8px; }
@@ -133,15 +134,22 @@
   /* El canvas rompe el padding de .vol3d-wrap a propósito (margen negativo = ancho del padding) para
      que sus bordes sean los bordes reales de la pantalla y "se pierdan" — los avisos/controles/
      caption alrededor (hijos del mismo .vol3d-wrap) sí se quedan con su padding normal, legible. */
+  .maq-escena { position: relative; width: calc(100% + 64px); margin: 0 -32px; }
   #vol3d {
-    height: min(80vh, 760px); width: calc(100% + 64px); margin: 0 -32px;
+    height: min(80vh, 760px); width: 100%; margin: 0;
     /* Degradado sutil desde la derecha (donde antes quedaba un tercio de fondo plano vacío sobre los
        edificios) — vuelve a var(--paper) antes de la mitad, así sigue fundiéndose con el resto de la
        página y no se nota como una franja de color aparte. */
     background: radial-gradient(110% 85% at 50% 40%, #F6F5F2 0%, var(--paper) 72%);
     cursor: grab; display: block;
   }
-  @media (max-width: 640px) { #vol3d { height: min(58vh, 460px); } }
+  @media (max-width: 640px) {
+    #vol3d { height: min(56vh, 460px); height: min(56svh, 460px); }
+    /* en el celular la maqueta queda fija arriba mientras se recorre la información de abajo */
+    .maq-escena { position: sticky; top: 0; z-index: 40; background: var(--paper); box-shadow: 0 8px 14px -12px rgba(28,26,22,.35); }
+  }
+  /* la tarjeta de pisos solo se muestra dentro de Normativa, nunca flotando sobre la maqueta */
+  .panel-flotante .editor-flotante { display: none; }
   .maq-panel { position: static; width: min(760px, calc(100% - 28px)); margin: 12px auto 0; background: transparent; padding: 0; display: grid; gap: 10px; font-size: 0.82rem; color: #2b2a27; }
   .maq-panel .maq-tit { font-weight: 700; font-size: 0.95rem; }
   .maq-panel .maq-grid, .maq-panel .maq-colores { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 8px; }
@@ -227,6 +235,10 @@
   .maq-vistas-flot button { border-left-width: 1px; border-radius: 10px !important; }
   .maq-toque { position: absolute; bottom: 58px; left: 50%; transform: translateX(-50%); background: #2b2a27; color: #f3f1ec; font-size: 0.72rem; padding: 5px 10px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
   .maq-toque.visible { opacity: 1; }
+  .maq-vistas-flot button.cargando { color: transparent !important; pointer-events: none; }
+  .maq-vistas-flot button.cargando svg { opacity: 0; }
+  .maq-vistas-flot button.cargando::before { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid rgba(43,42,39,.2); border-top-color: #B2502E; animation: girar .7s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
   @media (hover: none) { [data-tip]:hover::after { display: none; } }
   .maq-vistas-flot .maq-switch { pointer-events: auto; height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; background: rgba(246,245,242,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); white-space: nowrap; }
   .maq-vistas-flot .maq-switch span { flex: none; }
@@ -302,12 +314,20 @@
   details.detalle-tecnico table.determ tr.tier-chosen td { color: #1C1A16; font-weight: 700; }
   .dt-nota { font-size: 0.72rem; font-weight: 300; color: #5E5B55; margin-top: 10px; line-height: 1.45; }
   .maq-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
-  .maq-panel .maq-acc, .maq-panel .maq-acc span, .maq-panel .maq-acc small { text-transform: none; letter-spacing: 0; }
-  .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 9px 6px; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .maq-escena > .maq-acciones { width: min(760px, calc(100% - 28px)); margin: 0 auto; padding: 10px 0; background: var(--paper); font-size: 0.82rem; }
+  @media (max-width: 640px) { .maq-escena > .maq-acciones { width: auto; margin: 0 12px; padding: 8px 0; } }
+  .maq-acc, .maq-acc span, .maq-acc small { text-transform: none !important; letter-spacing: 0 !important; }
+  .maq-acc { font: inherit; display: grid; gap: 1px; justify-items: center; text-align: center; padding: 0 6px; height: 38px; align-content: center; border: 1px solid #1C1A16; border-radius: 10px; background: transparent; color: #1C1A16; cursor: pointer; text-transform: none; letter-spacing: 0; }
   .maq-acc span { font-weight: 600; font-size: 0.86rem; } .maq-acc small { font-weight: 300; font-size: 0.68rem; opacity: .75; }
   .maq-acc.activo { background: #1C1A16; color: #f3f1ec; }
   .maq-acc-pedir { border-color: #B2502E; color: #B2502E; } .maq-acc-pedir.activo { background: #B2502E; color: #fff; border-color: #B2502E; }
   .maq-sec[hidden] { display: none !important; }
+  .maq-tira { position: absolute; top: 12px; left: 50%; transform: translate(-50%, -6px); z-index: 9; background: #1C1A16; color: #f3f1ec; font-size: 0.72rem; padding: 6px 12px; border-radius: 999px; opacity: 0; transition: opacity .15s, transform .15s; pointer-events: none; white-space: nowrap; }
+  .maq-tira.visible { opacity: 1; transform: translate(-50%, 0); }
+  .maq-buscar { position: absolute; top: 12px; right: 12px; z-index: 8; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; cursor: pointer; color: #1C1A16; border-radius: 999px; background: rgba(246,245,242,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); overflow: hidden; }
+  .maq-buscar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .maq-avisos { display: grid; gap: 8px; } .maq-avisos:empty { display: none; }
+  .maq-avisos > div[style*="margin"] { margin: 0 !important; }
   .maq-sec { border: 1px solid #1C1A16; border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
   .maq-pedir { border-color: #B2502E; }
   .maq-pedir .maq-tramites { border: 0; padding: 0; }
@@ -422,7 +442,8 @@
 
   .buscar-maps { display: flex; gap: 8px; margin-bottom: 14px; }
   .terreno-manual { margin: -4px 0 14px; font-size: 0.82rem; }
-  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+  .terreno-manual > summary { cursor: pointer; list-style: none; display: inline-flex; flex-direction: row-reverse; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 400; color: var(--ink-soft); padding: 2px 0; }
+  .terreno-manual > summary:hover { color: var(--ink); }
   .terreno-manual > summary span { font-weight: 300; color: var(--ink-soft); }
   .terreno-manual > summary::after { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
   .terreno-manual[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
@@ -436,16 +457,19 @@
   .tm-pane textarea { width: 100%; font: 300 0.8rem 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; padding: 8px 10px; border: 1px solid rgba(28,26,22,.3); border-radius: 8px; background: transparent; }
   .tm-msg { font-size: 0.76rem; font-weight: 300; } .tm-msg.alerta { color: var(--terracotta); font-weight: 500; }
   .tm-vertice { width: 10px; height: 10px; border-radius: 50%; background: #B2502E; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.5); }
+  /* buscador: la lupa va dentro del campo de texto (es el botón de buscar) */
+  .buscar-maps { position: relative; }
   .buscar-maps input {
-    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--line-soft); color: var(--ink); font-family: 'Inter Tight'; font-size: 0.85rem;
+    flex: 1; min-width: 0; height: 44px; padding: 0 48px 0 16px; border-radius: 999px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); font-family: 'Inter Tight'; font-size: 0.9rem;
   }
-  .buscar-maps input:focus { outline: 2px solid var(--terracotta); outline-offset: -1px; }
+  .buscar-maps input:focus { outline: none; border-color: var(--ink); }
   .buscar-maps button {
-    background: var(--terracotta); color: #fff; border: none; border-radius: 8px; padding: 0 16px;
-    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Inter Tight'; transition: background 0.15s;
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; padding: 0;
+    display: grid; place-items: center; background: transparent; color: var(--ink); border: 0; border-radius: 50%; cursor: pointer; transition: background 0.15s;
   }
-  .buscar-maps button:hover { background: var(--terracotta-dark); }
+  .buscar-maps button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .buscar-maps button:hover { background: var(--line-soft); }
   .buscar-maps-msg { font-size: 0.78rem; margin: -6px 0 14px; line-height: 1.4; }
   .buscar-maps-msg.err { color: #B5355A; }
   .buscar-maps-msg.ok { color: var(--ink-soft); }
@@ -760,6 +784,10 @@
     body.con-carrito .btn-ficha { right: auto; width: 56px; padding: 14px 0; } body.con-carrito .btn-ficha span { display: none; }
     body.con-carrito .btn-carrito { left: 80px; }
   }
+  /* Ficha gratis: solo el ícono (la ventanita explica que es gratis y que llega por correo) */
+  .btn-flot.btn-ficha { width: 52px; height: 52px; padding: 0 !important; justify-content: center; left: auto !important; }
+  .btn-flot.btn-ficha span { display: none; }
+  @media (max-width: 640px) { .btn-flot.btn-ficha { right: 76px !important; } body.con-carrito .btn-carrito { left: auto; right: 138px; } }
   @media print { .btn-flot, .checkout { display: none !important; } }
   .checkout { position: fixed; inset: 0; z-index: 2000; background: rgba(28,26,22,.45); display: grid; place-items: center; padding: 16px; }
   .checkout-caja { position: relative; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: #f6f5f2; border-radius: 14px; padding: 18px; display: grid; gap: 10px; font-size: 0.86rem; color: #1C1A16; }
@@ -911,13 +939,10 @@
 
 <div class="topbar">
   <div class="brand"><span>Cota<span class="ligero">Cero</span></span></div>
-  <nav>
-    <a href="#herramienta">La herramienta</a>
-  </nav>
+  <div class="eyebrow eyebrow-top">● Datos en vivo</div>
 </div>
 
 <div class="hero">
-  <div class="eyebrow">● En vivo — datos oficiales del Municipio de Cuenca</div>
   <h1>Toca tu terreno.<br><em>Conoce todo</em> lo que puedes hacer con él.</h1>
   <p class="lede">Elige cualquier lote de Cuenca y en segundos ves cuántos pisos y metros puedes construir, qué actividades se permiten, si tiene afectaciones y qué trámites te tocan, con el PUGS 2025 y el catastro municipal.</p>
   <p class="small-note">Para dueños de terrenos, compradores, constructores, arquitectos y estudiantes. Gratis y sin registrarte. Las cifras son una referencia: el documento oficial es el IPRUS del municipio.</p>
@@ -930,11 +955,11 @@
   </div>
   <div class="buscar-maps">
     <input type="text" id="buscar-maps-input" placeholder="Clave catastral, link de Google Maps o lat, lng">
-    <button type="button" id="buscar-maps-btn">Buscar</button>
+    <button type="button" id="buscar-maps-btn" aria-label="Buscar" title="Buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
   <details class="terreno-manual" id="terrenoManual">
-    <summary>Búsqueda avanzada <span>— dibujar el terreno, coordenadas o archivo</span></summary>
+    <summary>Búsqueda avanzada</summary>
     <div class="tm-cuerpo">
       <div class="tm-tabs">
         <button type="button" data-tm="dibujar" class="activa">Dibujar sobre foto aérea</button>
@@ -970,7 +995,7 @@
     </div>
     <div class="vol3d-wrap">
       <div id="aviso-volumen-vacio" style="display:none; font-size:0.8rem; color:var(--terracotta); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-bottom:8px;"></div>
-      <canvas id="vol3d"></canvas>
+      <div class="maq-escena"><canvas id="vol3d"></canvas></div>
       <div class="vol-caption">Arrastra para girar la maqueta y pellizca para acercarte o ver el barrio completo.</div>
       <div id="aviso-versatilidad" style="display:none; font-size:0.78rem; color:var(--ink-soft); background:var(--paper-raised); border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; margin-top:8px;"></div>
     </div>
@@ -986,7 +1011,7 @@
     </details>
   </div>
 </div>
-<div class="map-caption">Toca cualquier lote del catastro de Cuenca: la información se consulta en vivo al GAD Municipal.</div>
+<div class="map-caption">Toca cualquier lote de Cuenca: la información se consulta en vivo.</div>
 <!-- catálogo anterior (chips de productos): reemplazado por Solicitar; se conserva oculto porque el
      código de pedidos aún lo usa como contenedor -->
 <div class="barra-productos" id="barraProductos" hidden style="display:none"></div>
@@ -3967,6 +3992,7 @@
   // Ejes IPRUS (iprus:ejes_unificados): los lotes con frente a un eje toman su altura máxima
   // (pisos_max_) y su lote mínimo, por encima de la tabla de referencia.
   var introHechaPara = null;
+  var camaraMemoria = null; // vista de la maqueta para el mismo predio: no salta al rearmar (pisos, sol, unión)
   // Acabados de maqueta: paletas completas (más claro que elegir color por color)
   var ACABADOS = {
     blanco: { nombre: 'Blanco', c: { cTer: '#f3f1ec', cSide: '#d9d2c4', cBld: '#faf9f6', cRes: '#4f95c4', cSand: '#a9b78c', cCan: '#c9d0bd' } },
@@ -5990,7 +6016,13 @@
     // se ve borroso/pixelado, y se nota mucho más ahora que el canvas es pantalla completa en vez de
     // los 220px de antes. Tope en 2x: más que eso no se nota a simple vista y sí pesa en el GPU.
     var esTactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, esTactil ? 1.5 : 2.5));
+    // Resolución adaptativa: mientras se gira o hace zoom se dibuja a una resolución liviana (fluidez)
+    // y, apenas se suelta, se redibuja una vez a la resolución completa de la pantalla (nitidez).
+    var PR_ALTO = Math.min(window.devicePixelRatio || 1, esTactil ? 2.5 : 2.5);
+    var PR_MOV = Math.min(PR_ALTO, esTactil ? 1.25 : 1.5);
+    var prActual = PR_ALTO, tNitidez = null;
+    renderer.setPixelRatio(PR_ALTO);
+    function usarResolucion(pr) { if (pr === prActual) return; prActual = pr; renderer.setPixelRatio(pr); renderer.setSize(canvas.clientWidth || w, canvas.clientHeight || h, false); }
     renderer.setSize(w, h, false);
     // Mismo pipeline de color que la maqueta de referencia: salida sRGB, luces físicas, ACES y un
     // ambiente de estudio para los reflejos de la resina.
@@ -6021,7 +6053,31 @@
         e.mesh.rotation.y = dot >= 0 ? e.angulo : e.angulo + Math.PI;
       });
     }
+    var claveCam = estado.esUnion ? (estado.claves || []).join('+') : (estado.clave || ''), camaraLista = false;
+    var pisosEscena = estado.pisos; // el estado se modifica antes de rearmar: se guarda el de ESTA escena
+    function guardarCamara() {
+      if (!camaraLista) return;
+      camaraMemoria = { k: claveCam, th: theta, ph: phi, r: radius, t: target.clone(), pisos: pisosEscena, planta: camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria.planta : false };
+    }
+    // Transición suave de cámara (nunca saltos): interpola ángulos, distancia y punto de mira.
+    var animCam = null;
+    function animarCamaraHacia(aplicarDestino, D) {
+      var a = { th: theta, ph: phi, r: radius, t: target.clone() };
+      aplicarDestino(); var b = { th: theta, ph: phi, r: radius, t: target.clone() };
+      theta = a.th; phi = a.ph; radius = a.r; target.copy(a.t);
+      var dth = b.th - a.th; dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+      var t0 = performance.now(), mio = {}; animCam = mio; D = D || 650;
+      canvas.addEventListener('pointerdown', function () { if (animCam === mio) animCam = null; }, { once: true });
+      (function paso() {
+        if (animCam !== mio || miEscena !== generacionEscena) return;
+        var u = Math.min(1, (performance.now() - t0) / D), e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        theta = a.th + dth * e; phi = a.ph + (b.ph - a.ph) * e; radius = a.r + (b.r - a.r) * e; target.lerpVectors(a.t, b.t, e);
+        actualizarCamara(); solicitarRender();
+        if (u < 1) requestAnimationFrame(paso); else animCam = null;
+      })();
+    }
     function actualizarCamara() {
+      guardarCamara();
       camera.position.set(
         target.x + radius * Math.sin(phi) * Math.sin(theta),
         target.y + radius * Math.cos(phi),
@@ -6046,7 +6102,7 @@
     dirLight.shadow.camera.bottom = -tamanoSombra;
     dirLight.shadow.camera.near = 0.1;
     dirLight.shadow.camera.far = Math.max(maxDim * 8, radioContexto * 6);
-    dirLight.shadow.mapSize.set(esTactil ? 1024 : 2048, esTactil ? 1024 : 2048);
+    dirLight.shadow.mapSize.set(2048, 2048);
     dirLight.shadow.bias = -0.0004;
     dirLight.shadow.normalBias = 0.4;
     renderer.shadowMap.enabled = true;
@@ -6097,8 +6153,17 @@
       volAnimId = requestAnimationFrame(function () {
         volAnimId = null;
         if (miEscena !== generacionEscena) return;
+        // si ya hubo un cuadro hace poco, se está interactuando: resolución liviana
+        var ahora = performance.now();
+        if (ahora - (solicitarRender._ult || 0) < 120) usarResolucion(PR_MOV);
+        solicitarRender._ult = ahora;
         renderer.render(scene, camera);
         actualizarOverlay();
+        clearTimeout(tNitidez);
+        if (prActual !== PR_ALTO) tNitidez = setTimeout(function () {
+          if (miEscena !== generacionEscena) return;
+          usarResolucion(PR_ALTO); renderer.render(scene, camera); actualizarOverlay();
+        }, 180);
       });
     }
     // Norte y escala gráfica: el norte del modelo es −z (y de los metros locales); la escala se mide
@@ -6119,14 +6184,15 @@
       overlayEscala.querySelector('span').textContent = m + ' m';
     }
     // El volumen normativo "crece" piso a piso al mostrarse (el momento clave de la herramienta)
-    function animarCrecimiento() {
+    function animarCrecimiento(desde) {
       var objs = grupoVolumen.children.filter(function (o) { return o.userData && o.userData.cotaRef; });
       if (!objs.length) objs = [grupoVolumen];
-      var t0 = performance.now(), D = 950;
+      desde = desde || 0;
+      var t0 = performance.now(), D = desde ? 700 : 950;
       (function paso() {
         if (miEscena !== generacionEscena) return;
         var t = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - t, 3);
-        objs.forEach(function (o) { o.scale.y = Math.max(0.001, e); });
+        objs.forEach(function (o) { o.scale.y = Math.max(0.001, desde + (1 - desde) * e); });
         renderer.render(scene, camera); actualizarOverlay();
         if (t < 1) requestAnimationFrame(paso);
       })();
@@ -6176,7 +6242,7 @@
       // frena — más margen para apuntar fino cuando se está mirando el detalle de cerca.
       var sensibilidad = 0.008 * (radius / (maxDim * 1.7));
       theta -= dx * sensibilidad;
-      phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * sensibilidad));
+      if (!soloHorizontal) phi = Math.max(0.2, Math.min(Math.PI / 2 - 0.02, phi - dy * sensibilidad));
       actualizarCamara();
       solicitarRender();
       e.preventDefault();
@@ -6189,6 +6255,14 @@
     // de la maqueta y el radio llega hasta ver el conjunto completo (reemplaza los botones
     // "Conjunto" / "Lote").
     var zoomLote = null;
+    function ajustarZoomSinRender(nuevoRadio) {
+      var rMin = maxDim * 0.6, rMax = Math.max(R * 2.8, maxDim * 4.5);
+      radius = Math.max(rMin, Math.min(rMax, nuevoRadio));
+      if (zoomLote) {
+        var rL = Math.max(maxDim * 2.6, 95), t = Math.max(0, Math.min(1, (radius - rL) / Math.max(1, rMax - rL)));
+        target.set(zoomLote.x * (1 - t), zoomLote.y * (1 - t), zoomLote.z * (1 - t));
+      }
+    }
     function ajustarZoom(nuevoRadio) {
       var rMin = maxDim * 0.6, rMax = Math.max(R * 2.8, maxDim * 4.5);
       radius = Math.max(rMin, Math.min(rMax, nuevoRadio));
@@ -6208,7 +6282,7 @@
     var toques = {}, distPellizco = 0, radioPellizco = 0;
     function distToques() { var k = Object.keys(toques); if (k.length < 2) return 0; var a = toques[k[0]], b = toques[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
     function pinDown(e) {
-      if (e.pointerType !== 'touch') return;
+      if (e.pointerType !== 'touch' || soloHorizontal) return;
       toques[e.pointerId] = { x: e.clientX, y: e.clientY };
       if (Object.keys(toques).length === 2) { distPellizco = distToques(); radioPellizco = radius; arrastrando = false; }
     }
@@ -6225,8 +6299,77 @@
     canvas.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
+    // Celular: la maqueta queda fija arriba. Mientras todavía está entrando o saliendo de la pantalla
+    // (no está "anclada"), deslizar el dedo sobre ella hace scroll de la página; ya anclada arriba,
+    // el dedo la gira. Así no se queda uno atrapado en el 3D al bajar por la página.
+    // "Al inicio" = la página está justo en la maqueta (ni más arriba ni leyendo más abajo). Solo ahí
+    // el dedo la gira en todas direcciones; fuera de eso, deslizar en vertical sobre el 3D mueve la
+    // página (subir o bajar sin girar la maqueta) y deslizar en horizontal la sigue girando.
+    function maquetaAnclada() {
+      if (!window.matchMedia('(max-width: 640px)').matches) return true;
+      var cont = canvas.closest('.vol3d-wrap') || canvas.parentElement || canvas;
+      return Math.abs(cont.getBoundingClientRect().top) <= 8;
+    }
+    var soloHorizontal = false;
+    function actualizarGestoTactil() { var a = maquetaAnclada(); canvas.style.touchAction = a ? 'none' : 'pan-y'; canvas.classList.toggle('desanclada', !a); }
+    function filtroToque(e) { if (e.pointerType === 'touch') soloHorizontal = !maquetaAnclada(); else soloHorizontal = false; }
+    canvas.addEventListener('pointerdown', filtroToque, true);
+    // Freno al volver a la maqueta: al subir desde la información, la página se detiene justo en la
+    // maqueta; para salir hacia arriba hay que "estirar" (jalar hacia abajo fuera del 3D) y soltar.
+    var cruceTop = null, salidaLibre = false, tiraY0 = null, tirando = 0;
+    function contMaq() { return canvas.closest('.vol3d-wrap'); }
+    function esMovilMaq() { return window.matchMedia('(max-width: 640px)').matches; }
+    function frenoScroll() {
+      var c = contMaq(); if (!esMovilMaq() || !c || !c.offsetParent) { cruceTop = null; return; }
+      var t = c.getBoundingClientRect().top;
+      if (t > 60) salidaLibre = false;
+      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
+      cruceTop = t;
+    }
+    function avisoTira() {
+      var esc = canvas.parentElement, a = esc.querySelector('.maq-tira');
+      if (!a) { a = document.createElement('div'); a.className = 'maq-tira'; esc.appendChild(a); }
+      return a;
+    }
+    function pintarTira(dy) {
+      var c = contMaq(); if (!c) return;
+      var r = dy > 0 ? 70 * (1 - Math.exp(-dy / 130)) : 0;
+      c.style.transition = dy ? 'none' : 'transform .25s ease'; c.style.transform = r ? 'translateY(' + r.toFixed(1) + 'px)' : '';
+      var a = avisoTira(); a.classList.toggle('visible', dy > 20); a.textContent = dy > 110 ? 'Suelta para salir de la maqueta' : 'Sigue jalando para salir';
+    }
+    function tStart(e) {
+      tiraY0 = null; tirando = 0;
+      if (!esMovilMaq() || e.touches.length !== 1 || canvas.contains(e.target)) return;
+      var c = contMaq(); if (!c || !c.offsetParent || Math.abs(c.getBoundingClientRect().top) > 8) return;
+      if (e.target.closest && e.target.closest('input, textarea, select, .checkout')) return;
+      tiraY0 = e.touches[0].clientY;
+    }
+    function tMove(e) {
+      if (tiraY0 === null) return;
+      var dy = e.touches[0].clientY - tiraY0;
+      if (dy <= 0 && !tirando) { tiraY0 = null; return; } // baja hacia la información: scroll normal
+      if (e.cancelable) e.preventDefault();
+      tirando = Math.max(0, dy); pintarTira(tirando);
+    }
+    function tEnd() {
+      if (tiraY0 === null) return;
+      var salir = tirando > 110; tiraY0 = null; tirando = 0; pintarTira(0);
+      if (salir) { salidaLibre = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    }
+    window.addEventListener('scroll', frenoScroll, { passive: true });
+    document.addEventListener('touchstart', tStart, { passive: true });
+    document.addEventListener('touchmove', tMove, { passive: false });
+    document.addEventListener('touchend', tEnd); document.addEventListener('touchcancel', tEnd);
+    window.addEventListener('scroll', actualizarGestoTactil, { passive: true });
+    window.addEventListener('resize', actualizarGestoTactil);
+    actualizarGestoTactil();
     volControlsCleanup = function () {
+      canvas.removeEventListener('pointerdown', filtroToque, true);
+      window.removeEventListener('scroll', frenoScroll); document.removeEventListener('touchstart', tStart); document.removeEventListener('touchmove', tMove);
+      document.removeEventListener('touchend', tEnd); document.removeEventListener('touchcancel', tEnd);
+      window.removeEventListener('scroll', actualizarGestoTactil); window.removeEventListener('resize', actualizarGestoTactil);
       canvas.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -6240,6 +6383,7 @@
     // ---------- Carta solar: cúpula sobre el lote con las trayectorias del sol (solsticios y
     // equinoccio), líneas de hora y el sol, que se arrastra por la cúpula: al moverlo cambian la fecha
     // y la hora, la luz y las sombras. ----------
+    var luzBase = { p: dirLight.position.clone(), i: dirLight.intensity };
     var gCarta = new THREE.Group(); gCarta.visible = cartaSolarVisible; scene.add(gCarta);
     var cLote = estado.centroideLote || [0, 0];
     var boxV = new THREE.Box3().setFromObject(grupoVolumen);
@@ -6309,10 +6453,9 @@
       dirLight.castShadow = true;
       if (cartaSolarVisible) {
         // encuadre: que se vea la cúpula completa
-        if (radius < Rd * 3.2) ajustarZoom(Rd * 3.2);
-        if (phi > 1.05) phi = 1.0;
-        actualizarCamara(); actualizarSol();
-      } else { etiquetaSol.hidden = true; solicitarRender(); }
+        actualizarSol();
+        if (radius < Rd * 3.2 || phi > 1.05) animarCamaraHacia(function () { if (radius < Rd * 3.2) ajustarZoomSinRender(Rd * 3.2); if (phi > 1.05) phi = 1.0; }, 800);
+      } else { etiquetaSol.hidden = true; dirLight.position.copy(luzBase.p); dirLight.intensity = luzBase.i; solicitarRender(); }
     }
     function ponerSol(dia, hora) { diaSol = dia; horaSol = hora; actualizarSol(); }
     // arrastre del sol por la cúpula (mouse y dedo); si el toque cae cerca del sol no se gira la cámara
@@ -6344,9 +6487,13 @@
     volControlsCleanup = function () { if (limpiarControles0) limpiarControles0(); limpiarSol(); };
     // ---------- Panel de la maqueta: capas, colores y vistas ----------
     (function panelMaqueta() {
-      var wrap = canvas.parentElement; if (!wrap) return;
+      var wrap = canvas.closest('.vol3d-wrap') || canvas.parentElement; if (!wrap) return;
+      var escena = canvas.parentElement;
       var editorPisos = document.getElementById('editorFlotante'); // se mueve al bloque de normativa
-      var viejo = wrap.querySelector('.maq-panel'); if (viejo) viejo.remove();
+      var viejo = wrap.querySelector('.maq-panel');
+      // rescatar los nodos fijos que viven dentro del panel (pisos, avisos, leyenda) antes de borrarlo
+      var rescate = {};
+      if (viejo) { ['#aviso-versatilidad', '#aviso-volumen-vacio', '.vol-caption'].forEach(function (q) { var x = viejo.querySelector(q); if (x) { rescate[q] = x; wrap.appendChild(x); } }); viejo.remove(); }
       wrap.style.position = 'relative';
       var p = document.createElement('div'); p.className = 'maq-panel';
       p.innerHTML =
@@ -6355,9 +6502,9 @@
         (estado.sinVia && !estado.restriccionVolumen ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Predio sin vía registrada (catastro municipal): en la base del municipio este predio no da a ninguna calle. Sin un acceso oficial (vía pública o servidumbre de paso inscrita) no se puede obtener el IPRUS ni un permiso de construcción. Suele pasar con terrenos rurales o periurbanos que aún no están oficializados; se resuelve regularizando el predio y su acceso.') + '</div>' : '') +
         (estado.solapes && estado.solapes.area >= 2 ? '<div class="maq-norma maq-restriccion">' + htmlRestriccion('Linderos que se cruzan (' + estado.solapes.area + ' m² con ' + estado.solapes.n + (estado.solapes.n === 1 ? ' predio vecino' : ' predios vecinos') + '): en el catastro este predio se superpone con sus vecinos. Pasa sobre todo en zonas periurbanas y rurales, y se corrige con una regularización de linderos.') + '</div>' : '') +
         '<div class="maq-acciones">' +
-          '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span><small>' + (estado.restriccionVolumen ? 'datos del predio' : 'qué puedes construir') + '</small></button>' +
-          '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis urbano</span><small>' + (estado.esUnion ? estado.claves.length + ' lotes unidos' : 'unir, dividir, sol') + '</small></button>' +
-          '<button type="button" class="maq-acc" data-acc="pedir"><span>Solicitar</span><small>trámites, archivos, estudios</small></button>' +
+          '<button type="button" class="maq-acc" data-acc="norma"><span>Normativa</span></button>' +
+          '<button type="button" class="maq-acc" data-acc="lotes"><span>Análisis</span></button>' +
+          '<button type="button" class="maq-acc" data-acc="pedir"><span>Solicitar</span></button>' +
         '</div>' +
         '<div class="maq-sec maq-norma" data-sec="norma"' + (secAbierta.norma ? '' : ' hidden') + '>' +
           '<div class="maq-norma-detalle">' +
@@ -6413,11 +6560,38 @@
       wrap.appendChild(p);
       var capas = { arboles: grupoArboles, resina: grupoResina, edificios: grupoEdificios };
       if (editorPisos) { editorPisos.open = true; var slotP = p.querySelector('.maq-pisos-slot'); if (slotP) slotP.appendChild(editorPisos); }
+      // el mapita de ubicación (tocar para volver al mapa) viaja con la maqueta fija
+      var pFlot = document.querySelector('.panel-flotante'); if (pFlot && pFlot.parentElement !== escena) escena.appendChild(pFlot);
+      // buscar otro predio sin salir de la maqueta: lupa arriba a la derecha que se abre en una barra
+      var bqViejo = escena.querySelector('.maq-buscar'); if (bqViejo) bqViejo.remove();
+      var bq = document.createElement('button'); bq.type = 'button'; bq.className = 'maq-buscar'; bq.setAttribute('aria-label', 'Buscar otro predio'); bq.title = 'Buscar otro predio';
+      bq.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+      escena.appendChild(bq);
+      // sale de la maqueta al buscador (mapa para elegir con el dedo, clave o búsqueda avanzada)
+      bq.addEventListener('click', function () {
+        var mini = document.getElementById('ubicacionMini'); if (mini) mini.click();
+        var dest = document.getElementById('herramienta');
+        setTimeout(function () { if (dest) dest.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+      });
+      // los avisos del predio y de la maqueta van debajo de los tres botones (y de la sección abierta)
+      var avisosAbajo = document.createElement('div'); avisosAbajo.className = 'maq-avisos';
+      p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
+      ['aviso-versatilidad', 'aviso-volumen-vacio'].forEach(function (id) { var x = document.getElementById(id); if (x) avisosAbajo.appendChild(x); });
+      var cap = wrap.querySelector('.vol-caption'); if (cap) avisosAbajo.appendChild(cap);
+      var ultSec = p.querySelectorAll('.maq-sec'); ultSec = ultSec[ultSec.length - 1];
+      if (ultSec) ultSec.insertAdjacentElement('afterend', avisosAbajo); else p.appendChild(avisosAbajo);
       // Tres acciones bajo la maqueta; cada una despliega su sección (pueden quedar varias abiertas).
       // "Normativa" además muestra/oculta el volumen. El estado abierto sobrevive al redibujo
       // (el panel se reconstruye en cada cambio de pisos, unión o división).
+      // Al abrir una sección la página no baja: en el celular se deja la maqueta arriba (fija) y la
+      // sección empieza justo debajo de los botones.
+      function enfocarMaqueta() {
+        if (!window.matchMedia('(max-width: 640px)').matches) return;
+        var y = wrap.getBoundingClientRect().top + window.scrollY; // la escena es sticky: se usa el contenedor
+        if (Math.abs(window.scrollY - y) > 6) window.scrollTo({ top: y, behavior: 'smooth' });
+      }
       function pintarAcciones() {
-        p.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
+        wrap.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
         p.querySelectorAll('.maq-sec').forEach(function (sx) { sx.hidden = !secAbierta[sx.getAttribute('data-sec')]; });
       }
       p.querySelectorAll('.maq-acc').forEach(function (b) {
@@ -6437,10 +6611,14 @@
             solicitarRender();
           }
           pintarAcciones();
-          if (secAbierta[k]) { var sec = p.querySelector('.maq-sec[data-sec="' + k + '"]'); if (sec && window.matchMedia('(max-width: 640px)').matches) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
+          if (!secAbierta.lotes && cartaSolarVisible) { mostrarCartaSolar(false); var chS = p.querySelector('.maq-sol-chk'); if (chS) chS.checked = false; }
+          enfocarMaqueta();
         });
       });
       if (!estado.restriccionVolumen && mostrarVolumenNormativa && !secAbierta.lotes && !secAbierta.pedir) secAbierta.norma = true;
+      // los tres botones van anclados bajo la maqueta (dentro de la escena fija)
+      var accViejas = escena.querySelector('.maq-acciones'); if (accViejas) accViejas.remove();
+      var accN = p.querySelector('.maq-acciones'); if (accN) escena.appendChild(accN);
       pintarAcciones();
       p.querySelectorAll('.maq-unir').forEach(function (b) { b.addEventListener('click', iniciarUnion); });
       var btnDiv = p.querySelector('.maq-dividir');
@@ -6462,6 +6640,8 @@
       if (solHora) solHora.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(diaSol, parseFloat(solHora.value)); });
       if (solDia) solDia.addEventListener('input', function () { encenderSiHaceFalta(); ponerSol(parseInt(solDia.value, 10), horaSol); });
       p.querySelectorAll('.maq-sol-rapido button').forEach(function (bq) { bq.addEventListener('click', function () { encenderSiHaceFalta(); ponerSol(parseInt(bq.getAttribute('data-dia'), 10), horaSol); }); });
+      // el asoleamiento solo vive dentro de Análisis
+      if (cartaSolarVisible && !secAbierta.lotes) { cartaSolarVisible = false; gCarta.visible = false; if (solChk) solChk.checked = false; }
       if (cartaSolarVisible) actualizarSol();
       var b3d = p.querySelector('.maq-3d-btn');
       if (b3d) b3d.addEventListener('click', function () {
@@ -6497,7 +6677,7 @@
       var swT = p.querySelector('.sw-terreno');
       if (swT) swT.addEventListener('change', function () {
         modoTerreno = swT.checked ? 'terrazas' : 'tin'; try { localStorage.setItem('cotacero-terreno', modoTerreno); } catch (e) { }
-        aplicarModoTerreno(); solicitarRender();
+        conCarga(swT.__boton, function () { aplicarModoTerreno(); solicitarRender(); });
       });
       p.querySelectorAll('[data-terreno]').forEach(function (bt) {
         bt.addEventListener('click', function () {
@@ -6514,7 +6694,16 @@
           else if (k === 'curvas') { curvasVisibles = inp.checked; dibujarLamina(); }
           else if (k === 'foto') {
             fotoAerea = inp.checked; var nf = p.querySelector('.maq-nota-foto'); if (nf) nf.hidden = !fotoAerea;
-            if (fotoAerea && !imgFoto) cargarFoto().then(function () { dibujarLamina(); solicitarRender(); }); else dibujarLamina();
+            var bF = inp.__boton;
+            if (fotoAerea && !imgFoto) {
+              if (bF) bF.classList.add('cargando');
+              cargarFoto().then(function (img) {
+                if (bF) bF.classList.remove('cargando');
+                if (!img) { inp.checked = false; fotoAerea = false; if (bF && bF.__pintar) bF.__pintar(); if (bF) avisoBreve('No se pudo cargar la foto satelital. Intenta de nuevo.'); return; }
+                if (!fotoAerea) return;
+                dibujarLamina(); solicitarRender();
+              });
+            } else conCarga(bF, dibujarLamina);
           }
           else if (capas[k]) capas[k].visible = inp.checked;
           solicitarRender();
@@ -6544,7 +6733,7 @@
         planta: function () { theta = 0; phi = 0.2; radius = R * 2.9; target.set(0, 0, 0); }
       };
       // Vistas: barra flotante sobre el 3D, abajo al centro (fuera del panel).
-      var barraVieja = wrap.querySelector('.maq-vistas-flot'); if (barraVieja) barraVieja.remove();
+      var barraVieja = escena.querySelector('.maq-vistas-flot'); if (barraVieja) barraVieja.remove();
       var barraV = document.createElement('div'); barraV.className = 'maq-vistas-flot';
       var vistasPanel = p.querySelector('.maq-vistas');
       if (vistasPanel) { while (vistasPanel.firstChild) barraV.appendChild(vistasPanel.firstChild); vistasPanel.remove(); }
@@ -6554,6 +6743,18 @@
       // Los interruptores pasan a ser botones-ícono con el mismo lenguaje que planta/3D: el checkbox
       // original queda oculto (conserva sus listeners) y el botón lo alterna.
       var avisoToque = null;
+      // Indicador de carga en un botón: se marca, se deja pintar el cuadro y recién ahí se hace el
+      // trabajo pesado (así el usuario ve que algo pasa y la maqueta no se congela antes de tiempo).
+      function conCarga(b, fn) {
+        if (!b) { fn(); return; }
+        b.classList.add('cargando');
+        requestAnimationFrame(function () { setTimeout(function () { try { fn(); } finally { b.classList.remove('cargando'); solicitarRender(); } }, 16); });
+      }
+      function avisoBreve(txt) {
+        if (!avisoToque) { avisoToque = document.createElement('div'); avisoToque.className = 'maq-toque'; barraV.appendChild(avisoToque); }
+        avisoToque.textContent = txt; avisoToque.classList.add('visible');
+        clearTimeout(avisoToque._t); avisoToque._t = setTimeout(function () { avisoToque.classList.remove('visible'); }, 2600);
+      }
       function etiquetaToque(txt) {
         // en pantallas táctiles no hay hover: el nombre aparece un momento sobre la barra al tocar
         if (!window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
@@ -6564,7 +6765,8 @@
       function botonInterruptor(inp, pintar) {
         if (!inp) return null;
         var lab = inp.closest('.maq-switch'); if (lab) { lab.style.display = 'none'; barraV.appendChild(lab); }
-        var b = document.createElement('button'); b.type = 'button';
+        var b = document.createElement('button'); b.type = 'button'; inp.__boton = b;
+        b.__pintar = function () { pintar(b, inp.checked); };
         pintar(b, inp.checked);
         b.addEventListener('click', function () { inp.checked = !inp.checked; inp.dispatchEvent(new Event('change', { bubbles: true })); pintar(b, inp.checked); etiquetaToque(b.getAttribute('data-nombre')); });
         return b;
@@ -6580,7 +6782,7 @@
       if (bFoto) barraV.insertBefore(bFoto, barraV.firstChild);
       if (bTer) { var bPl = barraV.querySelector('button[data-vista]'); barraV.insertBefore(bTer, bPl ? bPl.nextSibling : null); }
       canvas.insertAdjacentElement('afterend', barraV);
-      var capasViejas = wrap.querySelector('.maq-capas-flot'); if (capasViejas) capasViejas.remove();
+      var capasViejas = escena.querySelector('.maq-capas-flot'); if (capasViejas) capasViejas.remove();
       var barraCapas = p.querySelector('.maq-barra');
       if (barraCapas) { barraCapas.className = 'maq-capas-flot'; canvas.insertAdjacentElement('afterend', barraCapas); }
       // si el panel flota sobre la maqueta, la barra se centra en el espacio libre a su izquierda
@@ -6597,12 +6799,12 @@
           if (mini && mini.offsetParent) { var mb = mini.getBoundingClientRect().bottom - canvas.getBoundingClientRect().top + top; y = Math.max(y, mb + 10 + barraCapas.offsetHeight / 2); }
           barraCapas.style.top = y + 'px';
         }
-        var ovx = wrap.querySelector('.maq-overlay'); if (ovx) { ovx.style.bottom = 'auto'; ovx.style.top = (top + h - (ovx.offsetHeight || 50) - 18) + 'px'; }
+        var ovx = escena.querySelector('.maq-overlay'); if (ovx) { ovx.style.bottom = 'auto'; ovx.style.top = (top + h - (ovx.offsetHeight || 50) - 18) + 'px'; }
       }
       function ajustarBarraV() {
         posicionarFlotantes();
         var pr = p.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
-        var tapa = pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70;
+        var tapa = pr.top < cr.bottom - 10 && pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70; // solo si el panel flota encima
         barraV.style.paddingRight = tapa ? Math.round(cr.right - pr.left + 8) + 'px' : '';
       }
       ajustarBarraV(); window.addEventListener('resize', ajustarBarraV);
@@ -6611,12 +6813,20 @@
       // centra el lote de cerca y abre hacia el conjunto al alejarse, ver ajustarZoom).
       var enPlanta = false;
       barraV.querySelectorAll('button[data-vista]').forEach(function (b) {
-        b.addEventListener('click', function () { enPlanta = !enPlanta; (enPlanta ? VISTAS.planta : VISTAS.lote)(); actualizarCamara(); solicitarRender(); marcarVista(enPlanta ? 'planta' : ''); etiquetaToque(enPlanta ? 'Planta' : 'Vista 3D'); });
+        b.addEventListener('click', function () { enPlanta = !enPlanta; if (camaraMemoria) camaraMemoria.planta = enPlanta; animarCamaraHacia(enPlanta ? VISTAS.planta : VISTAS.lote, 700); marcarVista(enPlanta ? 'planta' : ''); etiquetaToque(enPlanta ? 'Planta' : 'Vista 3D'); });
       });
       // vista inicial: el lote desde la calle, alto (antes arrancaba casi a ras de suelo y dentro de vecinos)
-      VISTAS.lote(); actualizarCamara(); solicitarRender();
+      // mismo predio (cambio de pisos, sol, unión…): se conserva la vista exacta y el volumen crece
+      // desde la altura anterior; predio nuevo: vista del lote.
+      var memo = camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria : null, pisosAntes = memo ? memo.pisos : null;
+      VISTAS.lote();
+      if (memo) { theta = memo.th; phi = memo.ph; radius = memo.r; target.copy(memo.t); enPlanta = !!memo.planta; marcarVista(enPlanta ? 'planta' : ''); }
+      camaraLista = true; actualizarCamara(); solicitarRender();
+      // predio nuevo: la página se acomoda directo en la maqueta, lista para girar
+      if (!memo) setTimeout(enfocarMaqueta, 250);
+      if (memo && pisosAntes && pisosAntes !== estado.pisos && grupoVolumen.visible && !estado.restriccionVolumen) animarCrecimiento(Math.max(0.05, pisosAntes / estado.pisos));
       // norte y escala (abajo a la izquierda)
-      var ovViejo = wrap.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
+      var ovViejo = escena.querySelector('.maq-overlay'); if (ovViejo) ovViejo.remove();
       var ov = document.createElement('div'); ov.className = 'maq-overlay';
       ov.innerHTML = '<div class="maq-norte" data-tip="Norte"><svg viewBox="0 0 24 24"><path d="M12 3l5 16-5-4-5 4z"/></svg><b>N</b></div><div class="maq-escala"><i></i><span></span></div>';
       canvas.insertAdjacentElement('afterend', ov);
@@ -6639,7 +6849,7 @@
         })();
       }
       // resaltado de edificios al pasar el mouse: pisos y de dónde sale el dato
-      var tipEd = wrap.querySelector('.maq-tip-ed') || (function () { var d = document.createElement('div'); d.className = 'maq-tip-ed'; d.hidden = true; wrap.appendChild(d); return d; })();
+      var tipEd = escena.querySelector('.maq-tip-ed') || (function () { var d = document.createElement('div'); d.className = 'maq-tip-ed'; d.hidden = true; escena.appendChild(d); return d; })();
       var rayo = new THREE.Raycaster(), ratonV = new THREE.Vector2(), resaltado = null, matResalte = mat.clone(), pendienteHover = false, ultimoEv = null;
       matResalte.color = cLin('#d9d3c6');
       function quitarResalte() { if (resaltado) { resaltado.material = resaltado.userData.matOriginal; resaltado = null; tipEd.hidden = true; solicitarRender(); } }
@@ -7522,7 +7732,7 @@
       (function () {
         ids.forEach(function (id) { var v = variantesDe(id); estado.tramitesSel[id] = v ? (v.filter(function (x) { return aNum(x.precio) > 0; })[0] || v[1] || v[0]).id : true; var c = p.querySelector('.tp-card[data-prod="' + id + '"]'); if (c) { pintarTarjeta(c); var r = c.querySelector('.tp-var input[value="' + estado.tramitesSel[id] + '"]'); if (r) r.checked = true; } });
         var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(ids[0]) >= 0; })[0];
-        var bA = p.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
+        var bA = document.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
         if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
         actualizarCarrito(estado, p);
         var c0 = p.querySelector('.tp-card[data-prod="' + ids[0] + '"]'); if (c0) setTimeout(function () { c0.scrollIntoView({ behavior: 'smooth', block: 'center' }); c0.classList.add('destello'); setTimeout(function () { c0.classList.remove('destello'); }, 1400); }, 120);
@@ -7616,7 +7826,7 @@
   }
   function irAFichaEnPanel() {
     var p = document.querySelector('.maq-panel'); if (!p) return;
-    var b = p.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
+    var b = document.querySelector('.maq-acc[data-acc="norma"]'); if (b && !secAbierta.norma) b.click();
     var f = p.querySelector('.maq-ficha'); if (!f) return;
     setTimeout(function () { f.scrollIntoView({ behavior: 'smooth', block: 'center' }); f.classList.add('destello'); setTimeout(function () { f.classList.remove('destello'); }, 1400); var i = f.querySelector('input'); if (i && !i.value) try { i.focus({ preventScroll: true }); } catch (e) { } }, 120);
   }
@@ -7635,6 +7845,7 @@
     }
     var bF = botonFlotante('btn-ficha', 'btn-flot btn-ficha', abrirFichaGratis);
     bF.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 10v7M9 14l3 3 3-3"/></svg><span>Ficha gratis</span>';
+    bF.setAttribute('aria-label', 'Ficha gratis de tu predio'); bF.title = 'Ficha gratis de tu predio';
     bF.hidden = !estado;
     var b = botonFlotante('btn-carrito', 'btn-flot btn-carrito', function () { abrirCheckout(estadoSeleccionado); });
     b.hidden = !it.length;
