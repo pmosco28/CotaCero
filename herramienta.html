@@ -1154,7 +1154,7 @@
   </div>
 </div>
 
-<footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
+<footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a><br>© 2026 Cota Cero · Todos los derechos reservados. Se prohíbe copiar, reproducir o redistribuir el código, los modelos y los contenidos de este sitio sin autorización escrita.</footer>
 
 <button type="button" class="btn-flot btn-mensaje" id="btn-mensaje" aria-label="Escríbenos: errores, ideas o tu ciudad" title="Escríbenos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button type="button" class="btn-whatsapp btn-tienda" id="btn-tienda" aria-label="Servicios y pedidos" title="Servicios y pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg><i class="tn-badge" hidden></i></button>
 
@@ -8199,7 +8199,8 @@
     var clave = estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '');
     var txt = 'Hola Cota Cero, quiero recibir gratis la ficha de mi predio ' + clave + '.\n' + urlHerramientaPredio(estado) +
       '\n(Acepté los Términos y la Política de privacidad' + (d.novedades ? '; sí quiero recibir novedades' : '') + '.)';
-    window.open('https://wa.me/593999163505?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+    if (WHATSAPP_NUMERO) window.open('https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+    else location.href = 'mailto:cotacero.pm@gmail.com?subject=' + encodeURIComponent('Ficha del predio ' + clave) + '&body=' + encodeURIComponent(txt);
   }
   function conectarEnlacesLegales(cont) {
     cont.querySelectorAll('.ficha-ter').forEach(function (a) { a.addEventListener('click', function (ev) { ev.preventDefault(); if (window.__abrirModalTerminos) window.__abrirModalTerminos(); }); });
@@ -9625,10 +9626,13 @@
       (estadoSeleccionado ? 'Volver a mi predio' : 'Volver al mapa') + '</button>';
   }
   // Botón fijo de WhatsApp: el mensaje lleva la clave catastral del predio elegido (si hay uno).
-  var WHATSAPP_NUMERO = '593999163505';
+  // Número de WhatsApp Business de Cota Cero (formato 5939XXXXXXXX). Vacío = sin WhatsApp: los
+  // enlaces caen al correo. Nunca poner aquí un número personal.
+  var WHATSAPP_NUMERO = '';
   function actualizarWhatsApp(clave) {
     var btn = document.getElementById('btn-whatsapp');
     if (!btn) return;
+    if (!WHATSAPP_NUMERO) { btn.hidden = true; return; }
     var texto = clave
       ? 'Hola Cota Cero, quiero información sobre el predio con clave catastral ' + clave + ' (Cuenca).'
       : 'Hola Cota Cero, quiero información sobre sus productos.';
@@ -9941,11 +9945,11 @@
             var mensaje = construirMensajeSolicitud(archivosSubidosCapturados);
             var mailtoHref = 'mailto:cotacero.pm@gmail.com?subject=' +
               encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(mensaje);
-            var waHref = 'https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje);
+            var waHref = WHATSAPP_NUMERO ? 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje) : '';
             mostrarResultadoSolicitud(false,
-              '⚠️ No pudimos registrar el pedido automáticamente. Escribinos directo: ' +
-              '<a href="' + mailtoHref + '">por correo</a> o ' +
-              '<a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>.');
+              '⚠️ No pudimos registrar el pedido automáticamente. Escríbenos directo ' +
+              '<a href="' + mailtoHref + '">por correo</a>' +
+              (waHref ? ' o <a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>' : '') + '.');
           }
         }).finally(function () {
           // Ya enviado: el botón queda bloqueado para que un doble clic no registre el pedido dos veces.
