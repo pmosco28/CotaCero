@@ -324,11 +324,8 @@
   .maq-sec[hidden] { display: none !important; }
   .maq-tira { position: absolute; top: 12px; left: 50%; transform: translate(-50%, -6px); z-index: 9; background: #1C1A16; color: #f3f1ec; font-size: 0.72rem; padding: 6px 12px; border-radius: 999px; opacity: 0; transition: opacity .15s, transform .15s; pointer-events: none; white-space: nowrap; }
   .maq-tira.visible { opacity: 1; transform: translate(-50%, 0); }
-  .maq-buscar { position: absolute; top: 12px; right: 12px; z-index: 8; display: flex; align-items: center; height: 40px; border-radius: 999px; background: rgba(246,245,242,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); overflow: hidden; }
-  .maq-buscar input { width: 0; padding: 0; border: 0; background: transparent; font: inherit; font-size: 0.86rem; color: #1C1A16; outline: none; transition: width .2s, padding .2s; }
-  .maq-buscar.abierto input { width: min(250px, calc(100vw - 150px)); padding: 0 4px 0 14px; }
-  .maq-buscar button { flex: none; width: 40px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; color: #1C1A16; cursor: pointer; padding: 0; }
-  .maq-buscar button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .maq-buscar { position: absolute; top: 12px; right: 12px; z-index: 8; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; cursor: pointer; color: #1C1A16; border-radius: 999px; background: rgba(246,245,242,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid rgba(43,42,39,.18); box-shadow: 0 4px 14px rgba(40,38,34,.10); overflow: hidden; }
+  .maq-buscar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
   .maq-avisos { display: grid; gap: 8px; } .maq-avisos:empty { display: none; }
   .maq-avisos > div[style*="margin"] { margin: 0 !important; }
   .maq-sec { border: 1px solid #1C1A16; border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
@@ -460,16 +457,19 @@
   .tm-pane textarea { width: 100%; font: 300 0.8rem 'Inter Tight', sans-serif; font-variant-numeric: tabular-nums; padding: 8px 10px; border: 1px solid rgba(28,26,22,.3); border-radius: 8px; background: transparent; }
   .tm-msg { font-size: 0.76rem; font-weight: 300; } .tm-msg.alerta { color: var(--terracotta); font-weight: 500; }
   .tm-vertice { width: 10px; height: 10px; border-radius: 50%; background: #B2502E; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.5); }
+  /* buscador: la lupa va dentro del campo de texto (es el botón de buscar) */
+  .buscar-maps { position: relative; }
   .buscar-maps input {
-    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--line-soft); color: var(--ink); font-family: 'Inter Tight'; font-size: 0.85rem;
+    flex: 1; min-width: 0; height: 44px; padding: 0 48px 0 16px; border-radius: 999px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); font-family: 'Inter Tight'; font-size: 0.9rem;
   }
-  .buscar-maps input:focus { outline: 2px solid var(--terracotta); outline-offset: -1px; }
+  .buscar-maps input:focus { outline: none; border-color: var(--ink); }
   .buscar-maps button {
-    background: var(--terracotta); color: #fff; border: none; border-radius: 8px; padding: 0 16px;
-    font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: 'Inter Tight'; transition: background 0.15s;
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; padding: 0;
+    display: grid; place-items: center; background: transparent; color: var(--ink); border: 0; border-radius: 50%; cursor: pointer; transition: background 0.15s;
   }
-  .buscar-maps button:hover { background: var(--terracotta-dark); }
+  .buscar-maps button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .buscar-maps button:hover { background: var(--line-soft); }
   .buscar-maps-msg { font-size: 0.78rem; margin: -6px 0 14px; line-height: 1.4; }
   .buscar-maps-msg.err { color: #B5355A; }
   .buscar-maps-msg.ok { color: var(--ink-soft); }
@@ -955,7 +955,7 @@
   </div>
   <div class="buscar-maps">
     <input type="text" id="buscar-maps-input" placeholder="Clave catastral, link de Google Maps o lat, lng">
-    <button type="button" id="buscar-maps-btn">Buscar</button>
+    <button type="button" id="buscar-maps-btn" aria-label="Buscar" title="Buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
   </div>
   <div class="buscar-maps-msg" id="buscar-maps-msg" style="display:none;"></div>
   <details class="terreno-manual" id="terrenoManual">
@@ -6054,9 +6054,10 @@
       });
     }
     var claveCam = estado.esUnion ? (estado.claves || []).join('+') : (estado.clave || ''), camaraLista = false;
+    var pisosEscena = estado.pisos; // el estado se modifica antes de rearmar: se guarda el de ESTA escena
     function guardarCamara() {
       if (!camaraLista) return;
-      camaraMemoria = { k: claveCam, th: theta, ph: phi, r: radius, t: target.clone(), pisos: estado.pisos, planta: camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria.planta : false };
+      camaraMemoria = { k: claveCam, th: theta, ph: phi, r: radius, t: target.clone(), pisos: pisosEscena, planta: camaraMemoria && camaraMemoria.k === claveCam ? camaraMemoria.planta : false };
     }
     // Transición suave de cámara (nunca saltos): interpola ángulos, distancia y punto de mira.
     var animCam = null;
@@ -6324,7 +6325,7 @@
       var c = contMaq(); if (!esMovilMaq() || !c || !c.offsetParent) { cruceTop = null; return; }
       var t = c.getBoundingClientRect().top;
       if (t > 60) salidaLibre = false;
-      if (cruceTop !== null && cruceTop < -4 && t > 1 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
+      if (cruceTop !== null && cruceTop <= 6 && t > 6 && !salidaLibre && tiraY0 === null) { try { window.scrollTo({ top: window.scrollY + t, behavior: 'instant' }); } catch (e) { window.scrollTo(0, window.scrollY + t); } t = 0; }
       cruceTop = t;
     }
     function avisoTira() {
@@ -6563,27 +6564,15 @@
       var pFlot = document.querySelector('.panel-flotante'); if (pFlot && pFlot.parentElement !== escena) escena.appendChild(pFlot);
       // buscar otro predio sin salir de la maqueta: lupa arriba a la derecha que se abre en una barra
       var bqViejo = escena.querySelector('.maq-buscar'); if (bqViejo) bqViejo.remove();
-      var bq = document.createElement('form'); bq.className = 'maq-buscar'; bq.setAttribute('novalidate', '');
-      bq.innerHTML = '<input type="text" placeholder="Clave catastral o link de Maps" aria-label="Buscar otro predio"><button type="submit" aria-label="Buscar otro predio"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>';
+      var bq = document.createElement('button'); bq.type = 'button'; bq.className = 'maq-buscar'; bq.setAttribute('aria-label', 'Buscar otro predio'); bq.title = 'Buscar otro predio';
+      bq.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
       escena.appendChild(bq);
-      var bqIn = bq.querySelector('input');
-      bq.addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        if (!bq.classList.contains('abierto')) { bq.classList.add('abierto'); setTimeout(function () { try { bqIn.focus(); } catch (e) { } }, 60); return; }
-        var v = bqIn.value.trim(); if (!v) { bq.classList.remove('abierto'); return; }
-        var mi = document.getElementById('buscar-maps-input'), mb = document.getElementById('buscar-maps-btn');
-        if (mi && mb) {
-          mi.value = v; bqIn.blur(); bq.classList.remove('abierto'); bqIn.value = '';
-          // si la búsqueda falla, el mensaje (que vive arriba, junto al buscador grande) se repite sobre la maqueta
-          var msgB = document.getElementById('buscar-maps-msg');
-          if (msgB && window.MutationObserver) {
-            var obs = new MutationObserver(function () { if (msgB.style.display !== 'none' && msgB.textContent.trim()) avisoBreve(msgB.textContent.trim()); });
-            obs.observe(msgB, { attributes: true, childList: true, characterData: true, subtree: true }); setTimeout(function () { obs.disconnect(); }, 12000);
-          }
-          mb.click();
-        }
+      // sale de la maqueta al buscador (mapa para elegir con el dedo, clave o búsqueda avanzada)
+      bq.addEventListener('click', function () {
+        var mini = document.getElementById('ubicacionMini'); if (mini) mini.click();
+        var dest = document.getElementById('herramienta');
+        setTimeout(function () { if (dest) dest.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
       });
-      bqIn.addEventListener('blur', function () { setTimeout(function () { if (!bqIn.value.trim() && document.activeElement !== bqIn) bq.classList.remove('abierto'); }, 150); });
       // los avisos del predio y de la maqueta van debajo de los tres botones (y de la sección abierta)
       var avisosAbajo = document.createElement('div'); avisosAbajo.className = 'maq-avisos';
       p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
@@ -6815,7 +6804,7 @@
       function ajustarBarraV() {
         posicionarFlotantes();
         var pr = p.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
-        var tapa = pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70;
+        var tapa = pr.top < cr.bottom - 10 && pr.left > cr.left + 100 && pr.left < cr.right && pr.bottom > cr.bottom - 70; // solo si el panel flota encima
         barraV.style.paddingRight = tapa ? Math.round(cr.right - pr.left + 8) + 'px' : '';
       }
       ajustarBarraV(); window.addEventListener('resize', ajustarBarraV);
