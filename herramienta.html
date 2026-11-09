@@ -796,7 +796,68 @@
   .btn-flot.btn-ficha { width: 52px; height: 52px; padding: 0 !important; justify-content: center; left: auto !important; }
   .btn-flot.btn-ficha span { display: none; }
   @media (max-width: 640px) { .btn-flot.btn-ficha { right: 76px !important; } body.con-carrito .btn-carrito { left: auto; right: 138px; } }
-  @media print { .btn-flot, .checkout { display: none !important; } }
+
+  /* ===== Tienda a pantalla completa ===== */
+  html.tienda-abierta, html.tienda-abierta body { overflow: hidden; }
+  .btn-tienda { border: 0; cursor: pointer; }
+  .btn-tienda svg { width: 24px !important; height: 24px !important; }
+  .btn-tienda .tn-badge { position: absolute; top: -3px; right: -3px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #B2502E; color: #fff; font: 700 0.7rem/20px 'Inter Tight', sans-serif; font-style: normal; text-align: center; }
+  .btn-tienda .tn-badge[hidden] { display: none; }
+  .tienda { position: fixed; inset: 0; z-index: 1900; background: #F3F1EC; color: #1C1A16; overflow-y: auto; -webkit-overflow-scrolling: touch; font-family: 'Inter Tight', sans-serif; overscroll-behavior: contain; }
+  .tn-cab { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 12px max(16px, calc(50% - 480px)); background: rgba(243,241,236,.96); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(28,26,22,.12); }
+  .tn-cab-txt { flex: 1; min-width: 0; display: grid; } .tn-cab-txt b { font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tn-cab-txt small { font-size: 0.74rem; color: #5E5B55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tn-x, .tn-atras { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(28,26,22,.2); background: #fff; color: #1C1A16; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+  .tn-cont { width: min(960px, 100%); margin: 0 auto; padding: 16px 16px 120px; box-sizing: border-box; }
+  .tn-cont h3 { font-size: 0.78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 22px 0 10px; color: #1C1A16; }
+  .tn-nota { font-size: 0.78rem; color: #5E5B55; margin: -4px 0 10px; line-height: 1.45; }
+  .tn-rec { background: #1C1A16; color: #f3f1ec; border-radius: 16px; padding: 4px 14px 14px; margin-top: 6px; }
+  .tn-rec h3 { color: #f3f1ec; } .tn-rec .tn-nota { color: #c9c4ba; }
+  .tn-perfiles { position: sticky; top: 65px; z-index: 2; margin: 18px -16px 0; padding: 10px 16px; background: rgba(243,241,236,.96); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .tn-perfiles > span { display: block; font-size: 0.74rem; color: #5E5B55; margin-bottom: 6px; }
+  .tn-perfiles > div { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } .tn-perfiles > div::-webkit-scrollbar { display: none; }
+  .tn-perfil { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(28,26,22,.25); background: #fff; color: #1C1A16; font: 600 0.84rem 'Inter Tight', sans-serif; cursor: pointer; white-space: nowrap; }
+  .tn-perfil svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tn-perfil.activo { background: #1C1A16; color: #f3f1ec; border-color: #1C1A16; }
+  .tn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .tn-card { background: #fff; border: 1px solid rgba(28,26,22,.12); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; transition: border-color .15s, box-shadow .15s; color: #1C1A16; }
+  .tn-card.en-pedido { border-color: #B2502E; box-shadow: 0 0 0 1px #B2502E; }
+  .tn-card.destello { box-shadow: 0 0 0 3px rgba(178,80,46,.45); }
+  .tn-abrir { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 14px 14px 8px; background: none; border: 0; cursor: pointer; font: inherit; color: inherit; flex: 1; }
+  .tn-ico { flex: none; width: 44px; height: 44px; border-radius: 12px; background: #F3F1EC; display: grid; place-items: center; color: #1C1A16; }
+  .tn-ico svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tn-ico.grande { width: 64px; height: 64px; border-radius: 16px; } .tn-ico.grande svg { width: 34px; height: 34px; }
+  .tn-cuerpo { display: grid; gap: 3px; min-width: 0; } .tn-cuerpo b { font-size: 0.95rem; font-weight: 700; line-height: 1.25; } .tn-cuerpo small { font-size: 0.8rem; color: #5E5B55; line-height: 1.35; } .tn-cuerpo em { font-style: normal; font-size: 0.7rem; color: #8F3F23; }
+  .tn-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px 12px; }
+  .tn-precio { font-weight: 700; font-size: 1rem; } .tn-precio small { font-weight: 400; font-size: 0.7rem; color: #5E5B55; }
+  .tn-add { flex: none; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid #1C1A16; background: #1C1A16; color: #f3f1ec; font: 600 0.84rem 'Inter Tight', sans-serif; cursor: pointer; }
+  .tn-card.en-pedido .tn-add { background: #fff; color: #B2502E; border-color: #B2502E; }
+  .tn-sec { scroll-margin-top: 140px; }
+  .tn-gratis p, .tn-como li { font-size: 0.86rem; line-height: 1.5; } .tn-como ol { padding-left: 20px; margin: 0 0 10px; }
+  .tn-ficha, .tn-link { font: inherit; font-weight: 600; color: #B2502E; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+  .tn-barra { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px max(16px, calc(50% - 480px)) calc(12px + env(safe-area-inset-bottom)); background: #1C1A16; color: #f3f1ec; font-size: 0.88rem; }
+  .tn-barra[hidden] { display: none; }
+  .tn-revisar, .tn-det-add, .tn-enviar, .tn-volver, .tn-pagar { height: 46px; padding: 0 20px; border-radius: 999px; border: 0; background: #B2502E; color: #fff; font: 700 0.92rem 'Inter Tight', sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .tn-barra-det .tn-det-add { width: 100%; }
+  .tn-det-cab { display: flex; gap: 16px; align-items: center; margin-top: 8px; } .tn-det-cab > div { display: grid; gap: 2px; } .tn-det-precio { font-size: 1.5rem; } .tn-det-cab small { font-size: 0.8rem; color: #5E5B55; } .tn-det-cab em { font-style: normal; font-size: 0.76rem; color: #8F3F23; }
+  .tn-det-desc { font-size: 0.95rem; line-height: 1.55; margin: 16px 0 0; }
+  .tn-vars { display: grid; gap: 8px; border-radius: 12px; transition: box-shadow .2s; } .tn-vars.falta { box-shadow: 0 0 0 2px #B2502E; }
+  .tn-var { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; background: #fff; border: 1px solid rgba(28,26,22,.15); border-radius: 12px; padding: 12px; cursor: pointer; }
+  .tn-var:has(input:checked) { border-color: #1C1A16; box-shadow: 0 0 0 1px #1C1A16; }
+  .tn-var input { margin-top: 3px; accent-color: #B2502E; } .tn-var span { display: grid; gap: 3px; } .tn-var b { font-size: 0.9rem; } .tn-var small { font-size: 0.78rem; color: #5E5B55; line-height: 1.4; } .tn-var em { font-style: normal; font-weight: 700; white-space: nowrap; }
+  .tn-pasos { padding-left: 20px; font-size: 0.86rem; line-height: 1.55; }
+  .tn-items { list-style: none; margin: 8px 0 12px; padding: 0; background: #fff; border-radius: 14px; border: 1px solid rgba(28,26,22,.12); }
+  .tn-items li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid rgba(28,26,22,.08); font-size: 0.88rem; } .tn-items li:last-child { border-bottom: 0; }
+  .tn-items li.tot { grid-template-columns: 1fr auto; font-weight: 700; }
+  .tn-quitar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(28,26,22,.2); background: #fff; cursor: pointer; font-size: 1rem; line-height: 1; }
+  .tn-form { display: grid; gap: 10px; }
+  .tn-form input[type=text], .tn-form input[type=email], .tn-form input[type=tel], .tn-form textarea { width: 100%; box-sizing: border-box; font: 400 0.95rem 'Inter Tight', sans-serif; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(28,26,22,.25); background: #fff; color: #1C1A16; }
+  .tn-form .campo-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; }
+  .tn-msg { font-size: 0.82rem; } .tn-msg.alerta { color: #B2502E; font-weight: 600; }
+  .tn-enviar { width: 100%; } .tn-enviar:disabled { opacity: .6; }
+  .tn-listo { text-align: center; display: grid; justify-items: center; gap: 6px; padding-top: 40px; } .tn-ok { width: 64px; height: 64px; border-radius: 50%; background: #1C1A16; color: #fff; display: grid; place-items: center; font-size: 1.8rem; }
+  .tn-listo p { font-size: 0.92rem; max-width: 40ch; } .tn-volver { background: #1C1A16; margin-top: 12px; }
+  @media (max-width: 640px) { .tn-grid { grid-template-columns: 1fr; } .tn-perfiles { top: 65px; } }
+  @media print { .btn-flot, .checkout, .tienda, .btn-tienda { display: none !important; } }
   .checkout { position: fixed; inset: 0; z-index: 2000; background: rgba(28,26,22,.45); display: grid; place-items: center; padding: 16px; }
   .checkout-caja { position: relative; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; background: #f6f5f2; border-radius: 14px; padding: 18px; display: grid; gap: 10px; font-size: 0.86rem; color: #1C1A16; }
   .checkout-x { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 1.4rem; cursor: pointer; color: #5E5B55; }
@@ -1033,7 +1094,7 @@
 
 <footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
 
-<a class="btn-whatsapp" id="btn-whatsapp" href="https://wa.me/593999163505?text=Hola%20Cota%20Cero%2C%20quiero%20informaci%C3%B3n%20sobre%20sus%20productos." target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.2.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg><span>Escríbenos por WhatsApp</span></a>
+<button type="button" class="btn-whatsapp btn-tienda" id="btn-tienda" aria-label="Servicios y pedidos" title="Servicios y pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg><i class="tn-badge" hidden></i></button>
 
 <div class="modal-overlay" id="modalPrivacidadOverlay" hidden>
   <div class="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="privacidad-titulo">
@@ -6582,9 +6643,6 @@
             '<div class="maq-nota">Arrastra el sol por la cúpula o mueve fecha y hora: verás cómo caen las sombras sobre tu volumen y los vecinos. Las líneas marcan el recorrido en los solsticios y el equinoccio.</div>' +
           '</div>' +
         '</div>' +
-        '<div class="maq-sec maq-pedir" data-sec="pedir"' + (secAbierta.pedir ? '' : ' hidden') + '>' +
-        htmlSolicitar(estado) +
-        '</div>' +
         '<div class="maq-barra">' +
           '<label class="ico" data-tip="Árboles"><input type="checkbox" data-capa="arboles" checked>' + ICONOS_MAQ.arboles + '</label>' +
           '<label class="ico" data-tip="Río"><input type="checkbox" data-capa="rio" checked>' + ICONOS_MAQ.rio + '</label>' +
@@ -6594,7 +6652,7 @@
         '</div>' +
         '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
         '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
-        '<a class="maq-avisar-txt" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a>' +
+        '<a class="maq-avisar-txt" href="mailto:cotacero.pm@gmail.com?subject=' + encodeURIComponent('Maqueta del predio ' + (estado.clave || '')) + '&body=' + encodeURIComponent('Hola Cota Cero, en la maqueta del predio ' + (estado.clave || '') + ' falta o sobra una construcción: ') + '">¿Falta una construcción? Avísanos</a>' +
         '<div class="maq-vistas"><button type="button" data-vista="planta" data-tip="Planta / 3D">' + ICONOS_MAQ.planta + '</button></div>' +
         '';
       wrap.appendChild(p);
@@ -6637,6 +6695,7 @@
       p.querySelectorAll('.maq-acc').forEach(function (b) {
         b.addEventListener('click', function () {
           var k = b.getAttribute('data-acc');
+          if (k === 'pedir') { abrirTienda(estado); return; } // Solicitar abre la tienda a pantalla completa
           var abrir = !secAbierta[k];
           // interruptores: una sola sección abierta a la vez (el volumen normativo no se apaga al
           // pasar a otra sección; solo al cerrar Normativa)
@@ -7850,16 +7909,7 @@
     p.querySelectorAll('[data-pedir]').forEach(function (a) {
       a.addEventListener('click', function (ev) { ev.preventDefault(); pedirProductos(a.getAttribute('data-pedir').split(',')); });
     });
-    function pedirProductos(ids) {
-      (function () {
-        ids.forEach(function (id) { var v = variantesDe(id); estado.tramitesSel[id] = v ? (v.filter(function (x) { return aNum(x.precio) > 0; })[0] || v[1] || v[0]).id : true; var c = p.querySelector('.tp-card[data-prod="' + id + '"]'); if (c) { pintarTarjeta(c); var r = c.querySelector('.tp-var input[value="' + estado.tramitesSel[id] + '"]'); if (r) r.checked = true; } });
-        var g = GRUPOS_PEDIDO.filter(function (x) { return x.ids.indexOf(ids[0]) >= 0; })[0];
-        var bA = document.querySelector('.maq-acc[data-acc="pedir"]'); if (bA && !secAbierta.pedir) bA.click();
-        if (g) { var t = p.querySelector('.ped-tab[data-grupo="' + g.id + '"]'); if (t) t.click(); }
-        actualizarCarrito(estado, p);
-        var c0 = p.querySelector('.tp-card[data-prod="' + ids[0] + '"]'); if (c0) setTimeout(function () { c0.scrollIntoView({ behavior: 'smooth', block: 'center' }); c0.classList.add('destello'); setTimeout(function () { c0.classList.remove('destello'); }, 1400); }, 120);
-      })();
-    }
+    function pedirProductos(ids) { abrirTienda(estado, null, ids); }
     actualizarCarrito(estado, p);
     var pu = window.__productoUrl;
     if (pu && productoPorId(pu) && GRUPOS_PEDIDO.some(function (g) { return g.ids.indexOf(pu) >= 0; })) {
@@ -7969,29 +8019,230 @@
     bF.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 10v7M9 14l3 3 3-3"/></svg><span>Ficha gratis</span>';
     bF.setAttribute('aria-label', 'Ficha gratis de tu predio'); bF.title = 'Ficha gratis de tu predio';
     bF.hidden = !estado;
-    var b = botonFlotante('btn-carrito', 'btn-flot btn-carrito', function () { abrirCheckout(estadoSeleccionado); });
-    b.hidden = !it.length;
-    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>Tu pedido' + (fijos.length ? ' · $' + tot.toLocaleString('es-EC') : '') + '</span><i>' + it.length + '</i>';
-    document.body.classList.toggle('con-carrito', !!it.length);
+    var bT = document.getElementById('btn-tienda'), badge = bT && bT.querySelector('.tn-badge');
+    if (badge) { badge.hidden = !it.length; badge.textContent = it.length; }
+    var bViejo = document.getElementById('btn-carrito'); if (bViejo) bViejo.remove();
     document.body.classList.toggle('con-ficha', !!estado);
   }
-  function abrirCheckout(estado) {
-    if (!estado) return;
-    var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
-    var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
-    var id = estado.esUnion ? estado.claves.join(', ') : (estado.clave || '');
-    var txt = 'Hola Cota Cero, quiero solicitar para el predio ' + id + ':\n' + fijos.map(function (x) { return '- ' + x.nombre + ' ($' + x.precio + ')'; }).join('\n') + (fijos.length ? '\nTotal: $' + tot : '') + (conv.length ? '\nPara cotizar:\n' + conv.map(function (x) { return '- ' + x.nombre; }).join('\n') : '');
-    var m = document.getElementById('checkout'); if (m) m.remove();
-    m = document.createElement('div'); m.id = 'checkout'; m.className = 'checkout';
-    m.innerHTML = '<div class="checkout-caja" role="dialog" aria-label="Tu pedido"><button type="button" class="checkout-x" aria-label="Cerrar">×</button><div class="maq-estudio-tit">Tu pedido · predio ' + id + '</div>' +
-      (fijos.length ? '<div class="ped-sub">Precio fijo</div><ul>' + fijos.map(function (x) { return '<li><span>' + x.nombre + '</span><b>$' + x.precio + '</b></li>'; }).join('') + '<li class="tot"><span>Total</span><b>$' + tot.toLocaleString('es-EC') + '</b></li></ul>' : '') +
-      (conv.length ? '<div class="ped-sub">A cotizar</div><ul>' + conv.map(function (x) { return '<li><span>' + x.nombre + '</span><b>cotizar</b></li>'; }).join('') + '</ul><div class="maq-nota">Te enviamos la cotización por WhatsApp o correo.</div>' : '') +
-      (it.length ? '' : '<div class="maq-nota">Todavía no agregaste nada.</div>') +
-      '<div class="checkout-btns">' + (fijos.length && CONFIG_PAGO.url ? '<a class="checkout-pagar" target="_blank" rel="noopener" href="' + CONFIG_PAGO.url + '">Pagar $' + tot.toLocaleString('es-EC') + ' con tarjeta</a>' : '') +
-      (it.length ? '<a class="checkout-wa" target="_blank" rel="noopener" href="https://wa.me/593999163505?text=' + encodeURIComponent(txt) + '">' + (fijos.length && !CONFIG_PAGO.url ? 'Confirmar y pagar por WhatsApp' : conv.length && !fijos.length ? 'Pedir cotización por WhatsApp' : 'Enviar pedido por WhatsApp') + '</a>' : '') + '</div></div>';
-    document.body.appendChild(m);
-    m.addEventListener('click', function (ev) { if (ev.target === m || ev.target.classList.contains('checkout-x')) m.remove(); });
+  // ================= TIENDA (pantalla completa) =================
+  // Pensada para cuatro visitantes: el dueño que quiere construir, quien compra o vende, el
+  // arquitecto y el estudiante. Arriba lo recomendado para ESTE predio; luego "¿qué quieres hacer?"
+  // filtra el catálogo; las tarjetas dicen qué es, para quién y cuánto cuesta; el detalle explica qué
+  // recibes y cómo funciona; el pedido se revisa y se envía con un formulario (sin WhatsApp).
+  var PERFILES_TIENDA = [
+    { id: 'todo', tit: 'Ver todo', ico: 'lupa' },
+    { id: 'construir', tit: 'Quiero construir', ico: 'sello', ids: ['planimetrico-iprus', 'levantamiento', 'permiso-construccion', 'cabida', 'propiedad-horizontal', 'planimetrico', 'regularizacion', 'unificacion', 'lotizacion', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico', 'certificacion-patrimonial'] },
+    { id: 'compra', tit: 'Compro o vendo', ico: 'pin', ids: ['croquis', 'analisis-sitio', 'cabida', 'regularizacion', 'levantamiento', 'planimetrico-iprus', 'propiedad-horizontal', 'unificacion', 'lotizacion'] },
+    { id: 'arq', tit: 'Soy arquitecto', ico: 'columnas', ids: ['levantamiento', 'contexto-cad', 'modelo-3d', 'entorno-mejorado', 'planimetrico-iprus', 'analisis-sitio', 'cabida', 'levantamiento-arquitectonico', 'diseno-lotizacion', 'permiso-construccion'] },
+    { id: 'estudiante', tit: 'Soy estudiante', ico: 'cubo', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado', 'analisis-sitio'] }
+  ];
+  var CATEGORIAS_TIENDA = [
+    { id: 'planos', tit: 'Planos y levantamientos', ids: ['levantamiento', 'planimetrico', 'croquis', 'levantamiento-arquitectonico'] },
+    { id: 'tramites', tit: 'Trámites municipales', ids: ['planimetrico-iprus', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'anteproyecto-historico', 'permiso-menor-historico'] },
+    { id: 'modelos', tit: 'Modelos y archivos', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
+    { id: 'estudios', tit: 'Estudios y análisis', ids: ['analisis-sitio', 'cabida', 'diseno-lotizacion'] }
+  ];
+  var perfilTienda = 'todo', estadoSinPredio = { tramitesSel: {} };
+  function paraQuien(id) {
+    var n = { construir: 'dueños', compra: 'compra y venta', arq: 'arquitectos', estudiante: 'estudiantes' }, r = [];
+    PERFILES_TIENDA.forEach(function (p) { if (p.ids && p.ids.indexOf(id) >= 0) r.push(n[p.id]); });
+    return r.slice(0, 3).join(' · ');
   }
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function estadoDeTienda(estado) { if (estado && !estado.tramitesSel) estado.tramitesSel = {}; return estado || estadoSinPredio; }
+  function htmlTarjetaTienda(estado, id, subRec) {
+    var p = productoPorId(id); if (!p) return '';
+    var info = TIENDA_INFO[id] || {}, sel = estado.tramitesSel[id], v = info.variantes;
+    var precio = precioTexto(id), cotizar = precio === 'cotizar';
+    return '<article class="tn-card' + (sel ? ' en-pedido' : '') + '" data-prod="' + id + '">' +
+      '<button type="button" class="tn-abrir" aria-label="Ver detalle de ' + esc(p.nombre) + '">' +
+        '<span class="tn-ico">' + icoT(info.ico) + '</span>' +
+        '<span class="tn-cuerpo"><b>' + esc(p.nombre) + '</b><small>' + esc(subRec || info.corta || '') + '</small>' +
+        (paraQuien(id) ? '<em>Para ' + paraQuien(id) + '</em>' : '') + '</span>' +
+      '</button>' +
+      '<div class="tn-pie"><span class="tn-precio">' + (cotizar ? 'A cotizar' : precio) + (p.nota && !cotizar ? ' <small>' + esc(p.nota) + '</small>' : '') + '</span>' +
+        '<button type="button" class="tn-add">' + (sel ? '✓ En tu pedido' : v ? 'Elegir' : cotizar ? 'Cotizar' : 'Agregar') + '</button></div>' +
+    '</article>';
+  }
+  function cerrarTienda() { var t = document.getElementById('tienda'); if (t) t.remove(); document.documentElement.classList.remove('tienda-abierta'); }
+  function abrirTienda(estadoArg, vista, ids) {
+    var estado = estadoDeTienda(estadoArg || estadoSeleccionado);
+    var conPredio = estado !== estadoSinPredio;
+    var t = document.getElementById('tienda'); if (t) t.remove();
+    t = document.createElement('div'); t.id = 'tienda'; t.className = 'tienda'; t.setAttribute('role', 'dialog'); t.setAttribute('aria-label', 'Servicios Cota Cero');
+    document.body.appendChild(t); document.documentElement.classList.add('tienda-abierta');
+    var claveTxt = conPredio ? (estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '')) : '';
+    function cabecera(tit, atras) {
+      return '<header class="tn-cab">' + (atras ? '<button type="button" class="tn-atras" aria-label="Volver">←</button>' : '') +
+        '<div class="tn-cab-txt"><b>' + tit + '</b>' + (conPredio ? '<small>Predio ' + esc(claveTxt) + (estado.pitOficial ? ' · ' + esc(estado.pitOficial) : '') + (estado.pts ? ' · ' + Math.round(areaPoligonoM(estado.pts)).toLocaleString('es-EC') + ' m²' : '') + '</small>' : '<small>Elige un predio en el mapa para ver recomendaciones</small>') + '</div>' +
+        '<button type="button" class="tn-x" aria-label="Cerrar">×</button></header>';
+    }
+    function barraPedido() {
+      var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
+      var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
+      return '<div class="tn-barra"' + (it.length ? '' : ' hidden') + '><span><b>' + it.length + (it.length === 1 ? ' servicio' : ' servicios') + '</b>' +
+        (fijos.length ? ' · $' + tot.toLocaleString('es-EC') : '') + (conv.length ? (fijos.length ? ' + ' : ' · ') + conv.length + ' a cotizar' : '') + '</span>' +
+        '<button type="button" class="tn-revisar">Revisar pedido</button></div>';
+    }
+    function refrescarBarra() {
+      var b = t.querySelector('.tn-barra'); if (b) b.outerHTML = barraPedido();
+      var nb = t.querySelector('.tn-revisar'); if (nb) nb.addEventListener('click', function () { vistaPedido(); });
+      actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
+    }
+    function alternar(id, card) {
+      var v = variantesDe(id);
+      if (v) { vistaDetalle(id); return; }
+      estado.tramitesSel[id] = !estado.tramitesSel[id];
+      t.querySelectorAll('.tn-card[data-prod="' + id + '"]').forEach(function (c) {
+        var sel = estado.tramitesSel[id], cot = precioTexto(id) === 'cotizar';
+        c.classList.toggle('en-pedido', !!sel); c.querySelector('.tn-add').textContent = sel ? '✓ En tu pedido' : (cot ? 'Cotizar' : 'Agregar');
+      });
+      refrescarBarra();
+    }
+    function conectarTarjetas() {
+      t.querySelectorAll('.tn-card').forEach(function (c) {
+        var id = c.getAttribute('data-prod');
+        c.querySelector('.tn-abrir').addEventListener('click', function () { vistaDetalle(id); });
+        c.querySelector('.tn-add').addEventListener('click', function () { alternar(id, c); });
+      });
+    }
+    function comunes() {
+      t.querySelector('.tn-x').addEventListener('click', cerrarTienda);
+      var at = t.querySelector('.tn-atras'); if (at) at.addEventListener('click', function () { vistaCatalogo(); });
+      var rv = t.querySelector('.tn-revisar'); if (rv) rv.addEventListener('click', function () { vistaPedido(); });
+      t.scrollTop = 0;
+    }
+    // ---------- catálogo ----------
+    function vistaCatalogo() {
+      var rec = conPredio ? tramitesRecomendados(estado) : [], subRec = {}; rec.forEach(function (x) { subRec[x.id] = x.sub; });
+      var recIds = rec.map(function (x) { return x.id; }).filter(function (id) { return productoPorId(id); });
+      var perfil = PERFILES_TIENDA.filter(function (p) { return p.id === perfilTienda; })[0] || PERFILES_TIENDA[0];
+      function visible(id) {
+        var p = productoPorId(id); if (!p) return false;
+        if (p.soloRecomendado && recIds.indexOf(id) < 0) return false;
+        return !perfil.ids || perfil.ids.indexOf(id) >= 0;
+      }
+      var secciones = CATEGORIAS_TIENDA.map(function (c) {
+        var ids = c.ids.filter(visible);
+        if (perfil.ids) ids.sort(function (a2, b2) { return perfil.ids.indexOf(a2) - perfil.ids.indexOf(b2); });
+        if (!ids.length) return '';
+        return '<section class="tn-sec" id="tn-' + c.id + '"><h3>' + c.tit + '</h3><div class="tn-grid">' + ids.map(function (id) { return htmlTarjetaTienda(estado, id, subRec[id]); }).join('') + '</div></section>';
+      }).join('');
+      t.innerHTML = cabecera('Servicios', false) +
+        '<div class="tn-cont">' +
+          (recIds.length ? '<section class="tn-rec"><h3>Recomendado para tu predio</h3><p class="tn-nota">Según lo que encontramos: zona, afectaciones, permisos y lo que muestra la maqueta.</p><div class="tn-grid">' + recIds.map(function (id) { return htmlTarjetaTienda(estado, id, subRec[id]); }).join('') + '</div></section>' : '') +
+          '<div class="tn-perfiles" role="tablist" aria-label="¿Qué quieres hacer?"><span>¿Qué quieres hacer?</span><div>' + PERFILES_TIENDA.map(function (p) { return '<button type="button" role="tab" class="tn-perfil' + (p.id === perfilTienda ? ' activo' : '') + '" data-perfil="' + p.id + '">' + icoT(p.ico) + p.tit + '</button>'; }).join('') + '</div></div>' +
+          secciones +
+          '<section class="tn-gratis"><h3>Gratis</h3><p>La maqueta 3D, la normativa, los usos de suelo, la carta solar y la ficha PDF de tu predio son gratis. <button type="button" class="tn-ficha">Recibir la ficha gratis</button></p></section>' +
+          '<section class="tn-como"><h3>Cómo funciona</h3><ol><li><b>Eliges</b> lo que necesitas; lo de precio fijo se suma, lo demás se cotiza.</li><li><b>Envías el pedido</b> con tu correo; te escribimos para confirmar alcance, fecha y forma de pago.</li><li><b>Pagas y empezamos.</b> Los entregables llegan a tu correo.</li></ol><p class="tn-nota">¿Dudas? Escríbenos a <a href="mailto:cotacero.pm@gmail.com">cotacero.pm@gmail.com</a>.</p></section>' +
+        '</div>' + barraPedido();
+      comunes(); conectarTarjetas();
+      t.querySelectorAll('.tn-perfil').forEach(function (b) { b.addEventListener('click', function () { perfilTienda = b.getAttribute('data-perfil'); var y = t.querySelector('.tn-perfiles').offsetTop; vistaCatalogo(); t.scrollTop = y - 60; }); });
+      var chipAct = t.querySelector('.tn-perfil.activo'); if (chipAct && chipAct.parentElement) { var cont2 = chipAct.parentElement; cont2.scrollLeft = chipAct.offsetLeft - (cont2.clientWidth - chipAct.offsetWidth) / 2; }
+      var bf = t.querySelector('.tn-ficha'); if (bf) bf.addEventListener('click', function () { cerrarTienda(); if (conPredio) abrirFichaGratis(); else { var d = document.getElementById('herramienta'); if (d) d.scrollIntoView({ behavior: 'smooth' }); } });
+    }
+    // ---------- detalle de un producto ----------
+    function vistaDetalle(id) {
+      var p = productoPorId(id); if (!p) return;
+      var info = TIENDA_INFO[id] || {}, v = info.variantes, sel = estado.tramitesSel[id], precio = precioTexto(id), cot = precio === 'cotizar';
+      t.innerHTML = cabecera(esc(p.nombre), true) +
+        '<div class="tn-cont tn-det">' +
+          '<div class="tn-det-cab"><span class="tn-ico grande">' + icoT(info.ico) + '</span><div><b class="tn-det-precio">' + (cot ? 'A cotizar' : precio) + '</b>' + (p.nota ? '<small>' + esc(p.nota) + '</small>' : '') + (paraQuien(id) ? '<em>Para ' + paraQuien(id) + '</em>' : '') + '</div></div>' +
+          '<p class="tn-det-desc">' + esc(p.descripcion || info.corta || '') + '</p>' +
+          (v ? '<h3>Elige el nivel de detalle</h3><div class="tn-vars">' + v.map(function (x) {
+            var n = aNum(x.precio), gratis = x.precio === 0;
+            return '<label class="tn-var"><input type="radio" name="tn-var" value="' + x.id + '"' + (sel === x.id ? ' checked' : '') + '><span><b>' + esc(x.nombre) + '</b><small>' + esc(x.desc) + '</small></span><em>' + (gratis ? 'Gratis' : n > 0 ? '$' + n : 'Cotizar') + '</em></label>';
+          }).join('') + '</div>' : '') +
+          '<h3>Cómo funciona</h3><ol class="tn-pasos"><li>Lo agregas a tu pedido y lo envías con tu correo.</li><li>Te escribimos para confirmar el alcance, la fecha de entrega y la forma de pago.</li><li>Pagas y empezamos; lo recibes en tu correo.</li></ol>' +
+          (conPredio ? '<p class="tn-nota">Se pide para el predio ' + esc(claveTxt) + '. Usamos los datos que ya cargó la herramienta.</p>' : '') +
+        '</div>' +
+        '<div class="tn-barra tn-barra-det"><button type="button" class="tn-det-add">' + (sel ? 'Quitar del pedido' : v ? 'Agregar al pedido' : cot ? 'Agregar para cotizar' : 'Agregar al pedido') + '</button></div>';
+      comunes();
+      var radios = t.querySelectorAll('.tn-var input');
+      radios.forEach(function (r) { r.addEventListener('change', function () { if (r.value === 'publico') { r.checked = false; cerrarTienda(); if (conPredio) abrirFichaGratis(); } }); });
+      t.querySelector('.tn-det-add').addEventListener('click', function () {
+        if (estado.tramitesSel[id]) { estado.tramitesSel[id] = false; }
+        else if (v) {
+          var r = t.querySelector('.tn-var input:checked');
+          if (!r) { var vs = t.querySelector('.tn-vars'); vs.classList.add('falta'); setTimeout(function () { vs.classList.remove('falta'); }, 1200); return; }
+          estado.tramitesSel[id] = r.value;
+        } else estado.tramitesSel[id] = true;
+        actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
+        vistaCatalogo();
+        var c = t.querySelector('.tn-card[data-prod="' + id + '"]'); if (c) { c.scrollIntoView({ block: 'center' }); c.classList.add('destello'); setTimeout(function () { c.classList.remove('destello'); }, 1200); }
+      });
+    }
+    // ---------- pedido y datos de contacto ----------
+    function vistaPedido() {
+      var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
+      var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
+      var c = '', n = '', tel = ''; try { c = localStorage.getItem('cotacero-correo') || ''; n = localStorage.getItem('cotacero-nombre') || ''; tel = localStorage.getItem('cotacero-telefono') || ''; } catch (e) { }
+      var t0 = Date.now();
+      t.innerHTML = cabecera('Tu pedido', true) +
+        '<div class="tn-cont tn-ped">' +
+          (it.length ? '<ul class="tn-items">' + it.map(function (x) { return '<li><span>' + esc(x.nombre) + '</span><b>' + (x.precio ? '$' + x.precio : 'a cotizar') + '</b><button type="button" class="tn-quitar" data-quitar="' + x.id + '" aria-label="Quitar">×</button></li>'; }).join('') +
+            (fijos.length ? '<li class="tot"><span>Total precio fijo</span><b>$' + tot.toLocaleString('es-EC') + '</b></li>' : '') + '</ul>' +
+            (conv.length ? '<p class="tn-nota">Lo marcado "a cotizar" depende del terreno o del proyecto: te enviamos el precio antes de empezar.</p>' : '')
+            : '<p class="tn-nota">Tu pedido está vacío. <button type="button" class="tn-link tn-atras2">Ver servicios</button></p>') +
+          (it.length ? '<form class="tn-form" novalidate>' +
+            '<h3>Tus datos</h3>' +
+            '<input type="text" name="nombre" placeholder="Nombre y apellido" autocomplete="name" value="' + esc(n) + '">' +
+            '<input type="email" name="correo" placeholder="Correo" autocomplete="email" value="' + esc(c) + '">' +
+            '<input type="tel" name="tel" placeholder="Teléfono (opcional)" autocomplete="tel" inputmode="tel" value="' + esc(tel) + '">' +
+            '<textarea name="nota" rows="3" placeholder="Cuéntanos algo más (opcional): para cuándo lo necesitas, qué piensas construir…"></textarea>' +
+            '<input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true">' +
+            '<label class="ficha-chk"><input type="checkbox" name="acepto"><span>Acepto los <a href="#" class="ficha-ter">Términos</a> y la <a href="#" class="ficha-priv">Política de privacidad</a>.</span></label>' +
+            '<div class="tn-msg" hidden></div>' +
+            '<button type="submit" class="tn-enviar">' + (fijos.length ? 'Enviar pedido' : 'Pedir cotización') + '</button>' +
+            '<p class="tn-nota">No pagas nada todavía: te escribimos para confirmar alcance, fecha y forma de pago.</p>' +
+          '</form>' : '') +
+        '</div>';
+      comunes(); conectarEnlacesLegales(t);
+      var a2 = t.querySelector('.tn-atras2'); if (a2) a2.addEventListener('click', function () { vistaCatalogo(); });
+      t.querySelectorAll('[data-quitar]').forEach(function (b) { b.addEventListener('click', function () { estado.tramitesSel[b.getAttribute('data-quitar')] = false; actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel')); vistaPedido(); }); });
+      var f = t.querySelector('.tn-form'); if (!f) return;
+      f.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var msg = f.querySelector('.tn-msg'), q = function (k) { return f.querySelector('[name="' + k + '"]'); };
+        var nombre = q('nombre').value.trim(), correo = q('correo').value.trim(), telefono = q('tel').value.replace(/[^\d+]/g, ''), nota = q('nota').value.trim();
+        function error(txt, campo) { msg.hidden = false; msg.className = 'tn-msg alerta'; msg.textContent = txt; if (campo) try { campo.focus(); } catch (e) { } }
+        if (nombre.length < 3) return error('Escribe tu nombre.', q('nombre'));
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return error('Revisa tu correo: ahí te escribimos.', q('correo'));
+        if (telefono && !/^\+?\d{7,15}$/.test(telefono)) return error('Revisa el teléfono (solo números).', q('tel'));
+        if (!q('acepto').checked) return error('Para enviar el pedido tienes que aceptar los Términos y la Política de privacidad.');
+        try { localStorage.setItem('cotacero-correo', correo); localStorage.setItem('cotacero-nombre', nombre); if (telefono) localStorage.setItem('cotacero-telefono', telefono); } catch (e) { }
+        var boton = f.querySelector('.tn-enviar'); boton.disabled = true; boton.textContent = 'Enviando…';
+        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16);
+        var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: it.map(function (x) { return x.id; }).join(','), productoNombre: it.map(function (x) { return x.nombre; }).join(' + '),
+          predio: conPredio ? claveTxt : '', nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle, documentos: [], origen: 'tienda', sitio_web: q('sitio_web').value, t: Date.now() - t0 };
+        if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
+        fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); vistaListo(j.idPedido || ''); })
+          .catch(function (e) { console.warn('pedido', e); boton.disabled = false; boton.textContent = fijos.length ? 'Enviar pedido' : 'Pedir cotización'; error('No pudimos enviar el pedido. Inténtalo de nuevo o escríbenos a cotacero.pm@gmail.com.'); });
+        function vistaListo(idPed) {
+          Object.keys(estado.tramitesSel).forEach(function (k) { estado.tramitesSel[k] = false; });
+          actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
+          t.innerHTML = cabecera('Pedido enviado', false) +
+            '<div class="tn-cont tn-listo"><div class="tn-ok">✓</div><h3>¡Recibimos tu pedido!</h3>' + (idPed ? '<p class="tn-nota">Número: <b>' + esc(idPed) + '</b></p>' : '') +
+            '<p>Te escribimos a <b>' + esc(correo) + '</b> para confirmar el alcance, la fecha y la forma de pago.</p>' +
+            (fijos.length && CONFIG_PAGO.url ? '<a class="tn-pagar" target="_blank" rel="noopener" href="' + CONFIG_PAGO.url + '">Pagar $' + tot.toLocaleString('es-EC') + ' ahora</a>' : '') +
+            '<button type="button" class="tn-volver">Volver a la maqueta</button></div>';
+          comunes(); t.querySelector('.tn-volver').addEventListener('click', cerrarTienda);
+        }
+      });
+    }
+    if (vista === 'pedido') vistaPedido();
+    else if (ids && ids.length) {
+      ids.forEach(function (id) { var v = variantesDe(id); if (!productoPorId(id)) return; estado.tramitesSel[id] = v ? (v.filter(function (x) { return aNum(x.precio) > 0; })[0] || v[1] || v[0]).id : true; });
+      actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
+      vistaCatalogo();
+      var c0 = t.querySelector('.tn-card[data-prod="' + ids[0] + '"]'); if (c0) setTimeout(function () { c0.scrollIntoView({ block: 'center' }); c0.classList.add('destello'); setTimeout(function () { c0.classList.remove('destello'); }, 1400); }, 60);
+    } else vistaCatalogo();
+  }
+  function abrirCheckout(estado) { abrirTienda(estado, 'pedido'); }
+  (function () { var b = document.getElementById('btn-tienda'); if (b) b.addEventListener('click', function () { abrirTienda(estadoSeleccionado); }); })();
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.getElementById('tienda')) cerrarTienda(); });
   function tramitesRecomendados(estado) {
     var r = estado.restriccionVolumen || '', L = [];
     function t(id, nombre, sub, sel) { L.push({ id: id, nombre: nombre, sub: sub, sel: !!sel }); }
