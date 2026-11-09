@@ -8115,7 +8115,10 @@
     // ---------- catálogo ----------
     function vistaCatalogo() {
       var rec = conPredio ? tramitesRecomendados(estado) : [], subRec = {}; rec.forEach(function (x) { subRec[x.id] = x.sub; });
-      var recIds = rec.map(function (x) { return x.id; }).filter(function (id) { return productoPorId(id); });
+      var recIds = rec.map(function (x) { return x.id; });
+      // y lo que aparece en "Qué te toca gestionar" (permiso vigente → propiedad horizontal, etc.)
+      if (conPredio) { try { recomendacionesGestion(estado).forEach(function (x) { if (x.ids) x.ids.split(',').forEach(function (id) { if (recIds.indexOf(id) < 0) recIds.unshift(id); }); }); } catch (e) { } }
+      recIds = recIds.filter(function (id) { return productoPorId(id); });
       var perfil = PERFILES_TIENDA.filter(function (p) { return p.id === perfilTienda; })[0] || PERFILES_TIENDA[0];
       function visible(id) {
         var p = productoPorId(id); if (!p) return false;
