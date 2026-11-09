@@ -302,10 +302,13 @@
   .maq-usos li b { font-weight: 600; white-space: nowrap; } .maq-usos li.u0 { color: #9a968e; } .maq-usos li.u1 b { color: #8F3F23; }
   @media (max-width: 640px) { .maq-usos ul { grid-template-columns: 1fr; } }
   details.detalle-tecnico { width: min(760px, calc(100% - 28px)); margin: 18px auto 0; border-top: 1px solid #1C1A16; padding-top: 10px; color: #1C1A16; filter: grayscale(1); }
-  details.detalle-tecnico > summary { cursor: pointer; list-style: none; font-size: 0.72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-  details.detalle-tecnico > summary::-webkit-details-marker { display: none; }
-  details.detalle-tecnico > summary::before { content: '+'; font-weight: 300; font-size: 1rem; width: 12px; }
-  details.detalle-tecnico[open] > summary::before { content: '−'; }
+  /* todos los desplegables con el mismo estilo: + / − y título en versalitas */
+  details.detalle-tecnico > summary, details.despl > summary, details.terreno-manual > summary, details.notas-pit > summary { cursor: pointer; list-style: none; font-size: 0.72rem !important; font-weight: 600 !important; letter-spacing: .12em !important; text-transform: uppercase !important; color: #1C1A16 !important; display: flex !important; flex-direction: row !important; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 2px 0; }
+  details.detalle-tecnico > summary::-webkit-details-marker, details.despl > summary::-webkit-details-marker, details.terreno-manual > summary::-webkit-details-marker, details.notas-pit > summary::-webkit-details-marker { display: none; }
+  details.detalle-tecnico > summary::before, details.despl > summary::before, details.terreno-manual > summary::before, details.notas-pit > summary::before { content: '+'; font-weight: 300; font-size: 1rem; width: 12px; letter-spacing: 0; }
+  details.detalle-tecnico[open] > summary::before, details.despl[open] > summary::before, details.terreno-manual[open] > summary::before, details.notas-pit[open] > summary::before { content: '−'; }
+  details.terreno-manual > summary::after { display: none !important; }
+  details.despl[open] > summary { margin-bottom: 4px; }
   details.detalle-tecnico > summary span { font-weight: 300; letter-spacing: 0; text-transform: none; color: #5E5B55; font-size: 0.74rem; }
   details.detalle-tecnico[open] { padding-bottom: 14px; }
   details.detalle-tecnico[open] > * + * { margin-top: 14px; }
@@ -370,6 +373,7 @@
   .maq-panel .maq-aprox { font-size: 0.7rem; color: #6d6a63; }
   .maq-panel .maq-pedir { font: inherit; font-size: 0.8rem; padding: 0; border: 0; background: none; color: #b0532f; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; justify-self: start; text-transform: none; letter-spacing: 0; }
   .maq-nota { font-size: 0.72rem; color: #6d6a63; }
+  .mapa-stage.modo-3d + .map-caption { display: none; }
   .map-caption { max-width: 1180px; margin: 14px auto 0; padding: 0 32px; font-size: 0.78rem; color: var(--ink-soft); text-align: center; }
 
   /* Catálogo de productos: barra horizontal scrolleable DEBAJO del área de mapa/3D (ya no flotando
@@ -1478,7 +1482,7 @@
     return '<section class="res-predio"><div class="res-cab"><b>Tu predio</b><div class="res-modos" role="tablist" aria-label="Ver como">' +
       modos.map(function (m) { return '<button type="button" data-modo="' + m[0] + '"' + (m[0] === modo ? ' class="activo"' : '') + '>' + m[1] + '</button>'; }).join('') + '</div></div>' +
       '<p class="res-nota">Esta es información general de referencia. Los datos oficiales los da el <button type="button" class="res-link" data-accion="pedir:planimetrico-iprus">IPRUS</button>, el informe de regulación que emite el municipio.</p>' +
-      '<ul class="res-lista">' + li.join('') + '</ul>' +
+      '<details class="despl res-datos"><summary>Datos del predio</summary><ul class="res-lista">' + li.join('') + '</ul></details>' +
       '<p class="res-texto">' + txt + '</p>' +
  (boton && modo !== 'edu' ? '<button type="button" class="res-boton" data-accion="' + boton.a + '">' + boton.t + ' ›</button>' : '') +
       '<ul class="res-acc">' + acc.map(function (x) { return '<li><button type="button" data-accion="' + x.a + '"><span class="res-txt">' + x.t + '</span>' + (x.p ? '<b class="res-precio">' + x.p + '</b>' : '') + '<span class="res-fl" aria-hidden="true">›</span></button></li>'; }).join('') + '</ul></section>';
@@ -4448,7 +4452,7 @@
     // producto activo es 'croquis', usando estadoSeleccionado/areaM2Seleccionado (guardados abajo).
     estado._filasTablaPDF = filasTablaHtml; estado._esCH = !!esCentroHistorico;
     panel.innerHTML =
-      '<details class="detalle-tecnico" id="vista-volumetria"><summary>Detalle técnico <span>para arquitectos: tabla oficial del PIT, clasificación de lados y cálculo del volumen</span></summary>' +
+      '<details class="detalle-tecnico" id="vista-volumetria"><summary>Detalle técnico</summary>' +
         '<div class="result-head">' +
           '<div><div style="font-weight:600;font-size:1.05rem;">Predio seleccionado</div>' +
           '<div class="clave">Clave catastral <span class="mono">' + estado.clave + '</span></div></div>' +
@@ -6789,7 +6793,7 @@
         '</div>' +
         '<label class="maq-switch"><span>Fondo blanco</span><input type="checkbox" data-capa="foto"' + (fotoAerea ? ' checked' : '') + '><i></i><span>Satelital</span></label>' +
         '<label class="maq-switch"><span>Terreno</span><input type="checkbox" class="sw-terreno"' + (modoTerreno !== 'tin' ? ' checked' : '') + '><i></i><span>Maqueta</span></label>' +
-        '<a class="maq-avisar-txt" href="#" data-avisar="1">¿Falta una construcción? Avísanos</a>' +
+
         '<div class="maq-vistas"><button type="button" data-vista="planta" data-tip="Planta / 3D">' + ICONOS_MAQ.planta + '</button></div>' +
         '';
       wrap.appendChild(p);
@@ -6829,7 +6833,7 @@
       }); });
       p.querySelectorAll(':scope > .maq-restriccion').forEach(function (x) { avisosAbajo.appendChild(x); });
       ['aviso-versatilidad', 'aviso-volumen-vacio'].forEach(function (id) { var x = document.getElementById(id); if (x) avisosAbajo.appendChild(x); });
-      var cap = wrap.querySelector('.vol-caption'); if (cap) avisosAbajo.appendChild(cap);
+      var cap = wrap.querySelector('.vol-caption'); if (cap) cap.remove(); // texto de ayuda innecesario
       var ultSec = p.querySelectorAll('.maq-sec'); ultSec = ultSec[ultSec.length - 1];
       if (ultSec) ultSec.insertAdjacentElement('afterend', avisosAbajo); else p.appendChild(avisosAbajo);
       // Tres acciones bajo la maqueta; cada una despliega su sección (pueden quedar varias abiertas).
@@ -6846,6 +6850,7 @@
         wrap.querySelectorAll('.maq-acc').forEach(function (b) { b.classList.toggle('activo', !!secAbierta[b.getAttribute('data-acc')]); });
         p.querySelectorAll('.maq-sec').forEach(function (sx) { sx.hidden = !secAbierta[sx.getAttribute('data-sec')]; });
         var rs = p.querySelector('.maq-resumen'); if (rs) rs.hidden = !!(secAbierta.norma || secAbierta.lotes);
+        var rd = p.querySelector('.res-datos'); if (rd) rd.open = false; // al volver, la lista llega plegada
         p.querySelectorAll('.restr-patri').forEach(function (x) { x.hidden = !!(rs && !rs.hidden); }); // el cuadro de inicio ya lo explica
       }
       p.querySelectorAll('.maq-acc').forEach(function (b) {
