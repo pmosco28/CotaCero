@@ -7822,7 +7822,7 @@
       { id: 'lidar', nombre: 'LiDAR', precio: '', desc: 'Escáner láser: mide bajo vegetación y capta fachadas y detalles con precisión centimétrica. Para terrenos con árboles, edificaciones existentes o cuando se necesita el mayor detalle.' }
     ] },
     'croquis': { ico: 'pin', corta: 'Ubicación en A4 para crédito o trámites' },
-    'permiso-construccion': { ico: 'sello', corta: 'Planos y permiso de construcción mayor' },
+    'permiso-construccion': { ico: 'sello', corta: 'Con tus planos, gestionamos el permiso' },
     'propiedad-horizontal': { ico: 'edificio', corta: 'Para vender o escriturar por departamentos' },
     'regularizacion': { ico: 'poligono', corta: 'Excedentes, error de cabida, actualización catastral' },
     'unificacion': { ico: 'unir', corta: 'Juntar tus lotes en uno ante el municipio' },
@@ -8082,6 +8082,7 @@
     return d3 * (c.topografoDia + c.ayudanteDia) + Math.ceil(d3) * (c.alquilerLidarDia + c.alquilerGnssDia) + tr + (8 + haVuelo * 2.5) * c.dibujoHora + c.softwareLidar + c.arqHora;
   }
   function areaLote(estado) { try { return estado && estado.pts ? Math.round(areaPoligonoM(estado.pts)) : 0; } catch (e) { return 0; } }
+  function opFijo(id, nombre, desc, total) { return { id: id, nombre: nombre, desc: desc || '', precio: total, desglose: null, nota: '' }; }
   function op(id, nombre, desc, costo, nota) { var p = costo == null ? null : precioDesdeCosto(costo); return { id: id, nombre: nombre, desc: desc || '', precio: p ? p.total : null, desglose: p, nota: nota || '' }; }
   // Opciones de cada producto para ESTE predio (la primera con precio es la sugerida por defecto,
   // salvo que `def` diga otra). precio null = a cotizar; 0 = gratis.
@@ -8091,14 +8092,14 @@
     switch (id) {
       case 'levantamiento':
         L = [
-          { id: 'publico', nombre: 'Información pública', desc: 'Modelo del terreno municipal (~3 m) y curvas cada 1 m referenciales: para decidir o un anteproyecto. Va en la ficha PDF.', precio: 0 },
+          opFijo('publico', 'Curvas de nivel públicas (DXF)', 'Curvas cada 1 m del modelo de terreno municipal (~3 m), referenciales: para decidir o empezar un anteproyecto. No reemplazan un levantamiento para planos aprobados.', 5),
           op('topo', 'Topografía con GNSS y estación total', 'Linderos, construcciones, curvas cada 25–50 cm. Lo que pide el municipio para planos y trámites.', conA ? costoLevantamiento('topo', A, z) : null),
           op('dron', 'Dron con fotogrametría', 'Lote y entorno: ortofoto actual, nube de puntos y curvas cada 25 cm, con puntos de control GNSS. Ideal en terrenos abiertos o con pendiente.', conA ? costoLevantamiento('dron', A, z) : null),
           op('lidar', 'Dron con LiDAR', 'Escáner láser: mide bajo árboles y capta fachadas con precisión centimétrica. Para terrenos con vegetación o edificaciones. Sujeto a disponibilidad del equipo.', conA ? costoLevantamiento('lidar', A, z) : null)
         ];
         def = A > 5000 ? 'dron' : 'topo'; break;
       case 'planimetrico': L = [op('u', 'Plano planimétrico', '', receta(1.5, 1))]; break;
-      case 'croquis': L = [op('u', 'Croquis de sitio A4', '', receta(1, 0.5))]; break;
+      case 'croquis': L = [opFijo('u', 'Croquis de sitio A4', '', 15)]; break;
       case 'planimetrico-iprus': L = [op('u', 'Planimétrico + gestión', 'La tasa municipal del IPRUS se paga aparte.', receta(1.5, 4, 1, z))]; break;
       case 'analisis-sitio': L = [
         op('macro', 'Escala ciudad', 'Equipamientos, vías principales y servicios a 1 km.', receta(1, 1.5)),
@@ -8112,8 +8113,8 @@
         op('r300', 'Radio de 300 m', 'El barrio inmediato.', receta(6)),
         op('r500', 'Radio de 500 m', 'Para estudios urbanos.', receta(10))]; break;
       case 'entorno-mejorado': L = [
-        op('frente', 'Frente de manzana', 'Las fachadas de tu cuadra.', receta(8, 4, 1, z)),
-        op('manzana', 'Manzana completa', 'Las cuatro caras de la manzana.', receta(20, 8, 1, z)),
+        op('frente', 'Frente de manzana', 'Las fachadas de tu cuadra.', receta(4, 1.5, 1, z, PRECIOS_CFG.dronPropioDia)),
+        op('manzana', 'Manzana completa', 'Las cuatro caras de la manzana.', receta(9, 3, 1, z, PRECIOS_CFG.dronPropioDia)),
         op('radio', 'Radio de 100 m', 'Varias manzanas: se cotiza según el sitio.', null)]; break;
       case 'cabida': L = [
         op('s', 'Lote hasta 1.000 m²', '', receta(6, 12)),
@@ -8123,12 +8124,7 @@
         op('4', 'Hasta 4 unidades', 'Cuadro de áreas y alícuotas, reglamento, planos de PH y gestión.', receta(14, 24, 2, z)),
         op('10', 'De 5 a 10 unidades', '', receta(20, 36, 2, z)),
         op('mas', 'Más de 10 unidades', 'Se cotiza según el proyecto.', null)]; break;
-      case 'permiso-construccion':
-        var m2c = 7.6; // costo por m² de planos arquitectónicos (referencia: Reglamento de Aranceles CAE)
-        L = [
-          op('120', 'Hasta 120 m² de construcción', 'Planos arquitectónicos y gestión del permiso. Ingenierías aparte.', 120 * m2c + receta(0, 8, 2, z)),
-          op('300', 'De 120 a 300 m²', '', 300 * m2c + receta(0, 8, 2, z)),
-          op('mas', 'Más de 300 m²', 'Se cotiza por m² según el proyecto (≈ $' + Math.round(m2c * (1 + PRECIOS_CFG.indirectos) * (1 + PRECIOS_CFG.utilidad) * (1 + PRECIOS_CFG.iva)) + ' por m² con IVA).', null)]; break;
+      case 'permiso-construccion': L = [op('u', 'Gestión con tus planos', 'Nos entregas los planos aprobables (arquitectónicos e ingenierías) y nosotros armamos el expediente y lo gestionamos ante Control Municipal hasta el permiso. Tasas municipales aparte.', receta(2, 8, 2, z))]; break;
       case 'regularizacion': L = [op('u', 'Gestión ante Catastros', 'Más el levantamiento topográfico, que se agrega aparte.', receta(2, 8, 2, z))]; break;
       case 'unificacion': L = [op('u', 'Planimetría + trámite', '', receta(4, 6, 1, z))]; break;
       case 'lotizacion':
@@ -8144,8 +8140,7 @@
       case 'informe-compra': L = [op('u', 'Informe con visita', 'Normativa, afectaciones, permisos, linderos del catastro frente a la escritura y riesgos, en lenguaje claro.', receta(1, 6, 1, z))]; break;
       case 'venta-predio': L = [
         op('90', 'Publicación 90 días', 'Tu predio en la vitrina de Cota Cero: maqueta 3D, normativa y contacto directo con los interesados.', receta(0, 1, 0, z, 10)),
-        op('dron', 'Publicación + fotos y video con dron', 'Además: vuelo del terreno, fotos aéreas y un video corto editado para redes y portales.', 0.5 * PRECIOS_CFG.topografoDia + PRECIOS_CFG.dronPropioDia + receta(3, 1, 1, z, 10)),
-        op('acomp', 'Venta acompañada', 'Te acompañamos hasta la venta junto con un corredor de bienes raíces con licencia. Comisión sobre el precio de venta, a convenir.', null)]; break;
+        op('dron', 'Publicación + fotos y video con dron', 'Además: vuelo del terreno, fotos aéreas y un video corto editado para redes y portales.', 0.5 * PRECIOS_CFG.topografoDia + PRECIOS_CFG.dronPropioDia + receta(3, 1, 1, z, 10))]; break;
       default: var pp = productoPorId(id), n = pp ? aNum(pp.precioBase) : NaN; L = [{ id: 'u', nombre: pp ? pp.nombre : id, desc: '', precio: n > 0 ? n : null }];
     }
     L.def = def || (L.filter(function (o) { return o.precio; })[0] || L[0]).id;
@@ -8164,23 +8159,21 @@
   // arquitecto y el estudiante. Arriba lo recomendado para ESTE predio; luego "¿qué quieres hacer?"
   // filtra el catálogo; las tarjetas dicen qué es, para quién y cuánto cuesta; el detalle explica qué
   // recibes y cómo funciona; el pedido se revisa y se envía con un formulario (sin WhatsApp).
-  var PERFILES_TIENDA = [
-    { id: 'todo', tit: 'Ver todo', ico: 'lupa' },
-    { id: 'construir', tit: 'Quiero construir', ico: 'sello', ids: ['planimetrico-iprus', 'levantamiento', 'permiso-construccion', 'cabida', 'propiedad-horizontal', 'planimetrico', 'regularizacion', 'unificacion', 'lotizacion', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico', 'certificacion-patrimonial'] },
-    { id: 'compra', tit: 'Compro o vendo', ico: 'pin', ids: ['informe-compra', 'venta-predio', 'croquis', 'analisis-sitio', 'cabida', 'regularizacion', 'levantamiento', 'planimetrico-iprus', 'propiedad-horizontal', 'unificacion', 'lotizacion'] },
-    { id: 'arq', tit: 'Soy arquitecto', ico: 'columnas', ids: ['levantamiento', 'contexto-cad', 'modelo-3d', 'entorno-mejorado', 'planimetrico-iprus', 'analisis-sitio', 'cabida', 'levantamiento-arquitectonico', 'diseno-lotizacion', 'permiso-construccion'] },
-    { id: 'estudiante', tit: 'Soy estudiante', ico: 'cubo', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado', 'analisis-sitio'] }
+  // Tres públicos (en vez de perfiles + categorías): cada uno ve solo lo suyo, en el orden en que
+  // lo suele necesitar. Un producto puede estar en varios con la opción que le corresponde.
+  var PUBLICOS_TIENDA = [
+    { id: 'personas', tit: 'Para tu terreno', ico: 'pin', sub: 'Dueños, compradores y vendedores',
+      ids: ['planimetrico-iprus', 'levantamiento', 'informe-compra', 'venta-predio', 'croquis', 'propiedad-horizontal', 'permiso-construccion', 'regularizacion', 'unificacion', 'lotizacion', 'cabida', 'certificacion-patrimonial', 'levantamiento-arquitectonico', 'anteproyecto-historico', 'permiso-menor-historico'] },
+    { id: 'pro', tit: 'Profesionales', ico: 'columnas', sub: 'Arquitectos, ingenieros y constructoras',
+      ids: ['levantamiento', 'contexto-cad', 'modelo-3d', 'entorno-mejorado', 'planimetrico', 'analisis-sitio', 'cabida', 'levantamiento-arquitectonico', 'diseno-lotizacion', 'permiso-construccion', 'planimetrico-iprus'], opc: { 'modelo-3d': 'pro' } },
+    { id: 'edu', tit: 'Estudiantes', ico: 'cubo', sub: 'Maquetas y archivos para la universidad',
+      ids: ['modelo-3d', 'contexto-cad', 'analisis-sitio', 'entorno-mejorado', 'levantamiento'], opc: { 'modelo-3d': 'edu', 'levantamiento': 'publico', 'analisis-sitio': 'macro', 'contexto-cad': 'r150' } }
   ];
-  var CATEGORIAS_TIENDA = [
-    { id: 'compraventa', tit: 'Comprar o vender', ids: ['informe-compra', 'venta-predio'] },
-    { id: 'planos', tit: 'Planos y levantamientos', ids: ['levantamiento', 'planimetrico', 'croquis', 'levantamiento-arquitectonico'] },
-    { id: 'tramites', tit: 'Trámites municipales', ids: ['planimetrico-iprus', 'permiso-construccion', 'propiedad-horizontal', 'regularizacion', 'unificacion', 'lotizacion', 'certificacion-patrimonial', 'anteproyecto-historico', 'permiso-menor-historico'] },
-    { id: 'modelos', tit: 'Modelos y archivos', ids: ['modelo-3d', 'contexto-cad', 'entorno-mejorado'] },
-    { id: 'estudios', tit: 'Estudios y análisis', ids: ['analisis-sitio', 'cabida', 'diseno-lotizacion'] }
-  ];
-  var perfilTienda = 'todo', estadoSinPredio = { tramitesSel: {} };
+  var PERFILES_TIENDA = PUBLICOS_TIENDA; // compatibilidad (paraQuien)
+  var CATEGORIAS_TIENDA = [];
+  var perfilTienda = 'personas', estadoSinPredio = { tramitesSel: {} };
   function paraQuien(id) {
-    var n = { construir: 'dueños', compra: 'compra y venta', arq: 'arquitectos', estudiante: 'estudiantes' }, r = [];
+    var n = { personas: 'personas', pro: 'profesionales', edu: 'estudiantes' }, r = [];
     PERFILES_TIENDA.forEach(function (p) { if (p.ids && p.ids.indexOf(id) >= 0) r.push(n[p.id]); });
     return r.slice(0, 3).join(' · ');
   }
@@ -8283,22 +8276,18 @@
       // y lo que aparece en "Qué te toca gestionar" (permiso vigente → propiedad horizontal, etc.)
       if (conPredio) { try { recomendacionesGestion(estado).forEach(function (x) { if (x.ids) x.ids.split(',').forEach(function (id) { if (recIds.indexOf(id) < 0) recIds.unshift(id); }); }); } catch (e) { } }
       recIds = recIds.filter(function (id) { return productoPorId(id); });
-      var perfil = PERFILES_TIENDA.filter(function (p) { return p.id === perfilTienda; })[0] || PERFILES_TIENDA[0];
-      function visible(id) {
-        var p = productoPorId(id); if (!p) return false;
-        if (p.soloRecomendado && recIds.indexOf(id) < 0) return false;
-        return !perfil.ids || perfil.ids.indexOf(id) >= 0;
-      }
-      var secciones = CATEGORIAS_TIENDA.map(function (c) {
-        var ids = c.ids.filter(visible);
-        if (perfil.ids) ids.sort(function (a2, b2) { return perfil.ids.indexOf(a2) - perfil.ids.indexOf(b2); });
-        if (!ids.length) return '';
-        return '<section class="tn-sec" id="tn-' + c.id + '"><h3>' + c.tit + '</h3><div class="tn-grid">' + ids.map(function (id) { return htmlTarjetaTienda(estado, id, subRec[id]); }).join('') + '</div></section>';
-      }).join('');
+      var perfil = PUBLICOS_TIENDA.filter(function (p) { return p.id === perfilTienda; })[0] || PUBLICOS_TIENDA[0];
+      // la opción típica de cada público (p. ej. modelo académico para estudiantes), salvo que el usuario ya eligió otra
+      estado.tramitesOpc = estado.tramitesOpc || {}; estado._opcTab = estado._opcTab || {};
+      Object.keys(estado._opcTab).forEach(function (k) { if (!estado.tramitesSel[k] && estado.tramitesOpc[k] === estado._opcTab[k]) delete estado.tramitesOpc[k]; });
+      estado._opcTab = {};
+      Object.keys(perfil.opc || {}).forEach(function (k) { if (!estado.tramitesSel[k]) { estado.tramitesOpc[k] = perfil.opc[k]; estado._opcTab[k] = perfil.opc[k]; } });
+      var idsPub = perfil.ids.filter(function (id) { var p = productoPorId(id); return p && !(p.soloRecomendado && recIds.indexOf(id) < 0); });
+      var secciones = '<section class="tn-sec"><p class="tn-nota">' + perfil.sub + '</p><div class="tn-grid">' + idsPub.map(function (id) { return htmlTarjetaTienda(estado, id, subRec[id]); }).join('') + '</div></section>';
       t.innerHTML = cabecera('Servicios', false) +
         '<div class="tn-cont">' + htmlPredioTienda() +
           (recIds.length ? '<section class="tn-rec"><h3>Recomendado para tu predio</h3><p class="tn-nota">Según lo que encontramos: zona, afectaciones, permisos y lo que muestra la maqueta.</p><div class="tn-grid">' + recIds.map(function (id) { return htmlTarjetaTienda(estado, id, subRec[id]); }).join('') + '</div></section>' : '') +
-          '<div class="tn-perfiles" role="tablist" aria-label="¿Qué quieres hacer?"><span>¿Qué quieres hacer?</span><div>' + PERFILES_TIENDA.map(function (p) { return '<button type="button" role="tab" class="tn-perfil' + (p.id === perfilTienda ? ' activo' : '') + '" data-perfil="' + p.id + '">' + icoT(p.ico) + p.tit + '</button>'; }).join('') + '</div></div>' +
+          '<div class="tn-perfiles" role="tablist" aria-label="Servicios para"><div>' + PUBLICOS_TIENDA.map(function (p) { return '<button type="button" role="tab" class="tn-perfil' + (p.id === perfilTienda ? ' activo' : '') + '" data-perfil="' + p.id + '">' + icoT(p.ico) + p.tit + '</button>'; }).join('') + '</div></div>' +
           secciones +
           '<section class="tn-gratis"><h3>Gratis</h3><p>La maqueta 3D, la normativa, los usos de suelo, la carta solar y la ficha PDF de tu predio son gratis. <button type="button" class="tn-ficha">Recibir la ficha gratis</button></p></section>' +
           '<section class="tn-como"><h3>Cómo funciona</h3><ol><li><b>Eliges</b> lo que necesitas; lo de precio fijo se suma, lo demás se cotiza.</li><li><b>Envías el pedido</b> con tu correo; te escribimos para confirmar alcance, fecha y forma de pago.</li><li><b>Pagas y empezamos.</b> Los entregables llegan a tu correo.</li></ol><p class="tn-nota">¿Dudas? Escríbenos a <a href="mailto:cotacero.pm@gmail.com">cotacero.pm@gmail.com</a>.</p></section>' +
@@ -9214,8 +9203,8 @@
       descripcion: 'Planimetría y gestión del certificado patrimonial de inmuebles fuera del Centro Histórico (el trámite municipal no tiene costo).' },
     { id: 'regularizacion', soloRecomendado: true, nombre: 'Regularización del predio', precioBase: '', nota: 'según el caso',
       descripcion: 'Levantamiento georreferenciado y gestión ante Avalúos y Catastros para oficializar el predio: regularización de excedentes o diferencias de superficie (error de cabida), actualización catastral de superficie o rectificación de datos del terreno; y, si no tiene acceso, la servidumbre de paso. Frecuente en zonas periurbanas y rurales.' },
-    { id: 'permiso-construccion', nombre: 'Permiso de construcción', precioBase: '', nota: 'según el proyecto',
-      descripcion: 'Planos arquitectónicos y gestión del permiso de construcción ante el GAD Municipal de Cuenca.' },
+    { id: 'permiso-construccion', nombre: 'Gestión del permiso de construcción', precioBase: '', nota: 'por trámite',
+      descripcion: 'Con los planos que nos entregas, armamos el expediente y gestionamos el permiso de construcción ante el GAD Municipal de Cuenca hasta obtenerlo.' },
     { id: 'modelo-3d', nombre: 'Modelo 3D del predio y su entorno (.glb)', precioBase: '', nota: 'por predio',
       descripcion: 'La maqueta que ves aquí (terreno, edificios, árboles y volumen normativo) en metros, lista para Blender, Rhino o SketchUp.' },
     { id: 'propiedad-horizontal', nombre: 'Declaratoria de propiedad horizontal', precioBase: '', nota: 'por trámite',
