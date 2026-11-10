@@ -840,6 +840,38 @@
 
   /* ===== Tienda a pantalla completa ===== */
   html.tienda-abierta, html.tienda-abierta body { overflow: hidden; }
+  /* ---------- Cobro en línea ---------- */
+  .pago-ov { position: fixed; inset: 0; z-index: 2100; background: rgba(28,26,22,.55); display: grid; place-items: center; padding: 16px; font-family: 'Inter Tight', sans-serif; color: #1C1A16; overflow-y: auto; }
+  .pago-caja { position: relative; width: min(440px, 100%); background: #F3F1EC; border-radius: 18px; padding: 20px 20px 18px; box-sizing: border-box; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+  .pago-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; } .pago-cab b { flex: 1; font-size: 1.15rem; font-weight: 700; }
+  .pago-x { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(28,26,22,.2); background: #fff; color: #1C1A16; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+  .pago-sub { font-size: 0.8rem; color: #5E5B55; margin: 0 0 12px; }
+  .pago-monto { font-size: 2rem; font-weight: 700; letter-spacing: -.02em; margin: 6px 0 10px; } .pago-monto small { font-size: 0.75rem; font-weight: 400; color: #5E5B55; letter-spacing: 0; }
+  .pago-items { list-style: none; margin: 0 0 10px; padding: 0; background: #fff; border-radius: 12px; border: 1px solid rgba(28,26,22,.1); }
+  .pago-items li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: 0.82rem; font-weight: 300; border-bottom: 1px solid rgba(28,26,22,.07); } .pago-items li:last-child { border-bottom: 0; }
+  .pago-items li b { font-weight: 600; white-space: nowrap; } .pago-items li.tot { font-weight: 600; }
+  .pago-nota { font-size: 0.76rem; color: #5E5B55; line-height: 1.45; margin: 6px 0 10px; }
+  .pago-metodos { display: grid; gap: 8px; margin: 12px 0 8px; }
+  .pago-metodo { display: grid; gap: 2px; text-align: left; width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #1C1A16; background: #fff; color: #1C1A16; cursor: pointer; font: inherit; }
+  .pago-metodo b { font-size: 0.98rem; font-weight: 700; } .pago-metodo small { font-size: 0.74rem; color: #5E5B55; font-weight: 400; }
+  .pago-metodo:hover { background: #1C1A16; color: #fff; } .pago-metodo:hover small { color: #D9D6CF; }
+  .pago-metodo[disabled] { opacity: .45; cursor: default; background: #fff; color: #1C1A16; }
+  .pago-btn { display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; border-radius: 999px; border: 0; background: #1C1A16; color: #fff; font: 700 0.95rem 'Inter Tight', sans-serif; cursor: pointer; text-decoration: none; margin-top: 8px; box-sizing: border-box; }
+  .pago-sec { display: block; width: 100%; margin-top: 8px; height: 42px; border-radius: 999px; border: 1px solid rgba(28,26,22,.3); background: transparent; color: #1C1A16; font: 600 0.86rem 'Inter Tight', sans-serif; cursor: pointer; text-align: center; text-decoration: none; line-height: 42px; }
+  .pago-link { display: block; text-align: center; margin-top: 10px; font-size: 0.8rem; color: #1C1A16; font-weight: 600; }
+  .pago-msg { font-size: 0.8rem; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #A3361F; color: #A3361F; margin: 8px 0; }
+  .pago-legal { font-size: 0.7rem; color: #77736C; line-height: 1.4; margin: 10px 0 0; }
+  .pago-prueba { font-size: 0.7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #5E5B55; border-radius: 6px; padding: 4px 8px; display: inline-block; margin: 0 0 10px; }
+  .pago-qr { width: 200px; height: 200px; margin: 6px auto 10px; padding: 12px; background: #fff; border-radius: 12px; } .pago-qr svg { width: 100%; height: 100%; display: block; }
+  .pago-espera { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.82rem; color: #5E5B55; margin: 12px 0 4px; }
+  .pago-punto { width: 8px; height: 8px; border-radius: 50%; background: #1C1A16; animation: pagoLatido 1.2s ease-in-out infinite; }
+  @keyframes pagoLatido { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+  .pago-estado { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 1.6rem; font-weight: 700; margin: 6px auto 8px; background: #1C1A16; color: #fff; }
+  .pago-estado.ok { background: #2F6B3A; } .pago-estado.mal { background: #fff; color: #A3361F; border: 2px solid #A3361F; }
+  .pago-centro { text-align: center; } .pago-centro h3 { font-size: 1.15rem; margin: 0 0 6px; } .pago-centro p { font-size: 0.86rem; line-height: 1.45; margin: 0 0 8px; }
+  .pago-entrega { background: #fff; border-radius: 12px; border: 1px solid rgba(28,26,22,.1); padding: 12px; margin: 12px 0 4px; text-align: left; }
+  .pago-entrega b { display: block; font-size: 0.78rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+  .tn-sinpago { display: block; margin: 10px auto 0; background: none; border: 0; color: #1C1A16; font: 600 0.82rem 'Inter Tight', sans-serif; text-decoration: underline; cursor: pointer; }
   .btn-tienda { border: 0; cursor: pointer; }
   .btn-flot.btn-mensaje { right: 84px; width: 52px; height: 52px; padding: 0; justify-content: center; background: #fff; color: #1C1A16; border: 1.5px solid #1C1A16; }
   .btn-flot.btn-ficha { right: 148px !important; }
@@ -8141,9 +8173,217 @@
     { id: 'archivos', tit: 'Archivos', ico: 'cubo', sub: 'Maquetas y archivos para estudiantes y estudios de arquitectura', ids: ['modelo-3d', 'contexto-cad', 'foto-aerea', 'entorno-mejorado'] },
     { id: 'analisis', tit: 'Análisis', ico: 'grafico', sub: 'Estudios para decidir qué y cuánto construir', ids: ['valor-suelo', 'analisis-sitio', 'cabida', 'diseno-lotizacion'] }
   ];
-  // Pago en línea: cuando haya cuenta en una pasarela (Payphone, Kushki, etc.), poner aquí el enlace
-  // de cobro; mientras esté vacío, el pedido se confirma por WhatsApp.
-  var CONFIG_PAGO = { url: '' };
+  // ---------- Cobro en línea (Payphone para tarjeta, Deuna para la app) ----------
+  // La página solo pide el cobro y muestra el resultado. El Apps Script prepara el pago con las
+  // claves (que nunca están aquí), confirma con la pasarela, deja el pedido "Pagado" en el Sheet y
+  // manda los correos. Qué medios hay y en qué modo (apagado | simulado | prueba | produccion) lo
+  // decide el Apps Script (?action=pagos): si no responde, la tienda sigue como antes (sin cobro).
+  // ?pagos=demo recorre toda la pantalla de pago sin tocar el backend.
+  var CONFIG_PAGO = { url: '', modo: 'apagado', metodos: [] };
+  var PAGO_DEMO = /[?&]pagos=demo(&|$)/.test(location.search);
+  var ENTREGA_INSTANTANEA = {
+    'modelo-3d': { txt: 'Descargar modelo 3D (.glb y .obj)', hacer: function (est) { descargarModeloOBJ(est); return descargarModelo3D(est); } }
+  };
+  var esperaPago = null;
+  function pagosEnLinea() { return CONFIG_PAGO.metodos.length > 0; }
+  function cargarConfigPagos() {
+    if (PAGO_DEMO) { CONFIG_PAGO.modo = 'demo'; CONFIG_PAGO.metodos = ['tarjeta', 'deuna']; return; }
+    if (!APPS_SCRIPT_URL_DOCUMENTOS) return;
+    fetch(APPS_SCRIPT_URL_DOCUMENTOS + '?action=pagos').then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.ok && Array.isArray(j.metodos)) { CONFIG_PAGO.modo = j.modo || 'apagado'; CONFIG_PAGO.metodos = j.metodos.filter(function (m) { return m === 'tarjeta' || m === 'deuna'; }); }
+    }).catch(function () { });
+  }
+  function urlRetornoPago() { return location.origin + location.pathname + (PAGO_DEMO ? '?pagos=demo' : ''); }
+  function pagoGuardado(v) {
+    try {
+      if (v === undefined) return JSON.parse(sessionStorage.getItem('cotacero-pago') || 'null');
+      if (v === null) sessionStorage.removeItem('cotacero-pago'); else sessionStorage.setItem('cotacero-pago', JSON.stringify(v));
+    } catch (e) { return null; }
+  }
+  function pagosApi(tipo, datos) {
+    if (CONFIG_PAGO.modo === 'demo' || PAGO_DEMO) return new Promise(function (ok) { setTimeout(function () { ok(pagoDemo(tipo, datos)); }, 500); });
+    var cuerpo = Object.assign({ tipo: tipo, token: APPS_SCRIPT_TOKEN_DOCUMENTOS }, datos);
+    return fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); return j; });
+  }
+  // backend de mentira para ?pagos=demo (vive en sessionStorage de esta pestaña)
+  function pagoDemo(tipo, d) {
+    var db = {}; try { db = JSON.parse(sessionStorage.getItem('cotacero-pago-demo') || '{}'); } catch (e) { }
+    function guardar() { try { sessionStorage.setItem('cotacero-pago-demo', JSON.stringify(db)); } catch (e) { } }
+    function resumen(p) { return { ok: true, ctid: p.ctid, estado: p.estado, idPedido: p.idPedido, total: p.total, metodo: p.metodo, modo: 'demo', items: p.items, predio: p.predio,
+      entrega: p.estado === 'Pagado' ? p.items.map(function (x) { return x.id; }).filter(function (id) { return ENTREGA_INSTANTANEA[id]; }) : [] }; }
+    if (tipo === 'pago_iniciar') {
+      var ctid = 'DEMO-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      db[ctid] = { ctid: ctid, estado: 'Pendiente', idPedido: d.idPedido, total: d.total, metodo: d.metodo, items: d.items, predio: d.predio }; guardar();
+      return { ok: true, ctid: ctid, metodo: d.metodo, total: d.total, url: urlRetornoPago() + '&pago=sim&ctid=' + ctid, vence: Date.now() + 15 * 60000 };
+    }
+    var p = db[d.ctid]; if (!p) return { ok: false, error: 'No encontramos ese pago.' };
+    if (tipo === 'pago_confirmar' && p.estado === 'Pendiente') {
+      p.estado = d.simulado === 'aprobado' ? 'Pagado' : d.simulado === 'rechazado' ? 'Rechazado' : d.cancelado ? 'Cancelado' : p.estado; guardar();
+    }
+    return resumen(p);
+  }
+  function abrirPagoOverlay(titulo, cuerpo, sinCerrar) {
+    var o = document.getElementById('pago');
+    if (!o) { o = document.createElement('div'); o.id = 'pago'; o.className = 'pago-ov'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); document.body.appendChild(o); }
+    o.innerHTML = '<div class="pago-caja"><header class="pago-cab"><b>' + titulo + '</b>' + (sinCerrar ? '' : '<button type="button" class="pago-x" aria-label="Cerrar">×</button>') + '</header>' +
+      (CONFIG_PAGO.modo !== 'produccion' && CONFIG_PAGO.modo !== 'apagado' ? '<span class="pago-prueba">Modo de prueba · no se cobra dinero real</span>' : '') + cuerpo + '</div>';
+    document.documentElement.classList.add('tienda-abierta');
+    var x = o.querySelector('.pago-x'); if (x) x.addEventListener('click', cerrarPago);
+    return o;
+  }
+  function cerrarPago() {
+    detenerEsperaPago();
+    var o = document.getElementById('pago'); if (o) o.remove();
+    if (!document.getElementById('tienda')) document.documentElement.classList.remove('tienda-abierta');
+  }
+  function detenerEsperaPago() { if (esperaPago) { clearInterval(esperaPago.t); document.removeEventListener('visibilitychange', esperaPago.v); esperaPago = null; } }
+  function listaPago(d) {
+    return '<ul class="pago-items">' + d.items.map(function (x) { return '<li><span>' + esc(x.nombre) + '</span><b>$' + Number(x.precio).toLocaleString('es-EC') + '</b></li>'; }).join('') +
+      (d.items.length > 1 ? '<li class="tot"><span>Total</span><b>$' + Number(d.total).toLocaleString('es-EC') + '</b></li>' : '') + '</ul>';
+  }
+  // 1. elegir medio de pago
+  function pagoElegir(d) {
+    var M = { tarjeta: ['Tarjeta de crédito o débito', 'Visa, Mastercard y más · procesado por Payphone'], deuna: ['Deuna', 'Pagas desde la app Deuna de tu celular'] };
+    var o = abrirPagoOverlay('Pagar tu pedido',
+      '<p class="pago-sub">Pedido ' + esc(d.idPedido) + (d.clave ? ' · predio ' + esc(d.clave) : '') + '</p>' +
+      '<div class="pago-monto">$' + Number(d.total).toLocaleString('es-EC') + ' <small>IVA incluido</small></div>' + listaPago(d) +
+      (d.cotizar ? '<p class="pago-nota">' + (d.cotizar === 1 ? 'El servicio' : 'Los ' + d.cotizar + ' servicios') + ' a cotizar no se ' + (d.cotizar === 1 ? 'cobra' : 'cobran') + ' ahora: te enviamos el precio antes de empezar.</p>' : '') +
+      '<div class="pago-metodos">' + CONFIG_PAGO.metodos.map(function (m) { return '<button type="button" class="pago-metodo" data-metodo="' + m + '"><b>' + M[m][0] + '</b><small>' + M[m][1] + '</small></button>'; }).join('') + '</div>' +
+      '<div class="pago-msg" hidden></div>' +
+      '<button type="button" class="pago-sec pago-luego">Pagar después</button>' +
+      '<p class="pago-legal">El pago se hace en la página segura de Payphone o en la app Deuna: Cota Cero no ve ni guarda los datos de tu tarjeta. Tu pedido ya quedó registrado.</p>');
+    o.querySelector('.pago-luego').addEventListener('click', function () { pagoGuardado(null); cerrarPago(); });
+    o.querySelectorAll('.pago-metodo').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var metodo = b.getAttribute('data-metodo'), msg = o.querySelector('.pago-msg');
+        o.querySelectorAll('.pago-metodo').forEach(function (x) { x.disabled = true; });
+        b.querySelector('small').textContent = 'Preparando el pago…'; msg.hidden = true;
+        pagosApi('pago_iniciar', { metodo: metodo, idPedido: d.idPedido, correo: d.correo, nombre: d.nombre, predio: d.clave || '', total: d.total, items: d.items, retorno: urlRetornoPago() })
+          .then(function (j) {
+            d.ctid = j.ctid; d.metodo = metodo; pagoGuardado(d);
+            registrarVisita('pago-inicio', metodo, d.clave || '');
+            if (metodo === 'tarjeta') location.href = j.url; else pagoDeuna(d, j);
+          })
+          .catch(function (e) {
+            console.warn('pago_iniciar', e);
+            o.querySelectorAll('.pago-metodo').forEach(function (x) { x.disabled = false; });
+            b.querySelector('small').textContent = M[metodo][1];
+            msg.hidden = false; msg.textContent = 'No pudimos abrir el pago: ' + e.message + ' Si sigue fallando, escríbenos a cotacero.pm@gmail.com.';
+          });
+      });
+    });
+  }
+  // 2b. Deuna: link (en el celular) o QR (en la computadora) y espera de la confirmación
+  function pagoDeuna(d, j) {
+    var cel = window.matchMedia('(max-width: 640px)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+    var qr = cel ? '' : construirQrSvg(j.url);
+    var o = abrirPagoOverlay('Paga con Deuna',
+      '<div class="pago-centro"><div class="pago-monto">$' + Number(d.total).toLocaleString('es-EC') + '</div>' +
+      (cel ? '<a class="pago-btn" href="' + esc(j.url) + '">Abrir Deuna y pagar</a><p class="pago-nota">Paga en Deuna y vuelve a esta pestaña: aquí se confirma solo.</p>'
+           : (qr ? '<div class="pago-qr">' + qr + '</div>' : '') + '<p>Escanea el código con la cámara de tu celular: se abre Deuna con el monto listo.</p>' +
+             '<a class="pago-link" href="' + esc(j.url) + '" target="_blank" rel="noopener">Abrir el enlace de pago</a>') +
+      '<p class="pago-espera"><span class="pago-punto"></span><span class="pago-espera-txt">Esperando la confirmación…</span></p></div>' +
+      '<button type="button" class="pago-sec pago-otro">Elegir otro medio</button>');
+    o.querySelector('.pago-otro').addEventListener('click', function () { detenerEsperaPago(); pagoElegir(d); });
+    var vence = j.vence || Date.now() + 30 * 60000, enCurso = false;
+    function revisar() {
+      if (enCurso) return;
+      if (Date.now() > vence) { detenerEsperaPago(); pagoResultado({ estado: 'Vencido', ctid: d.ctid, total: d.total, idPedido: d.idPedido, items: d.items, entrega: [] }); return; }
+      enCurso = true;
+      pagosApi('pago_estado', { ctid: d.ctid }).then(function (r) { enCurso = false; if (r.estado !== 'Pendiente') { detenerEsperaPago(); pagoResultado(r); } })
+        .catch(function () { enCurso = false; });
+    }
+    detenerEsperaPago();
+    esperaPago = { t: setInterval(revisar, 4000), v: function () { if (!document.hidden) revisar(); } };
+    document.addEventListener('visibilitychange', esperaPago.v);
+  }
+  // 3. vuelta desde Payphone (?id=…&clientTransactionId=…), cancelación o pasarela simulada
+  function revisarRetornoPago() {
+    var q; try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    var ctid = q.get('clientTransactionId') || q.get('ctid'), tipo = q.get('pago'), idPp = q.get('id');
+    if (!ctid || !(tipo || idPp)) return;
+    ['id', 'clientTransactionId', 'ctid', 'pago'].forEach(function (k) { q.delete(k); });
+    try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash); } catch (e) { }
+    if (tipo === 'sim') return pagoSimulado(ctid);
+    pagoConfirmar(ctid, tipo === 'cancelado' ? { cancelado: true } : { id: idPp });
+  }
+  function pagoSimulado(ctid) {
+    var d = pagoGuardado(), tot = d && d.ctid === ctid ? d.total : null;
+    var o = abrirPagoOverlay('Pasarela de prueba',
+      '<p class="pago-nota">Aquí irá la página de Payphone o la app Deuna. En modo de prueba no se cobra nada: elige qué pasa.</p>' +
+      (tot != null ? '<div class="pago-monto">$' + Number(tot).toLocaleString('es-EC') + '</div>' : '') +
+      '<button type="button" class="pago-btn" data-r="aprobado">Aprobar el pago</button>' +
+      '<button type="button" class="pago-sec" data-r="rechazado">Rechazar (tarjeta sin fondos)</button>', true);
+    o.querySelectorAll('[data-r]').forEach(function (b) { b.addEventListener('click', function () { pagoConfirmar(ctid, { simulado: b.getAttribute('data-r') }); }); });
+  }
+  function pagoConfirmar(ctid, extra) {
+    abrirPagoOverlay('Confirmando tu pago', '<div class="pago-centro"><p class="pago-espera"><span class="pago-punto"></span><span>Un momento, no cierres esta página…</span></p></div>', true);
+    pagosApi('pago_confirmar', Object.assign({ ctid: ctid }, extra || {}))
+      .then(pagoResultado)
+      .catch(function (e) {
+        console.warn('pago_confirmar', e);
+        var o = abrirPagoOverlay('No pudimos confirmar',
+          '<div class="pago-centro"><div class="pago-estado mal">!</div><p>' + esc(e.message) + '</p>' +
+          '<p class="pago-nota">Si se debitó el dinero, escríbenos a cotacero.pm@gmail.com con este código: <b>' + esc(ctid) + '</b>. Si no se confirma en unos minutos, Payphone devuelve el cobro solo.</p></div>' +
+          '<button type="button" class="pago-btn pago-reint">Intentar de nuevo</button>');
+        o.querySelector('.pago-reint').addEventListener('click', function () { pagoConfirmar(ctid, extra); });
+      });
+  }
+  // 4. resultado
+  function pagoResultado(r) {
+    if (r.modo && CONFIG_PAGO.modo === 'apagado') CONFIG_PAGO.modo = r.modo;
+    var d = pagoGuardado() || {}, tot = r.total != null ? r.total : d.total;
+    if (r.estado === 'Pagado') {
+      pagoGuardado(null);
+      registrarVisita('pago', (r.items || []).map(function (x) { return x.id; }).join(','), r.predio || d.clave || '');
+      var ent = (r.entrega || []).filter(function (id) { return ENTREGA_INSTANTANEA[id]; });
+      var o = abrirPagoOverlay('Pago recibido',
+        '<div class="pago-centro"><div class="pago-estado ok">✓</div><h3>¡Gracias! Tu pago está confirmado</h3>' +
+        '<p>$' + Number(tot).toLocaleString('es-EC') + ' · pedido <b>' + esc(r.idPedido || d.idPedido || '') + '</b></p>' +
+        '<p class="pago-nota">Te enviamos el comprobante por correo' + (d.correo ? ' a <b>' + esc(d.correo) + '</b>' : '') + '. Lo que requiere trabajo en sitio o en oficina te lo coordinamos por ahí.</p></div>' +
+        (ent.length ? '<div class="pago-entrega"><b>Tus archivos</b>' + ent.map(function (id) { return '<button type="button" class="pago-btn" data-entrega="' + id + '">' + ENTREGA_INSTANTANEA[id].txt + '</button>'; }).join('') +
+          '<p class="pago-nota pago-entrega-msg"></p></div>' : '') +
+        '<button type="button" class="pago-sec pago-fin">Listo</button>');
+      o.querySelector('.pago-fin').addEventListener('click', cerrarPago);
+      o.querySelectorAll('[data-entrega]').forEach(function (b) { b.addEventListener('click', function () { entregarPagado(b.getAttribute('data-entrega'), r.predio || d.clave || '', b, o.querySelector('.pago-entrega-msg')); }); });
+      return;
+    }
+    var T = {
+      Rechazado: ['El pago no se aprobó', 'Tu banco no aprobó el cobro. No se debitó nada: puedes intentar con otra tarjeta o con Deuna.'],
+      Cancelado: ['Cancelaste el pago', 'No se cobró nada. Tu pedido sigue registrado.'],
+      Vencido: ['El cobro venció', 'No se cobró nada. Genera uno nuevo cuando quieras.'],
+      Pendiente: ['Tu pago está en proceso', 'Todavía no recibimos la confirmación. Te avisamos por correo apenas llegue.'],
+      Revisar: ['Estamos revisando tu pago', 'Algo no cuadró al confirmar. Te escribimos hoy mismo; no vuelvas a pagar.']
+    }[r.estado] || ['No se completó el pago', 'No se cobró nada.'];
+    var puedeReintentar = d.idPedido && /Rechazado|Cancelado|Vencido/.test(r.estado);
+    var o2 = abrirPagoOverlay(T[0], '<div class="pago-centro"><div class="pago-estado mal">!</div><p>' + T[1] + '</p>' +
+      (r.ctid ? '<p class="pago-nota">Código: ' + esc(r.ctid) + '</p>' : '') + '</div>' +
+      (puedeReintentar ? '<button type="button" class="pago-btn pago-reint">Intentar otra vez</button>' : '') +
+      '<button type="button" class="pago-sec pago-fin">Cerrar</button>');
+    o2.querySelector('.pago-fin').addEventListener('click', function () { if (!puedeReintentar) pagoGuardado(null); cerrarPago(); });
+    var re = o2.querySelector('.pago-reint'); if (re) re.addEventListener('click', function () { pagoElegir(d); });
+  }
+  // Entrega inmediata: genera el archivo desde la maqueta del predio pagado (lo carga si hace falta).
+  function entregarPagado(id, clave, boton, msg) {
+    var E = ENTREGA_INSTANTANEA[id], c = String(clave || '').split('+')[0].replace(/\D/g, '');
+    if (!E) return;
+    boton.disabled = true; boton.textContent = 'Preparando…'; if (msg) msg.textContent = '';
+    function listo() { return ultimoRender3D && estadoSeleccionado && String(estadoSeleccionado.clave || '').replace(/\D/g, '') === c; }
+    function fin(ok, txt) { boton.disabled = false; boton.textContent = ok ? '✓ Descargado · bajar otra vez' : E.txt; if (msg) msg.textContent = txt || ''; }
+    function hacer() { Promise.resolve().then(function () { return E.hacer(estadoSeleccionado); }).then(function () { fin(true, 'Listo. Si no ves los archivos, revisa la carpeta de descargas.'); })
+      .catch(function (e) { console.warn(e); fin(false, 'No se pudo generar. Intenta de nuevo o responde el correo del comprobante y te lo enviamos.'); }); }
+    if (listo()) return hacer();
+    if (!c) return fin(false, 'No sabemos de qué predio es. Responde el correo del comprobante y te lo enviamos.');
+    if (msg) msg.textContent = 'Abriendo la maqueta de tu predio…';
+    try { buscarPorClave(c); } catch (e) { }
+    var t0 = Date.now(), iv = setInterval(function () {
+      if (listo()) { clearInterval(iv); hacer(); }
+      else if (Date.now() - t0 > 30000) { clearInterval(iv); fin(false, 'La maqueta tardó demasiado. Intenta de nuevo o responde el correo del comprobante.'); }
+    }, 500);
+  }
+  setTimeout(function () { cargarConfigPagos(); revisarRetornoPago(); }, 0);
   var grupoPedidoAbierto = 'construir';
   // Productos apagados desde la hoja Catalogo (columna activo = FALSE); la fila 'tienda' pausa todo.
   var PRODUCTOS_DESACTIVADOS = {};
@@ -8660,6 +8900,8 @@
     function vistaPedido() {
       var it = itemsSeleccionados(estado), fijos = it.filter(function (x) { return x.precio; }), conv = it.filter(function (x) { return !x.precio; });
       var tot = fijos.reduce(function (a2, x) { return a2 + x.precio; }, 0);
+      var paga = fijos.length > 0 && pagosEnLinea(), sinPago = false;
+      var textoEnviar = paga ? 'Pagar $' + tot.toLocaleString('es-EC') : fijos.length ? 'Enviar pedido' : 'Pedir cotización';
       var c = '', n = '', tel = ''; try { c = localStorage.getItem('cotacero-correo') || ''; n = localStorage.getItem('cotacero-nombre') || ''; tel = localStorage.getItem('cotacero-telefono') || ''; } catch (e) { }
       var t0 = Date.now();
       t.innerHTML = cabecera('Tu pedido', true) +
@@ -8678,14 +8920,18 @@
             '<input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true">' +
             '<label class="ficha-chk"><input type="checkbox" name="acepto"><span>Acepto los <a href="#" class="ficha-ter">Términos</a> y la <a href="#" class="ficha-priv">Política de privacidad</a>.</span></label>' +
             '<div class="tn-msg" hidden></div>' +
-            '<button type="submit" class="tn-enviar">' + (fijos.length ? 'Enviar pedido' : 'Pedir cotización') + '</button>' +
-            '<p class="tn-nota">No pagas nada todavía: te escribimos para confirmar alcance, fecha y forma de pago. Si tienes un código de descuento, lo aplicamos al confirmar.</p>' +
+            '<button type="submit" class="tn-enviar">' + textoEnviar + '</button>' +
+            (paga ? '<p class="tn-nota">En el siguiente paso eliges tarjeta o Deuna.' + (conv.length ? ' Lo que es a cotizar no se cobra ahora: te enviamos el precio antes de empezar.' : '') + ' Con código de descuento te escribimos para aplicarlo antes de cobrar.</p>' +
+              '<button type="button" class="tn-sinpago">Prefiero que me escriban antes de pagar</button>'
+            : '<p class="tn-nota">No pagas nada todavía: te escribimos para confirmar alcance, fecha y forma de pago. Si tienes un código de descuento, lo aplicamos al confirmar.</p>') +
           '</form>' : '') +
         '</div>';
       comunes(); conectarEnlacesLegales(t);
       var a2 = t.querySelector('.tn-atras2'); if (a2) a2.addEventListener('click', function () { vistaCatalogo(); });
       t.querySelectorAll('[data-quitar]').forEach(function (b) { b.addEventListener('click', function () { estado.tramitesSel[b.getAttribute('data-quitar')] = false; actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel')); vistaPedido(); }); });
       var f = t.querySelector('.tn-form'); if (!f) return;
+      var bSin = f.querySelector('.tn-sinpago');
+      if (bSin) bSin.addEventListener('click', function () { sinPago = true; if (f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event('submit', { cancelable: true })); sinPago = false; });
       f.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var msg = f.querySelector('.tn-msg'), q = function (k) { return f.querySelector('[name="' + k + '"]'); };
@@ -8696,15 +8942,26 @@
         if (telefono && !/^\+?\d{7,15}$/.test(telefono)) return error('Revisa el teléfono (solo números).', q('tel'));
         if (!q('acepto').checked) return error('Para enviar el pedido tienes que aceptar los Términos y la Política de privacidad.');
         try { localStorage.setItem('cotacero-correo', correo); localStorage.setItem('cotacero-nombre', nombre); if (telefono) localStorage.setItem('cotacero-telefono', telefono); } catch (e) { }
-        var boton = f.querySelector('.tn-enviar'); boton.disabled = true; boton.textContent = 'Enviando…';
-        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (nota ? '\nNota: ' + nota : '') + (codigo ? '\nCódigo de descuento: ' + codigo + ' (se aplica al confirmar)' : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + '\n' + textoOrigen();
+        var pagarAhora = paga && !sinPago && !codigo;
+        var boton = f.querySelector('.tn-enviar'); boton.disabled = true; boton.textContent = pagarAhora ? 'Preparando el pago…' : 'Enviando…';
+        var detalle = it.map(function (x) { return '- ' + x.nombre + ' (' + (x.precio ? '$' + x.precio : 'a cotizar') + ')'; }).join('\n') + (fijos.length ? '\nTotal precio fijo: $' + tot : '') + (pagarAhora ? '\nForma de pago: en línea (tarjeta o Deuna)' : '') + (nota ? '\nNota: ' + nota : '') + (codigo ? '\nCódigo de descuento: ' + codigo + ' (se aplica al confirmar)' : '') + '\nAceptó términos y privacidad ' + new Date().toISOString().slice(0, 16) + '\n' + textoOrigen();
         var cuerpo = { tipo: 'pedido_nuevo', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, productoId: it.map(function (x) { return x.id; }).join(','), productoNombre: it.map(function (x) { return x.nombre; }).join(' + '),
           predio: conPredio ? claveTxt : '', nombreSolicitante: nombre, correo: correo, telefono: telefono, detalle: detalle, documentos: [], origen: 'tienda', sitio_web: q('sitio_web').value, t: Date.now() - t0 };
-        if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
-        fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
-          .then(function (r) { return r.json(); })
-          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); registrarVisita('pedido', it.map(function (x) { return x.id; }).join(','), conPredio ? claveTxt : ''); vistaListo(j.idPedido || ''); })
-          .catch(function (e) { console.warn('pedido', e); boton.disabled = false; boton.textContent = fijos.length ? 'Enviar pedido' : 'Pedir cotización'; error('No pudimos enviar el pedido. Inténtalo de nuevo o escríbenos a cotacero.pm@gmail.com.'); });
+        if (window.__pedidoDePrueba && !PAGO_DEMO) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
+        var envio = PAGO_DEMO ? Promise.resolve({ ok: true, idPedido: 'DEMO-' + String(Date.now()).slice(-5) })
+          : fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) }).then(function (r) { return r.json(); });
+        envio
+          .then(function (j) {
+            if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
+            registrarVisita('pedido', it.map(function (x) { return x.id; }).join(','), conPredio ? claveTxt : '');
+            if (!pagarAhora || !j.idPedido) return vistaListo(j.idPedido || '');
+            var dPago = { idPedido: j.idPedido, correo: correo, nombre: nombre, clave: conPredio ? claveTxt : '', total: tot, cotizar: conv.length,
+              items: fijos.map(function (x) { return { id: x.id, opcion: opcionElegida(x.id, estado).id, nombre: x.nombre, precio: x.precio }; }) };
+            Object.keys(estado.tramitesSel).forEach(function (k) { estado.tramitesSel[k] = false; });
+            actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
+            cerrarTienda(); pagoGuardado(dPago); pagoElegir(dPago);
+          })
+          .catch(function (e) { console.warn('pedido', e); boton.disabled = false; boton.textContent = textoEnviar; error('No pudimos enviar el pedido. Inténtalo de nuevo o escríbenos a cotacero.pm@gmail.com.'); });
         function vistaListo(idPed) {
           Object.keys(estado.tramitesSel).forEach(function (k) { estado.tramitesSel[k] = false; });
           actualizarCarrito(conPredio ? estado : null, document.querySelector('.maq-panel'));
