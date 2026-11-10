@@ -2252,7 +2252,8 @@
     mostrarMsgBusqueda('Buscando la clave ' + clave + '…');
     try {
       var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + clave + "'");
-      var data = await (await fetch(url)).json();
+      var pTU = await tuPredio('tu_predio', { p_clave: clave });
+      var data = pTU ? { features: [pTU] } : await (await fetch(url)).json();
       if (!data.features || !data.features.length) { mostrarMsgBusqueda('No encontramos la clave ' + clave + ' en el catastro de Cuenca. Revisa los dígitos (son 13).', 'err'); return; }
       var c = turf.pointOnFeature(data.features[0]).geometry.coordinates;
       mostrarMsgBusqueda('');
@@ -2941,6 +2942,56 @@
   }
   var NOMBRE_CATEGORIA = { 4: 'emergente', 3: 'valor arquitectónico A', 2: 'valor arquitectónico B', 1: 'valor ambiental', 0: 'sin valor especial', '-1': 'impacto negativo' };
 
+  // ---------- Trama Urbana (Supabase): predios, construcciones y vías ----------
+  // Primero Trama Urbana; si devuelve null, falla o tarda más de 4 s, entra el geoserver de siempre.
+  // La clave es la publicable de Supabase (no es secreta). Vacía = Trama Urbana desactivada.
+  var TU = { url: 'https://xeaxsyufrblzkxvxpnhj.supabase.co', key: '' };
+  var TU_RADIO = 150, tuCacheCtx = {}, tuCentros = {}, tuEstadoUltimo = null;
+  async function tuRPC(fn, args) {
+    if (!TU.key) throw new Error('TU sin clave');
+    var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 4000);
+    try {
+      var r = await fetch(TU.url + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: TU.key, 'Content-Type': 'application/json' }, body: JSON.stringify(args), signal: ctl.signal });
+      if (!r.ok) throw new Error('TU ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+  function tuMes(est) { var v = (est || []).map(function (e) { return String(e.version || e.publicado || ''); }).join(' '), m = v.match(/(20\d{2})[-.\/]?(\d{2})/); return m ? m[1] + '-' + m[2] : ''; }
+  function marcarFuenteDatos(desdeTU, est) {
+    var el = document.querySelector('.eyebrow-top'); if (!el) return;
+    el.textContent = desdeTU ? '● Datos Trama Urbana' + (tuMes(est) ? ' · actualizado ' + tuMes(est) : '') : '● Datos en vivo';
+  }
+  // predio por punto (o por clave) desde Trama Urbana; null = usar el geoserver
+  async function tuPredio(fn, args) {
+    try { var d = await tuRPC(fn, args); if (d && d.predio && d.predio.geometry) { tuEstadoUltimo = d.estado || null; return d.predio; } } catch (e) { if (TU.key) console.warn('Trama Urbana sin predio, uso el geoserver', e); }
+    return null;
+  }
+  function tuContexto(clave) {
+    if (!clave || !TU.key) return Promise.resolve(null);
+    if (!tuCacheCtx[clave]) tuCacheCtx[clave] = tuRPC('tu_contexto', { p_clave: clave, p_radio: TU_RADIO })
+      .then(function (d) { return d && (d.predios || d.construcciones || d.vias) ? d : null; })
+      .catch(function (e) { console.warn('Trama Urbana sin contexto, uso el geoserver', e); return null; });
+    return tuCacheCtx[clave];
+  }
+  function tuPuntoRep(f) { try { return turf.pointOnFeature(f).geometry.coordinates; } catch (e) { return null; } }
+  function tuDist(a, b) { var kx = 111320 * Math.cos(a[1] * Math.PI / 180); return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110574); }
+  function tuCabe(bbox, centro) { return [[bbox[0], bbox[1]], [bbox[2], bbox[1]], [bbox[0], bbox[3]], [bbox[2], bbox[3]]].every(function (c) { return tuDist(c, centro) <= TU_RADIO; }); }
+  // Trama Urbana dentro de 150 m del predio + el geoserver fuera de ese radio (sin duplicar)
+  function tuCombinar(fcTU, fsGeo, centro) {
+    var dentroTU = ((fcTU && fcTU.features) || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) <= TU_RADIO; });
+    var fuera = (fsGeo || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) > TU_RADIO; });
+    return dentroTU.concat(fuera);
+  }
+  // una capa ('predios' | 'construcciones' | 'vias') para un bbox: Trama Urbana si cubre, si no completa con el respaldo
+  async function tuCapa(clave, centro, bbox, capa, respaldo) {
+    var d = centro ? await tuContexto(clave) : null;
+    if (!d || !d[capa]) return { fs: await respaldo(), tu: false };
+    if (tuCabe(bbox, centro)) return { fs: tuCombinar(d[capa], [], centro), tu: true };
+    var geo = []; try { geo = await respaldo(); } catch (e) { }
+    console.info('Trama Urbana: ' + capa + ' más allá de ' + TU_RADIO + ' m se completa con el geoserver');
+    return { fs: tuCombinar(d[capa], geo, centro), tu: true, completado: true };
+  }
+
   async function consultarConstruccionesMunicipales(bbox) {
     var bboxStr = bbox.join(',');
     var capas = ['ws_catastro:urbano_construccion', 'ws_catastro:rural_construccion'];
@@ -3253,7 +3304,19 @@
     var bboxConsulta = [bboxPredio[0] - margenLng, bboxPredio[1] - margenLat, bboxPredio[2] + margenLng, bboxPredio[3] + margenLat];
     var urlVia = 'https://ide.cuenca.gob.ec/geoserver/ide/ows?service=wfs&version=2.0.0&request=GetFeature&typeName=ide:catastros_vias&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + bboxConsulta.join(',') + ",'EPSG:4326')");
     var dataVia = {};
-    try { dataVia = await (await fetch(urlVia)).json(); } catch (e) { console.warn('No se pudieron traer vías', e); }
+    var claveTU = (featureReg.properties && !featureReg.properties.claves && (featureReg.properties.clave || featureReg.properties.CLAVE)) || null;
+    if (claveTU) tuCentros[claveTU] = centro;
+    try {
+      // vías de Trama Urbana; los ríos y quebradas (tipo RIO/QUEBRADA) siguen saliendo del geoserver
+      var geoVias = null;
+      var respaldoVias = function () { return fetch(urlVia).then(function (r) { return r.json(); }).then(function (d) { geoVias = d.features || []; return geoVias; }); };
+      var cv = await tuCapa(claveTU, claveTU ? centro : null, bboxConsulta, 'vias', respaldoVias);
+      if (cv.tu) {
+        if (!geoVias) { try { await respaldoVias(); } catch (e) { geoVias = []; } }
+        var riosGeo = (geoVias || []).filter(function (f) { return /^(RIO|QUEBRADA)$/.test(String((f.properties || {}).tipo || '').trim().toUpperCase()); });
+        dataVia = { features: cv.fs.filter(function (f) { return !/^(RIO|QUEBRADA)$/.test(String((f.properties || {}).tipo || '').trim().toUpperCase()); }).concat(riosGeo) };
+      } else dataVia = { features: cv.fs };
+    } catch (e) { console.warn('No se pudieron traer vías', e); }
     // `ide:catastros_vias` no es SOLO calles: también trae el cauce de ríos/quebradas con
     // tipo=RIO/QUEBRADA (58+ features reales en Cuenca, bastante más completo que lo que OSM tiene
     // digitalizado para quebradas menores) — sin este filtro, esas líneas se dibujaban como vías
@@ -3279,7 +3342,7 @@
     var resultadosContexto = await Promise.all([
       consultarOSM(bboxConsulta).catch(function () { return { rios: [], edificaciones: [], areasVerdes: [], viasOSM: [] }; }),
       detectarArbolesSatelital(bboxConsulta).catch(function (e) { console.warn('No se pudo analizar la imagen satelital en busca de árboles', e); return []; }),
-      consultarConstruccionesMunicipales(bboxConsulta).catch(function () { return []; }),
+      tuCapa(claveTU, claveTU ? centro : null, bboxConsulta, 'construcciones', function () { return consultarConstruccionesMunicipales(bboxConsulta); }).then(function (r) { return r.fs; }).catch(function () { return []; }),
       consultarUsoSuelo(centro).catch(function () { return null; }),
       consultarAlturaMaximaCentroHistorico(featureReg).catch(function () { return null; }),
       consultarMargenProteccionRio(bboxConsulta).catch(function () { return []; }),
@@ -3513,7 +3576,11 @@
     var bboxVecinos = [bboxPredio[0] - mLngVec, bboxPredio[1] - mLatVec, bboxPredio[2] + mLngVec, bboxPredio[3] + mLatVec];
     var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND " + ((featureReg.properties && featureReg.properties.claves) || [clave]).map(function (c) { return "clave<>'" + String(c).replace(/'/g, "''") + "'"; }).join(' AND '));
     var dataVecinos = { features: [] };
-    try { dataVecinos = await (await fetch(urlVecinos)).json(); } catch (e) { console.warn('No se pudieron traer vecinos', e); }
+    try {
+      var cvec = await tuCapa(claveTU, claveTU ? centro : null, bboxVecinos, 'predios', function () { return fetch(urlVecinos).then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }); });
+      // el propio predio no es vecino de sí mismo
+      dataVecinos = { features: cvec.fs.filter(function (f) { return !cvec.tu || String((f.properties || {}).clave || '') !== String(claveTU); }) };
+    } catch (e) { console.warn('No se pudieron traer vecinos', e); }
 
     // Manzana real por Union-Find (ver cabecera de esta sección y la skill cotacero-volumetria)
     var TOLERANCIA_ADYACENCIA_M = 0.5, BUFFER_UNION_MANZANA_M = 0.1;
@@ -4200,11 +4267,17 @@
     var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql);
 
     try {
-      var controlador = new AbortController();
-      var aviso = setTimeout(function () { controlador.abort(); }, 15000);
-      var res = await fetch(url, { signal: controlador.signal });
-      clearTimeout(aviso);
-      var data = await res.json();
+      var predioTU = await tuPredio('tu_predio_en', { p_lng: latlng.lng, p_lat: latlng.lat });
+      var data;
+      if (predioTU) { data = { features: [predioTU] }; marcarFuenteDatos(true, tuEstadoUltimo); }
+      else {
+        marcarFuenteDatos(false);
+        var controlador = new AbortController();
+        var aviso = setTimeout(function () { controlador.abort(); }, 15000);
+        var res = await fetch(url, { signal: controlador.signal });
+        clearTimeout(aviso);
+        data = await res.json();
+      }
 
       if (!data.features || data.features.length === 0) {
         panel.innerHTML = '<div class="panel-empty"><span class="icon">🤷</span>No encontramos un predio catastrado en ese punto. Prueba dentro de una manzana urbana.</div>';
@@ -5868,7 +5941,8 @@
       // predios de TODA la maqueta (los vecinos solo cubren 40 m alrededor del lote): solo geometría,
       // para que cada predio del contexto tenga su plataforma
       var urlPrediosCtx = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&propertyName=geom&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=3000&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + [sw[1], sw[0], ne[1], ne[0]].join(',') + ",'EPSG:4326')");
-      var prediosCtx = prediosCtxPromesa || (prediosCtxPromesa = fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) {
+      var claveCtx = estado.esUnion ? null : estado.clave, centroCtx = claveCtx ? tuCentros[claveCtx] : null;
+      var prediosCtx = prediosCtxPromesa || (prediosCtxPromesa = tuCapa(claveCtx, centroCtx, [sw[1], sw[0], ne[1], ne[0]], 'predios', function () { return fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }); }).then(function (r) { return { features: r.fs }; }).then(function (d) {
         var out = [];
         (d.features || []).forEach(function (f) { try { var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates; polys.forEach(function (pc) { var r = pc[0].map(function (c) { return estado.aMetros(c); }); if (r.length >= 3) out.push(r); }); } catch (e) { } });
         return out;
