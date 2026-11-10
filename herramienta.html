@@ -2945,7 +2945,7 @@
   // ---------- Trama Urbana (Supabase): predios, construcciones y vías ----------
   // Primero Trama Urbana; si devuelve null, falla o tarda más de 4 s, entra el geoserver de siempre.
   // La clave es la publicable de Supabase (no es secreta). Vacía = Trama Urbana desactivada.
-  var TU = { url: 'https://xeaxsyufrblzkxvxpnhj.supabase.co', key: '' };
+  var TU = { url: 'https://xeaxsyufrblzkxvxpnhj.supabase.co', key: 'sb_publishable_ll6cd-NhiaVG9JTuzDhoBg_fgW4EgLL' };
   var TU_RADIO = 150, tuCacheCtx = {}, tuCentros = {}, tuEstadoUltimo = null;
   async function tuRPC(fn, args) {
     if (!TU.key) throw new Error('TU sin clave');
