@@ -1154,7 +1154,7 @@
   </div>
 </div>
 
-<footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a></footer>
+<footer>CotaCero — información de predios, trámites y análisis urbano · Cuenca, Ecuador · contacto: cotacero.pm@gmail.com · <a href="#" id="link-privacidad">Política de Privacidad</a> · <a href="#" id="link-terminos">Términos y Condiciones</a><br>© 2026 Cota Cero · Todos los derechos reservados. Se prohíbe copiar, reproducir o redistribuir el código, los modelos y los contenidos de este sitio sin autorización escrita.</footer>
 
 <button type="button" class="btn-flot btn-mensaje" id="btn-mensaje" aria-label="Escríbenos: errores, ideas o tu ciudad" title="Escríbenos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button><button type="button" class="btn-whatsapp btn-tienda" id="btn-tienda" aria-label="Servicios y pedidos" title="Servicios y pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg><i class="tn-badge" hidden></i></button>
 
@@ -2252,7 +2252,8 @@
     mostrarMsgBusqueda('Buscando la clave ' + clave + '…');
     try {
       var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=1&CQL_FILTER=' + encodeURIComponent("clave='" + clave + "'");
-      var data = await (await fetch(url)).json();
+      var pTU = await tuPredio('tu_predio', { p_clave: clave });
+      var data = pTU ? { features: [pTU] } : await (await fetch(url)).json();
       if (!data.features || !data.features.length) { mostrarMsgBusqueda('No encontramos la clave ' + clave + ' en el catastro de Cuenca. Revisa los dígitos (son 13).', 'err'); return; }
       var c = turf.pointOnFeature(data.features[0]).geometry.coordinates;
       mostrarMsgBusqueda('');
@@ -2293,6 +2294,7 @@
 
       '<h3>¿Qué datos recopilamos?</h3>' +
       '<ul>' +
+        '<li><b>Estadísticas de uso, anónimas:</b> qué páginas, secciones y predios se consultan, desde qué tipo de dispositivo y de qué enlace llegaste, con un identificador aleatorio que dura solo mientras tienes la pestaña abierta. No guardamos tu IP, nombre ni correo, y no usamos cookies de publicidad. Sirve para mejorar la herramienta.</li>' +
         '<li><b>Al consultar un predio:</b> nada personal. La herramienta usa datos públicos del GAD Municipal de Cuenca (catastro, normativa, permisos) y nunca muestra nombres de propietarios ni de solicitantes.</li>' +
         '<li><b>Al descargar la ficha gratis:</b> tu correo electrónico (obligatorio, para enviarte el PDF), tu número de WhatsApp si decides darlo (opcional), la clave catastral consultada y la fecha en que aceptaste estos términos.</li>' +
         '<li><b>Al pedir un servicio:</b> tu nombre, correo, teléfono, el predio y el detalle que escribas, para coordinar el pedido.</li>' +
@@ -2940,6 +2942,58 @@
   }
   var NOMBRE_CATEGORIA = { 4: 'emergente', 3: 'valor arquitectónico A', 2: 'valor arquitectónico B', 1: 'valor ambiental', 0: 'sin valor especial', '-1': 'impacto negativo' };
 
+  // ---------- Trama Urbana (Supabase): predios, construcciones y vías ----------
+  // Primero Trama Urbana; si devuelve null, falla o tarda más de 4 s, entra el geoserver de siempre.
+  // La clave es la publicable de Supabase (no es secreta). Vacía = Trama Urbana desactivada.
+  var TU = { url: 'https://xeaxsyufrblzkxvxpnhj.supabase.co', key: 'sb_publishable_ll6cd-NhiaVG9JTuzDhoBg_fgW4EgLL' };
+  // se piden 175 m; Trama Urbana responde con el radio que de verdad entregó (radio_m, hoy 150) y ese es el que se usa
+  var TU_RADIO_PEDIDO = 175, tuCacheCtx = {}, tuCentros = {}, tuEstadoUltimo = null;
+  async function tuRPC(fn, args) {
+    if (!TU.key) throw new Error('TU sin clave');
+    var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 4000);
+    try {
+      var r = await fetch(TU.url + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: TU.key, 'Content-Type': 'application/json' }, body: JSON.stringify(args), signal: ctl.signal });
+      if (!r.ok) throw new Error('TU ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+  function tuMes(est) { var v = (est || []).map(function (e) { return String(e.version || e.publicado || ''); }).join(' '), m = v.match(/(20\d{2})[-.\/]?(\d{2})/); return m ? m[1] + '-' + m[2] : ''; }
+  function marcarFuenteDatos(desdeTU, est) {
+    var el = document.querySelector('.eyebrow-top'); if (!el) return;
+    el.textContent = desdeTU ? '● Datos Trama Urbana' + (tuMes(est) ? ' · actualizado ' + tuMes(est) : '') : '● Datos en vivo';
+  }
+  // predio por punto (o por clave) desde Trama Urbana; null = usar el geoserver
+  async function tuPredio(fn, args) {
+    try { var d = await tuRPC(fn, args); if (d && d.predio && d.predio.geometry) { tuEstadoUltimo = d.estado || null; return d.predio; } } catch (e) { if (TU.key) console.warn('Trama Urbana sin predio, uso el geoserver', e); }
+    return null;
+  }
+  function tuContexto(clave) {
+    if (!clave || !TU.key) return Promise.resolve(null);
+    if (!tuCacheCtx[clave]) tuCacheCtx[clave] = tuRPC('tu_contexto', { p_clave: clave, p_radio: TU_RADIO_PEDIDO })
+      .then(function (d) { return d && (d.predios || d.construcciones || d.vias) ? d : null; })
+      .catch(function (e) { console.warn('Trama Urbana sin contexto, uso el geoserver', e); return null; });
+    return tuCacheCtx[clave];
+  }
+  function tuPuntoRep(f) { try { return turf.pointOnFeature(f).geometry.coordinates; } catch (e) { return null; } }
+  function tuDist(a, b) { var kx = 111320 * Math.cos(a[1] * Math.PI / 180); return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110574); }
+  function tuCabe(bbox, centro, R) { return [[bbox[0], bbox[1]], [bbox[2], bbox[1]], [bbox[0], bbox[3]], [bbox[2], bbox[3]]].every(function (c) { return tuDist(c, centro) <= R; }); }
+  // Trama Urbana dentro de 150 m del predio + el geoserver fuera de ese radio (sin duplicar)
+  function tuCombinar(fcTU, fsGeo, centro, R) {
+    var dentroTU = ((fcTU && fcTU.features) || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) <= R; });
+    var fuera = (fsGeo || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) > R; });
+    return dentroTU.concat(fuera);
+  }
+  // una capa ('predios' | 'construcciones' | 'vias') para un bbox: Trama Urbana si cubre, si no completa con el respaldo
+  async function tuCapa(clave, centro, bbox, capa, respaldo) {
+    var d = centro ? await tuContexto(clave) : null;
+    if (!d || !d[capa]) return { fs: await respaldo(), tu: false };
+    var R = Math.min(TU_RADIO_PEDIDO, +d.radio_m || 150);
+    if (tuCabe(bbox, centro, R)) return { fs: tuCombinar(d[capa], [], centro, R), tu: true };
+    var geo = []; try { geo = await respaldo(); } catch (e) { }
+    console.info('Trama Urbana: ' + capa + ' más allá de ' + R + ' m se completa con el geoserver');
+    return { fs: tuCombinar(d[capa], geo, centro, R), tu: true, completado: true };
+  }
+
   async function consultarConstruccionesMunicipales(bbox) {
     var bboxStr = bbox.join(',');
     var capas = ['ws_catastro:urbano_construccion', 'ws_catastro:rural_construccion'];
@@ -3252,7 +3306,20 @@
     var bboxConsulta = [bboxPredio[0] - margenLng, bboxPredio[1] - margenLat, bboxPredio[2] + margenLng, bboxPredio[3] + margenLat];
     var urlVia = 'https://ide.cuenca.gob.ec/geoserver/ide/ows?service=wfs&version=2.0.0&request=GetFeature&typeName=ide:catastros_vias&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + bboxConsulta.join(',') + ",'EPSG:4326')");
     var dataVia = {};
-    try { dataVia = await (await fetch(urlVia)).json(); } catch (e) { console.warn('No se pudieron traer vías', e); }
+    var claveTU = (featureReg.properties && !featureReg.properties.claves && (featureReg.properties.clave || featureReg.properties.CLAVE)) || null;
+    if (claveTU) tuCentros[claveTU] = centro;
+    try {
+      // todo lo de Trama Urbana (vías y ríos, tipo RIO); las quebradas siguen saliendo del geoserver
+      // hasta que Trama Urbana confirme que las trae
+      var geoVias = null;
+      var respaldoVias = function () { return fetch(urlVia).then(function (r) { return r.json(); }).then(function (d) { geoVias = d.features || []; return geoVias; }); };
+      var cv = await tuCapa(claveTU, claveTU ? centro : null, bboxConsulta, 'vias', respaldoVias);
+      if (cv.tu) {
+        if (!geoVias) { try { await respaldoVias(); } catch (e) { geoVias = []; } }
+        var quebradasGeo = (geoVias || []).filter(function (f) { return String((f.properties || {}).tipo || '').trim().toUpperCase() === 'QUEBRADA'; });
+        dataVia = { features: cv.fs.filter(function (f) { return String((f.properties || {}).tipo || '').trim().toUpperCase() !== 'QUEBRADA'; }).concat(quebradasGeo) };
+      } else dataVia = { features: cv.fs };
+    } catch (e) { console.warn('No se pudieron traer vías', e); }
     // `ide:catastros_vias` no es SOLO calles: también trae el cauce de ríos/quebradas con
     // tipo=RIO/QUEBRADA (58+ features reales en Cuenca, bastante más completo que lo que OSM tiene
     // digitalizado para quebradas menores) — sin este filtro, esas líneas se dibujaban como vías
@@ -3278,7 +3345,7 @@
     var resultadosContexto = await Promise.all([
       consultarOSM(bboxConsulta).catch(function () { return { rios: [], edificaciones: [], areasVerdes: [], viasOSM: [] }; }),
       detectarArbolesSatelital(bboxConsulta).catch(function (e) { console.warn('No se pudo analizar la imagen satelital en busca de árboles', e); return []; }),
-      consultarConstruccionesMunicipales(bboxConsulta).catch(function () { return []; }),
+      tuCapa(claveTU, claveTU ? centro : null, bboxConsulta, 'construcciones', function () { return consultarConstruccionesMunicipales(bboxConsulta); }).then(function (r) { return r.fs; }).catch(function () { return []; }),
       consultarUsoSuelo(centro).catch(function () { return null; }),
       consultarAlturaMaximaCentroHistorico(featureReg).catch(function () { return null; }),
       consultarMargenProteccionRio(bboxConsulta).catch(function () { return []; }),
@@ -3512,7 +3579,11 @@
     var bboxVecinos = [bboxPredio[0] - mLngVec, bboxPredio[1] - mLatVec, bboxPredio[2] + mLngVec, bboxPredio[3] + mLatVec];
     var urlVecinos = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent("BBOX(geom," + bboxVecinos.join(',') + ",'EPSG:4326') AND " + ((featureReg.properties && featureReg.properties.claves) || [clave]).map(function (c) { return "clave<>'" + String(c).replace(/'/g, "''") + "'"; }).join(' AND '));
     var dataVecinos = { features: [] };
-    try { dataVecinos = await (await fetch(urlVecinos)).json(); } catch (e) { console.warn('No se pudieron traer vecinos', e); }
+    try {
+      var cvec = await tuCapa(claveTU, claveTU ? centro : null, bboxVecinos, 'predios', function () { return fetch(urlVecinos).then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }); });
+      // el propio predio no es vecino de sí mismo
+      dataVecinos = { features: cvec.fs.filter(function (f) { return !cvec.tu || String((f.properties || {}).clave || '') !== String(claveTU); }) };
+    } catch (e) { console.warn('No se pudieron traer vecinos', e); }
 
     // Manzana real por Union-Find (ver cabecera de esta sección y la skill cotacero-volumetria)
     var TOLERANCIA_ADYACENCIA_M = 0.5, BUFFER_UNION_MANZANA_M = 0.1;
@@ -4199,11 +4270,17 @@
     var url = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&outputFormat=application/json&srsName=EPSG:4326&CQL_FILTER=' + encodeURIComponent(cql);
 
     try {
-      var controlador = new AbortController();
-      var aviso = setTimeout(function () { controlador.abort(); }, 15000);
-      var res = await fetch(url, { signal: controlador.signal });
-      clearTimeout(aviso);
-      var data = await res.json();
+      var predioTU = await tuPredio('tu_predio_en', { p_lng: latlng.lng, p_lat: latlng.lat });
+      var data;
+      if (predioTU) { data = { features: [predioTU] }; marcarFuenteDatos(true, tuEstadoUltimo); }
+      else {
+        marcarFuenteDatos(false);
+        var controlador = new AbortController();
+        var aviso = setTimeout(function () { controlador.abort(); }, 15000);
+        var res = await fetch(url, { signal: controlador.signal });
+        clearTimeout(aviso);
+        data = await res.json();
+      }
 
       if (!data.features || data.features.length === 0) {
         panel.innerHTML = '<div class="panel-empty"><span class="icon">🤷</span>No encontramos un predio catastrado en ese punto. Prueba dentro de una manzana urbana.</div>';
@@ -4610,6 +4687,7 @@
     // archivo) son el predio "actual" para cualquier producto que lo necesite — hoy solo croquis, que
     // genera su vista previa directo desde aplicarProductoActivo() sin pasar por un botón de formulario.
     estadoSeleccionado = estado; areaM2Seleccionado = areaM2;
+    if (typeof registrarVisita === 'function') registrarVisita('predio', '', estado.esUnion ? estado.claves.join('+') : estado.clave);
     actualizarWhatsApp(estado.clave);
 
     // El panel recién se reconstruyó completo (#vista-volumetria) — aplicar de nuevo cuál es el
@@ -5866,7 +5944,8 @@
       // predios de TODA la maqueta (los vecinos solo cubren 40 m alrededor del lote): solo geometría,
       // para que cada predio del contexto tenga su plataforma
       var urlPrediosCtx = 'https://ide.cuenca.gob.ec/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=ide:catastros_predios&propertyName=geom&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=3000&CQL_FILTER=' + encodeURIComponent('BBOX(geom,' + [sw[1], sw[0], ne[1], ne[0]].join(',') + ",'EPSG:4326')");
-      var prediosCtx = prediosCtxPromesa || (prediosCtxPromesa = fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) {
+      var claveCtx = estado.esUnion ? null : estado.clave, centroCtx = claveCtx ? tuCentros[claveCtx] : null;
+      var prediosCtx = prediosCtxPromesa || (prediosCtxPromesa = tuCapa(claveCtx, centroCtx, [sw[1], sw[0], ne[1], ne[0]], 'predios', function () { return fetch(urlPrediosCtx).then(function (r) { return r.json(); }).then(function (d) { return d.features || []; }); }).then(function (r) { return { features: r.fs }; }).then(function (d) {
         var out = [];
         (d.features || []).forEach(function (f) { try { var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates; polys.forEach(function (pc) { var r = pc[0].map(function (c) { return estado.aMetros(c); }); if (r.length >= 3) out.push(r); }); } catch (e) { } });
         return out;
@@ -6933,6 +7012,7 @@
           // pasar a otra sección; solo al cerrar Normativa)
           Object.keys(secAbierta).forEach(function (x) { secAbierta[x] = false; });
           secAbierta[k] = abrir;
+          if (abrir && typeof registrarVisita === 'function') registrarVisita('seccion', k, estado.clave);
           if (k === 'norma' && !estado.restriccionVolumen) {
             mostrarVolumenNormativa = secAbierta.norma;
             grupoVolumen.visible = mostrarVolumenNormativa;
@@ -8199,7 +8279,8 @@
     var clave = estado.esUnion ? estado.claves.join(' + ') : (estado.clave || '');
     var txt = 'Hola Cota Cero, quiero recibir gratis la ficha de mi predio ' + clave + '.\n' + urlHerramientaPredio(estado) +
       '\n(Acepté los Términos y la Política de privacidad' + (d.novedades ? '; sí quiero recibir novedades' : '') + '.)';
-    window.open('https://wa.me/593999163505?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+    if (WHATSAPP_NUMERO) window.open('https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+    else location.href = 'mailto:cotacero.pm@gmail.com?subject=' + encodeURIComponent('Ficha del predio ' + clave) + '&body=' + encodeURIComponent(txt);
   }
   function conectarEnlacesLegales(cont) {
     cont.querySelectorAll('.ficha-ter').forEach(function (a) { a.addEventListener('click', function (ev) { ev.preventDefault(); if (window.__abrirModalTerminos) window.__abrirModalTerminos(); }); });
@@ -8439,6 +8520,7 @@
   function textoBotonAdd(sel, o) { return sel ? '✓ En tu pedido' : o.precio === 0 ? 'Recibir gratis' : o.precio == null ? 'Cotizar' : 'Agregar'; }
   function cerrarTienda() { var t = document.getElementById('tienda'); if (t) t.remove(); document.documentElement.classList.remove('tienda-abierta'); }
   function abrirTienda(estadoArg, vista, ids) {
+    if (typeof registrarVisita === 'function') registrarVisita('tienda', (ids || []).join(','), estadoArg && estadoArg.clave);
     var estado = estadoDeTienda(estadoArg || estadoSeleccionado);
     var conPredio = estado !== estadoSinPredio;
     var t = document.getElementById('tienda'); if (t) t.remove();
@@ -8621,7 +8703,7 @@
         if (window.__pedidoDePrueba) { window.__ultimoPedido = cuerpo; vistaListo('PRUEBA'); return; }
         fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) })
           .then(function (r) { return r.json(); })
-          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); vistaListo(j.idPedido || ''); })
+          .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta'); registrarVisita('pedido', it.map(function (x) { return x.id; }).join(','), conPredio ? claveTxt : ''); vistaListo(j.idPedido || ''); })
           .catch(function (e) { console.warn('pedido', e); boton.disabled = false; boton.textContent = fijos.length ? 'Enviar pedido' : 'Pedir cotización'; error('No pudimos enviar el pedido. Inténtalo de nuevo o escríbenos a cotacero.pm@gmail.com.'); });
         function vistaListo(idPed) {
           Object.keys(estado.tramitesSel).forEach(function (k) { estado.tramitesSel[k] = false; });
@@ -8667,8 +8749,25 @@
     (function () { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) { MODOS_NAV.terreno.h1 = h.innerHTML; MODOS_NAV.terreno.lede = l ? l.textContent : ''; MODOS_NAV.terreno.nota = n ? n.textContent : ''; } })();
     if (M.h1 && modoNav !== 'terreno') { var h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota'); if (h) h.innerHTML = M.h1; if (l) l.textContent = M.lede; if (n) n.textContent = M.nota; }
   })();
+  // Registro anónimo de uso (sin IP, nombres ni correos): una fila por evento en la hoja "Visitas"
+  // del Apps Script, que TramaUrbana lee. Falla en silencio: nunca afecta a la página.
+  var sesionVisita = (function () { try { var x = sessionStorage.getItem('cotacero-ses'); if (!x) { x = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('cotacero-ses', x); } return x; } catch (e) { return 'sin'; } })();
+  var eventosEnviados = {};
+  function registrarVisita(evento, detalle, predio) {
+    try {
+      if (/localhost|127\.0\.0\.1|^file:/.test(location.href) || window.__pedidoDePrueba) return;
+      var k = evento + '|' + (detalle || '') + '|' + (predio || ''); if (eventosEnviados[k]) return; eventosEnviados[k] = 1;
+      var ref = ''; try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { }
+      var cuerpo = JSON.stringify({ tipo: 'visita', token: APPS_SCRIPT_TOKEN_DOCUMENTOS, evento: evento, detalle: detalle || '', predio: predio || '', sesion: sesionVisita,
+        pagina: location.pathname.split('/').pop() || 'inicio', modo: modoNav, origen: Object.keys(origenVisita).map(function (q) { return q.replace('utm_', '') + '=' + origenVisita[q]; }).join('&'),
+        dispositivo: window.matchMedia('(max-width: 640px)').matches ? 'celular' : 'computadora', referencia: ref });
+      if (navigator.sendBeacon) navigator.sendBeacon(APPS_SCRIPT_URL_DOCUMENTOS, new Blob([cuerpo], { type: 'text/plain;charset=utf-8' }));
+      else fetch(APPS_SCRIPT_URL_DOCUMENTOS, { method: 'POST', mode: 'no-cors', body: cuerpo, keepalive: true });
+    } catch (e) { }
+  }
+  window.addEventListener('load', function () { setTimeout(function () { registrarVisita('entrada'); }, 800); });
   function cambiarModoNav(m) {
-    if (!MODOS_NAV[m]) return; modoNav = m; perfilTienda = MODOS_NAV[m].tienda;
+    if (!MODOS_NAV[m]) return; modoNav = m; perfilTienda = MODOS_NAV[m].tienda; registrarVisita('modo', m);
     try { sessionStorage.setItem('cotacero-modo', m); } catch (e) { }
     var M = MODOS_NAV[m], D = MODOS_NAV.terreno, h = document.getElementById('hero-h1'), l = document.getElementById('hero-lede'), n = document.getElementById('hero-nota');
     if (!D.h1 && h) { D.h1 = h.innerHTML; D.lede = l ? l.textContent : ''; D.nota = n ? n.textContent : ''; }
@@ -9625,10 +9724,13 @@
       (estadoSeleccionado ? 'Volver a mi predio' : 'Volver al mapa') + '</button>';
   }
   // Botón fijo de WhatsApp: el mensaje lleva la clave catastral del predio elegido (si hay uno).
-  var WHATSAPP_NUMERO = '593999163505';
+  // Número de WhatsApp Business de Cota Cero (formato 5939XXXXXXXX). Vacío = sin WhatsApp: los
+  // enlaces caen al correo. Nunca poner aquí un número personal.
+  var WHATSAPP_NUMERO = '';
   function actualizarWhatsApp(clave) {
     var btn = document.getElementById('btn-whatsapp');
     if (!btn) return;
+    if (!WHATSAPP_NUMERO) { btn.hidden = true; return; }
     var texto = clave
       ? 'Hola Cota Cero, quiero información sobre el predio con clave catastral ' + clave + ' (Cuenca).'
       : 'Hola Cota Cero, quiero información sobre sus productos.';
@@ -9941,11 +10043,11 @@
             var mensaje = construirMensajeSolicitud(archivosSubidosCapturados);
             var mailtoHref = 'mailto:cotacero.pm@gmail.com?subject=' +
               encodeURIComponent('Solicitud: ' + producto.nombre) + '&body=' + encodeURIComponent(mensaje);
-            var waHref = 'https://wa.me/593999163505?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje);
+            var waHref = WHATSAPP_NUMERO ? 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + encodeURIComponent('Hola, quiero solicitar:\n' + mensaje) : '';
             mostrarResultadoSolicitud(false,
-              '⚠️ No pudimos registrar el pedido automáticamente. Escribinos directo: ' +
-              '<a href="' + mailtoHref + '">por correo</a> o ' +
-              '<a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>.');
+              '⚠️ No pudimos registrar el pedido automáticamente. Escríbenos directo ' +
+              '<a href="' + mailtoHref + '">por correo</a>' +
+              (waHref ? ' o <a href="' + waHref + '" target="_blank" rel="noopener">por WhatsApp</a>' : '') + '.');
           }
         }).finally(function () {
           // Ya enviado: el botón queda bloqueado para que un doble clic no registre el pedido dos veces.
