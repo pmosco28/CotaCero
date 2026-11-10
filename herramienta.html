@@ -3309,14 +3309,15 @@
     var claveTU = (featureReg.properties && !featureReg.properties.claves && (featureReg.properties.clave || featureReg.properties.CLAVE)) || null;
     if (claveTU) tuCentros[claveTU] = centro;
     try {
-      // vías de Trama Urbana; los ríos y quebradas (tipo RIO/QUEBRADA) siguen saliendo del geoserver
+      // todo lo de Trama Urbana (vías y ríos, tipo RIO); las quebradas siguen saliendo del geoserver
+      // hasta que Trama Urbana confirme que las trae
       var geoVias = null;
       var respaldoVias = function () { return fetch(urlVia).then(function (r) { return r.json(); }).then(function (d) { geoVias = d.features || []; return geoVias; }); };
       var cv = await tuCapa(claveTU, claveTU ? centro : null, bboxConsulta, 'vias', respaldoVias);
       if (cv.tu) {
         if (!geoVias) { try { await respaldoVias(); } catch (e) { geoVias = []; } }
-        var riosGeo = (geoVias || []).filter(function (f) { return /^(RIO|QUEBRADA)$/.test(String((f.properties || {}).tipo || '').trim().toUpperCase()); });
-        dataVia = { features: cv.fs.filter(function (f) { return !/^(RIO|QUEBRADA)$/.test(String((f.properties || {}).tipo || '').trim().toUpperCase()); }).concat(riosGeo) };
+        var quebradasGeo = (geoVias || []).filter(function (f) { return String((f.properties || {}).tipo || '').trim().toUpperCase() === 'QUEBRADA'; });
+        dataVia = { features: cv.fs.filter(function (f) { return String((f.properties || {}).tipo || '').trim().toUpperCase() !== 'QUEBRADA'; }).concat(quebradasGeo) };
       } else dataVia = { features: cv.fs };
     } catch (e) { console.warn('No se pudieron traer vías', e); }
     // `ide:catastros_vias` no es SOLO calles: también trae el cauce de ríos/quebradas con
