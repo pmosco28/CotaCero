@@ -2946,7 +2946,8 @@
   // Primero Trama Urbana; si devuelve null, falla o tarda más de 4 s, entra el geoserver de siempre.
   // La clave es la publicable de Supabase (no es secreta). Vacía = Trama Urbana desactivada.
   var TU = { url: 'https://xeaxsyufrblzkxvxpnhj.supabase.co', key: 'sb_publishable_ll6cd-NhiaVG9JTuzDhoBg_fgW4EgLL' };
-  var TU_RADIO = 150, tuCacheCtx = {}, tuCentros = {}, tuEstadoUltimo = null;
+  // se piden 175 m; Trama Urbana responde con el radio que de verdad entregó (radio_m, hoy 150) y ese es el que se usa
+  var TU_RADIO_PEDIDO = 175, tuCacheCtx = {}, tuCentros = {}, tuEstadoUltimo = null;
   async function tuRPC(fn, args) {
     if (!TU.key) throw new Error('TU sin clave');
     var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 4000);
@@ -2968,28 +2969,29 @@
   }
   function tuContexto(clave) {
     if (!clave || !TU.key) return Promise.resolve(null);
-    if (!tuCacheCtx[clave]) tuCacheCtx[clave] = tuRPC('tu_contexto', { p_clave: clave, p_radio: TU_RADIO })
+    if (!tuCacheCtx[clave]) tuCacheCtx[clave] = tuRPC('tu_contexto', { p_clave: clave, p_radio: TU_RADIO_PEDIDO })
       .then(function (d) { return d && (d.predios || d.construcciones || d.vias) ? d : null; })
       .catch(function (e) { console.warn('Trama Urbana sin contexto, uso el geoserver', e); return null; });
     return tuCacheCtx[clave];
   }
   function tuPuntoRep(f) { try { return turf.pointOnFeature(f).geometry.coordinates; } catch (e) { return null; } }
   function tuDist(a, b) { var kx = 111320 * Math.cos(a[1] * Math.PI / 180); return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110574); }
-  function tuCabe(bbox, centro) { return [[bbox[0], bbox[1]], [bbox[2], bbox[1]], [bbox[0], bbox[3]], [bbox[2], bbox[3]]].every(function (c) { return tuDist(c, centro) <= TU_RADIO; }); }
+  function tuCabe(bbox, centro, R) { return [[bbox[0], bbox[1]], [bbox[2], bbox[1]], [bbox[0], bbox[3]], [bbox[2], bbox[3]]].every(function (c) { return tuDist(c, centro) <= R; }); }
   // Trama Urbana dentro de 150 m del predio + el geoserver fuera de ese radio (sin duplicar)
-  function tuCombinar(fcTU, fsGeo, centro) {
-    var dentroTU = ((fcTU && fcTU.features) || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) <= TU_RADIO; });
-    var fuera = (fsGeo || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) > TU_RADIO; });
+  function tuCombinar(fcTU, fsGeo, centro, R) {
+    var dentroTU = ((fcTU && fcTU.features) || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) <= R; });
+    var fuera = (fsGeo || []).filter(function (f) { var p = tuPuntoRep(f); return p && tuDist(p, centro) > R; });
     return dentroTU.concat(fuera);
   }
   // una capa ('predios' | 'construcciones' | 'vias') para un bbox: Trama Urbana si cubre, si no completa con el respaldo
   async function tuCapa(clave, centro, bbox, capa, respaldo) {
     var d = centro ? await tuContexto(clave) : null;
     if (!d || !d[capa]) return { fs: await respaldo(), tu: false };
-    if (tuCabe(bbox, centro)) return { fs: tuCombinar(d[capa], [], centro), tu: true };
+    var R = Math.min(TU_RADIO_PEDIDO, +d.radio_m || 150);
+    if (tuCabe(bbox, centro, R)) return { fs: tuCombinar(d[capa], [], centro, R), tu: true };
     var geo = []; try { geo = await respaldo(); } catch (e) { }
-    console.info('Trama Urbana: ' + capa + ' más allá de ' + TU_RADIO + ' m se completa con el geoserver');
-    return { fs: tuCombinar(d[capa], geo, centro), tu: true, completado: true };
+    console.info('Trama Urbana: ' + capa + ' más allá de ' + R + ' m se completa con el geoserver');
+    return { fs: tuCombinar(d[capa], geo, centro, R), tu: true, completado: true };
   }
 
   async function consultarConstruccionesMunicipales(bbox) {
